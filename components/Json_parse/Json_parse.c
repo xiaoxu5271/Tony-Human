@@ -31,34 +31,28 @@ typedef enum
     CREAT_OBJECT_OVER,
 } http_error_info;
 
-
-
 extern uint32_t HTTP_STATUS;
 char get_num[2];
 char *key;
 int n = 0, i;
 
-
-
 int read_bluetooth(void)
 {
     uint8_t bluetooth_sta[256];
-    
+
     E2prom_BluRead(0x00, bluetooth_sta, 256);
     printf("bluetooth_sta=%s\n", bluetooth_sta);
-    if(strlen((char *)bluetooth_sta)==0)//未读到蓝牙配置信息
+    if (strlen((char *)bluetooth_sta) == 0) //未读到蓝牙配置信息
     {
         return 0;
     }
-    uint8_t ret=parse_objects_bluetooth((char *)bluetooth_sta);
-    if((ret==BLU_PWD_REFUSE)||(ret==BLU_JSON_FORMAT_ERROR))
+    uint8_t ret = parse_objects_bluetooth((char *)bluetooth_sta);
+    if ((ret == BLU_PWD_REFUSE) || (ret == BLU_JSON_FORMAT_ERROR))
     {
         return 0;
     }
     return 1;
-
 }
-
 
 esp_err_t parse_objects_bluetooth(char *blu_json_data)
 {
@@ -69,15 +63,15 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data)
     cJSON *cjson_blu_data_parse_devicepwd = NULL;
 
     printf("start_ble_parse_json\r\n");
-    if(blu_json_data[0]!='{')
+    if (blu_json_data[0] != '{')
     {
         printf("blu_json_data Json Formatting error\n");
 
-        return 0;       
+        return 0;
     }
 
     //数据包包含NULL则直接返回error
-    if(strstr(blu_json_data,"null")!=NULL)//需要解析的字符串内含有null
+    if (strstr(blu_json_data, "null") != NULL) //需要解析的字符串内含有null
     {
         printf("there is null in blu data\r\n");
         return BLU_PWD_REFUSE;
@@ -100,19 +94,17 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data)
             cJSON_Delete(cjson_blu_data_parse);
             return BLU_PWD_REFUSE;
         }
-        else if(strcmp(cjson_blu_data_parse_devicepwd->valuestring,ble_dev_pwd)!=0)//校验密码
+        else if (strcmp(cjson_blu_data_parse_devicepwd->valuestring, ble_dev_pwd) != 0) //校验密码
         {
             printf("ble devpwd err2=%s\r\n", cjson_blu_data_parse_devicepwd->valuestring);
             cJSON_Delete(cjson_blu_data_parse);
             return BLU_PWD_REFUSE;
-
         }
         else
         {
             printf("ble devpwd ok=%s\r\n", cjson_blu_data_parse_devicepwd->valuestring);
         }
-        
-        
+
         cjson_blu_data_parse_wifissid = cJSON_GetObjectItem(cjson_blu_data_parse, "wifiSSID");
         if (cjson_blu_data_parse_wifissid == NULL)
         {
@@ -120,8 +112,8 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data)
         }
         else
         {
-            bzero(wifi_data.wifi_ssid,sizeof(wifi_data.wifi_ssid));
-            strcpy(wifi_data.wifi_ssid,cjson_blu_data_parse_wifissid->valuestring); 
+            bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
+            strcpy(wifi_data.wifi_ssid, cjson_blu_data_parse_wifissid->valuestring);
             printf("%s\r\n", cjson_blu_data_parse_wifissid->valuestring);
         }
 
@@ -132,8 +124,8 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data)
         }
         else
         {
-            bzero(wifi_data.wifi_pwd,sizeof(wifi_data.wifi_pwd));
-            strcpy(wifi_data.wifi_pwd,cjson_blu_data_parse_wifipwd->valuestring);
+            bzero(wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
+            strcpy(wifi_data.wifi_pwd, cjson_blu_data_parse_wifipwd->valuestring);
             printf("%s\r\n", cjson_blu_data_parse_wifipwd->valuestring);
         }
         if ((cjson_blu_data_parse_ob = cJSON_GetObjectItem(cjson_blu_data_parse, "latitude")) != NULL)
@@ -194,7 +186,7 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data)
             }
             for (i = 0; i < n; ++i)
             {
-                ob_blu_json.WallKeyId[i]=key[i];
+                ob_blu_json.WallKeyId[i] = key[i];
                 printf("0x%02X ", key[i]);
             }
             free(key);
@@ -225,16 +217,16 @@ esp_err_t parse_objects_http_active(char *http_json_data)
     //char *json_print;
 
     printf("start_parse_active_http_json\r\n");
-    
-    if(http_json_data[0]!='{')
+
+    if (http_json_data[0] != '{')
     {
         printf("http_json_data Json Formatting error\n");
 
-        return 0;       
+        return 0;
     }
 
-    json_data_parse = cJSON_Parse(http_json_data); 
-    if (json_data_parse == NULL)                  
+    json_data_parse = cJSON_Parse(http_json_data);
+    if (json_data_parse == NULL)
     {
 
         printf("Json Formatting error3\n");
@@ -245,12 +237,12 @@ esp_err_t parse_objects_http_active(char *http_json_data)
     else
     {
 
-        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "result"); 
+        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "result");
         if (!(strcmp(json_data_parse_value->valuestring, "success")))
         {
             printf("active:success\r\n");
 
-            json_data_parse_time_value = cJSON_GetObjectItem(json_data_parse, "server_time"); 
+            json_data_parse_time_value = cJSON_GetObjectItem(json_data_parse, "server_time");
             Server_Timer_GET(json_data_parse_time_value->valuestring);
         }
         else
@@ -273,23 +265,19 @@ esp_err_t parse_objects_http_active(char *http_json_data)
             //printf("channel_id=%s\r\n", json_data_parse_channel_channel_id_value->valuestring);
 
             //写入API-KEY
-            sprintf(ApiKey,"%s%c",json_data_parse_channel_channel_write_key->valuestring,'\0');
+            sprintf(ApiKey, "%s%c", json_data_parse_channel_channel_write_key->valuestring, '\0');
             //printf("api key=%s\r\n", ApiKey);
-            E2prom_Write(0x00,(uint8_t *)ApiKey, 32);
+            E2prom_Write(0x00, (uint8_t *)ApiKey, 32);
 
             //写入channelid
-            sprintf(ChannelId,"%s%c",json_data_parse_channel_channel_id_value->valuestring,'\0');
+            sprintf(ChannelId, "%s%c", json_data_parse_channel_channel_id_value->valuestring, '\0');
             //printf("channel_id=%s\r\n", ChannelId);
-            E2prom_Write(0x20,(uint8_t *)ChannelId, strlen(ChannelId));
+            E2prom_Write(0x20, (uint8_t *)ChannelId, strlen(ChannelId));
         }
-
     }
     cJSON_Delete(json_data_parse);
     return 1;
 }
-
-
-
 
 //解析http-post返回数据
 esp_err_t parse_objects_http_respond(char *http_json_data)
@@ -298,14 +286,14 @@ esp_err_t parse_objects_http_respond(char *http_json_data)
     cJSON *json_data_parse_value = NULL;
     cJSON *json_data_parse_errorcode = NULL;
 
-    if(http_json_data[0]!='{')
+    if (http_json_data[0] != '{')
     {
         printf("http_respond_json_data Json Formatting error\n");
-        return 0;       
+        return 0;
     }
 
-    json_data_parse = cJSON_Parse(http_json_data); 
-    if (json_data_parse == NULL)                  
+    json_data_parse = cJSON_Parse(http_json_data);
+    if (json_data_parse == NULL)
     {
 
         printf("Json Formatting error3\n");
@@ -315,32 +303,30 @@ esp_err_t parse_objects_http_respond(char *http_json_data)
     else
     {
 
-        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "result"); 
+        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "result");
         if (!(strcmp(json_data_parse_value->valuestring, "error")))
         {
-            json_data_parse_errorcode = cJSON_GetObjectItem(json_data_parse, "errorCode"); 
-            printf("post send error_code=%s\n",json_data_parse_errorcode->valuestring);
-            if (!(strcmp(json_data_parse_errorcode->valuestring, "invalid_channel_id")))//设备空间ID被删除或API——KEY错误，需要重新激活
+            json_data_parse_errorcode = cJSON_GetObjectItem(json_data_parse, "errorCode");
+            printf("post send error_code=%s\n", json_data_parse_errorcode->valuestring);
+            if (!(strcmp(json_data_parse_errorcode->valuestring, "invalid_channel_id"))) //设备空间ID被删除或API——KEY错误，需要重新激活
             {
                 //清空API-KEY存储，激活后获取
-                uint8_t data_write2[33]="\0";
+                uint8_t data_write2[33] = "\0";
                 E2prom_Write(0x00, data_write2, 32);
 
                 //清空channelid，激活后获取
-                uint8_t data_write3[16]="\0";;
+                uint8_t data_write3[16] = "\0";
+                ;
                 E2prom_Write(0x20, data_write3, 16);
 
-                fflush(stdout);//使stdout清空，就会立刻输出所有在缓冲区的内容。
-                esp_restart();//芯片复位 函数位于esp_system.h
+                fflush(stdout); //使stdout清空，就会立刻输出所有在缓冲区的内容。
+                esp_restart();  //芯片复位 函数位于esp_system.h
             }
-            
         }
     }
     cJSON_Delete(json_data_parse);
     return 1;
 }
-
-
 
 esp_err_t parse_Uart0(char *json_data)
 {
@@ -349,7 +335,7 @@ esp_err_t parse_Uart0(char *json_data)
     cJSON *json_data_parse_SeriesNumber = NULL;
 
     //if(strstr(json_data,"{")==NULL)
-    if(json_data[0]!='{')
+    if (json_data[0] != '{')
     {
         printf("uart0 Json Formatting error1\n");
         return 0;
@@ -365,27 +351,27 @@ esp_err_t parse_Uart0(char *json_data)
     }
     else
     {
-        json_data_parse_ProductID = cJSON_GetObjectItem(json_data_parse, "ProductID"); 
+        json_data_parse_ProductID = cJSON_GetObjectItem(json_data_parse, "ProductID");
         printf("ProductID= %s\n", json_data_parse_ProductID->valuestring);
-        json_data_parse_SeriesNumber = cJSON_GetObjectItem(json_data_parse, "SeriesNumber"); 
+        json_data_parse_SeriesNumber = cJSON_GetObjectItem(json_data_parse, "SeriesNumber");
         printf("SeriesNumber= %s\n", json_data_parse_SeriesNumber->valuestring);
-    
-        sprintf(ProductId,"%s%c",json_data_parse_ProductID->valuestring,'\0');
+
+        sprintf(ProductId, "%s%c", json_data_parse_ProductID->valuestring, '\0');
         E2prom_Write(0x40, (uint8_t *)ProductId, strlen(ProductId));
-        
-        sprintf(SerialNum,"%s%c",json_data_parse_SeriesNumber->valuestring,'\0');
-        E2prom_Write(0x30, (uint8_t *)SerialNum, strlen(SerialNum)); 
+
+        sprintf(SerialNum, "%s%c", json_data_parse_SeriesNumber->valuestring, '\0');
+        E2prom_Write(0x30, (uint8_t *)SerialNum, strlen(SerialNum));
 
         //清空API-KEY存储，激活后获取
-        uint8_t data_write2[33]="\0";
+        uint8_t data_write2[33] = "\0";
         E2prom_Write(0x00, data_write2, 32);
 
         //清空channelid，激活后获取
-        uint8_t data_write3[16]="\0";
+        uint8_t data_write3[16] = "\0";
         E2prom_Write(0x20, data_write3, 16);
 
-        uint8_t zerobuf[256]="\0";
-        E2prom_BluWrite(0x00, (uint8_t *)zerobuf, 256);//清空蓝牙
+        uint8_t zerobuf[256] = "\0";
+        E2prom_BluWrite(0x00, (uint8_t *)zerobuf, 256); //清空蓝牙
 
         //E2prom_Read(0x30,(uint8_t *)SerialNum,16);
         //printf("read SerialNum=%s\n", SerialNum);
@@ -395,27 +381,24 @@ esp_err_t parse_Uart0(char *json_data)
 
         printf("{\"status\":0,\"code\": 0}");
         cJSON_Delete(json_data_parse);
-        fflush(stdout);//使stdout清空，就会立刻输出所有在缓冲区的内容。
-        esp_restart();//芯片复位 函数位于esp_system.h
+        fflush(stdout); //使stdout清空，就会立刻输出所有在缓冲区的内容。
+        esp_restart();  //芯片复位 函数位于esp_system.h
         return 1;
-
     }
 }
-
-
 
 esp_err_t parse_objects_heart(char *json_data)
 {
     cJSON *json_data_parse = NULL;
     cJSON *json_data_parse_value = NULL;
-    char * json_print;
+    char *json_print;
     json_data_parse = cJSON_Parse(json_data);
 
-    if(json_data[0]!='{')
+    if (json_data[0] != '{')
     {
         printf("heart Json Formatting error\n");
 
-        return 0;       
+        return 0;
     }
 
     if (json_data_parse == NULL) //如果数据包不为JSON则退出
@@ -428,19 +411,16 @@ esp_err_t parse_objects_heart(char *json_data)
     }
     else
     {
-        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "server_time"); 
+        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "server_time");
         Server_Timer_GET(json_data_parse_value->valuestring);
-        json_print=cJSON_Print(json_data_parse_value);
+        json_print = cJSON_Print(json_data_parse_value);
         printf("json_data_parse_value %s\n", json_print);
     }
     free(json_print);
     cJSON_Delete(json_data_parse);
-    
 
     return 1;
 }
-
-
 
 esp_err_t parse_objects_mqtt(char *mqtt_json_data)
 {
@@ -456,11 +436,11 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
     json_data_parse = cJSON_Parse(mqtt_json_data);
     //printf("%s", cJSON_Print(json_data_parse));
 
-    if(mqtt_json_data[0]!='{')
+    if (mqtt_json_data[0] != '{')
     {
         printf("mqtt_json_data Json Formatting error\n");
 
-        return 0;       
+        return 0;
     }
 
     if (json_data_parse == NULL) //如果数据包不为JSON则退出
@@ -470,12 +450,11 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
 
         cJSON_Delete(json_data_parse);
         return 0;
-        
     }
 
     json_data_string_parse = cJSON_GetObjectItem(json_data_parse, "command_string");
     if (json_data_string_parse != NULL)
-    {       
+    {
         json_data_command_id_parse = cJSON_GetObjectItem(json_data_parse, "command_id");
         strncpy(mqtt_json_s.mqtt_command_id, json_data_command_id_parse->valuestring, strlen(json_data_command_id_parse->valuestring));
         strncpy(mqtt_json_s.mqtt_string, json_data_string_parse->valuestring, strlen(json_data_string_parse->valuestring));
@@ -489,7 +468,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
             //收到自动模式指令或单独发送解除风速、结霜报警指令
             if ((json_data_mode_parse = cJSON_GetObjectItem(json_data_string_parse, "mode")) != NULL || (json_data_mode_parse = cJSON_GetObjectItem(json_data_string_parse, "frost_protection")) != NULL || (json_data_mode_parse = cJSON_GetObjectItem(json_data_string_parse, "wind_protection")) != NULL)
             {
-                auto_ctl_count=0;
+                auto_ctl_count = 0;
                 if ((json_data_angle_parse = cJSON_GetObjectItem(json_data_string_parse, "angle")) != NULL)
                 {
                     mqtt_json_s.mqtt_angle = json_data_angle_parse->valueint;
@@ -519,24 +498,24 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
                     printf("mqtt_frost_protection %d \r\n", mqtt_json_s.mqtt_frost_protection);
                 }
 
-                if((mqtt_json_s.mqtt_wind_protection == 1)||(mqtt_json_s.mqtt_frost_protection == 1))
+                if ((mqtt_json_s.mqtt_wind_protection == 1) || (mqtt_json_s.mqtt_frost_protection == 1))
                 {
-                    protect_status=PROTECT_ON;//开启平台保护状态，用于火灾解除时的判断
-                    if(work_status!=WORK_FIRE)//在不是火警的情况下切保护
+                    protect_status = PROTECT_ON;  //开启平台保护状态，用于火灾解除时的判断
+                    if (work_status != WORK_FIRE) //在不是火警的情况下切保护
                     {
                         printf("WORK_PROTECT!!!\n");
-                        work_status=WORK_PROTECT;
+                        work_status = WORK_PROTECT;
                     }
                 }
                 //当收到解除风速、霜保护时，切换为自动控制
-                else if((mqtt_json_s.mqtt_wind_protection == 0)&&(mqtt_json_s.mqtt_frost_protection == 0)&&(mqtt_json_s.mqtt_fire_alarm==0))
+                else if ((mqtt_json_s.mqtt_wind_protection == 0) && (mqtt_json_s.mqtt_frost_protection == 0) && (mqtt_json_s.mqtt_fire_alarm == 0))
                 {
-                    protect_status=PROTECT_OFF;//关闭平台保护状态，用于火灾解除时的判断
-                    if(work_status==WORK_PROTECT)
+                    protect_status = PROTECT_OFF; //关闭平台保护状态，用于火灾解除时的判断
+                    if (work_status == WORK_PROTECT)
                     {
                         printf("REMOVE_WORK_PROTECT!!!\n");
-                        work_status=WORK_AUTO;
-                        http_send_mes(POST_NORMAL);  
+                        work_status = WORK_AUTO;
+                        http_send_mes(POST_NORMAL);
                     }
                 }
 
@@ -546,145 +525,143 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
                     printf("mqtt_fire_alarm %d \r\n", mqtt_json_s.mqtt_fire_alarm);
                 }*/
 
-                
                 if ((json_data_mode_parse = cJSON_GetObjectItem(json_data_string_parse, "mode")) != NULL)
                 {
                     if (strncmp("auto", json_data_mode_parse->valuestring, strlen("auto")) == 0)
                     {
                         printf("!!!!!!!!!!RECV AUTO CTL VALUE!!!!!!!!!!!!!!!!\n");
 
-                        //判断当前如果是手动模式、墙壁开关控制模式时则记录该值，自动模式时则执行   
-                        if((work_status==WORK_HAND)||(work_status==WORK_WALLKEY))
+                        //判断当前如果是手动模式、墙壁开关控制模式时则记录该值，自动模式时则执行
+                        if ((work_status == WORK_HAND) || (work_status == WORK_WALLKEY))
                         {
-                            printf("now is hand_ctl,auto_height=%d,auto_angle=%d\n",mqtt_json_s.mqtt_height,mqtt_json_s.mqtt_angle);
+                            printf("now is hand_ctl,auto_height=%d,auto_angle=%d\n", mqtt_json_s.mqtt_height, mqtt_json_s.mqtt_angle);
                         }
                         //当前是自动状态或本地计算状态则切换自动状态
-                        else if((work_status==WORK_AUTO)||(work_status==WORK_WAITLOCAL))
+                        else if ((work_status == WORK_AUTO) || (work_status == WORK_WAITLOCAL))
                         {
-                            work_status=WORK_AUTO;
+                            work_status = WORK_AUTO;
                             strcpy(mqtt_json_s.mqtt_mode, "1");
                             Motor_AutoCtl((int)mqtt_json_s.mqtt_height, (int)mqtt_json_s.mqtt_angle);
                             //printf("send http\r\n");
-                            http_send_mes(POST_NORMAL);     
-                        }   
+                            http_send_mes(POST_NORMAL);
+                        }
                         //当前是需要保护状态立即发送一个全收指令更新平台
-                        else if(work_status==WORK_PROTECT)
+                        else if (work_status == WORK_PROTECT)
                         {
                             strcpy(mqtt_json_s.mqtt_mode, "1");
-                            http_send_mes(POST_ALLUP);  
-                            Motor_AutoCtl(0,0);
+                            http_send_mes(POST_ALLUP);
+                            Motor_AutoCtl(0, 0);
                             //Motor_AutoCtl((int)mqtt_json_s.mqtt_height, (int)mqtt_json_s.mqtt_angle);
-                                                       
                         }
                     }
                 }
             }
 
             /********手动控制指令************************************************************************************************/
-            if ((json_data_ctr_parse = cJSON_GetObjectItem(json_data_string_parse, "r")) != NULL)//手动角调整
+            if ((json_data_ctr_parse = cJSON_GetObjectItem(json_data_string_parse, "r")) != NULL) //手动角调整
             {
-                if((work_status!=WORK_FIRE)&&(work_status!=WORK_PROTECT))
+                if ((work_status != WORK_FIRE) && (work_status != WORK_PROTECT))
                 {
                     if ((json_data_angle_parse = cJSON_GetObjectItem(json_data_string_parse, "last")) != NULL)
                     {
                         mqtt_json_s.mqtt_last = json_data_angle_parse->valueint;
                         printf("mqtt_last=%d\n", mqtt_json_s.mqtt_last);
                     }
-                    work_status=WORK_HAND;
-                    strcpy(mqtt_json_s.mqtt_mode, "0");//json上传模式改为0手动
+                    work_status = WORK_HAND;
+                    strcpy(mqtt_json_s.mqtt_mode, "0"); //json上传模式改为0手动
                     mqtt_json_s.mqtt_angle_adj = json_data_ctr_parse->valueint;
                     if (mqtt_json_s.mqtt_angle_adj == 1)
                     {
                         //printf("send http\r\n");
-                        http_send_mes(POST_ANGLE_ADD);                    
+                        http_send_mes(POST_ANGLE_ADD);
                         Motor_HandCtl_Angle(ADD);
                     }
                     else if (mqtt_json_s.mqtt_angle_adj == -1)
                     {
                         //printf("send http\r\n");
-                        http_send_mes(POST_ANGLE_SUB);                   
-                        Motor_HandCtl_Angle(SUB); 
+                        http_send_mes(POST_ANGLE_SUB);
+                        Motor_HandCtl_Angle(SUB);
                     }
                     printf("mqtt_json_s.mqtt_angle_adj = %d \r\n", mqtt_json_s.mqtt_angle_adj);
                 }
             }
-            if ((json_data_ctr_parse = cJSON_GetObjectItem(json_data_string_parse, "h")) != NULL)//手动高调整
+            if ((json_data_ctr_parse = cJSON_GetObjectItem(json_data_string_parse, "h")) != NULL) //手动高调整
             {
-                if((work_status!=WORK_FIRE)&&(work_status!=WORK_PROTECT))
+                if ((work_status != WORK_FIRE) && (work_status != WORK_PROTECT))
                 {
                     if ((json_data_angle_parse = cJSON_GetObjectItem(json_data_string_parse, "last")) != NULL)
                     {
                         mqtt_json_s.mqtt_last = json_data_angle_parse->valueint;
                         printf("mqtt_last=%d\n", mqtt_json_s.mqtt_last);
-                    }               
-                    work_status=WORK_HAND;
-                    strcpy(mqtt_json_s.mqtt_mode, "0");//json上传模式改为0手动
+                    }
+                    work_status = WORK_HAND;
+                    strcpy(mqtt_json_s.mqtt_mode, "0"); //json上传模式改为0手动
                     mqtt_json_s.mqtt_height_adj = json_data_ctr_parse->valueint;
                     if (mqtt_json_s.mqtt_height_adj == 1)
                     {
-                        http_send_mes(POST_HEIGHT_ADD);                   
-                        Motor_HandCtl_Height(ADD); 
+                        http_send_mes(POST_HEIGHT_ADD);
+                        Motor_HandCtl_Height(ADD);
                     }
                     else if (mqtt_json_s.mqtt_height_adj == -1)
                     {
-                        http_send_mes(POST_HEIGHT_SUB);                      
-                        Motor_HandCtl_Height(SUB); 
+                        http_send_mes(POST_HEIGHT_SUB);
+                        Motor_HandCtl_Height(SUB);
                     }
                     printf("mqtt_json_s.mqtt_height_adj = %d\r\n", mqtt_json_s.mqtt_height_adj);
                 }
             }
-            if ((json_data_ctr_parse = cJSON_GetObjectItem(json_data_string_parse, "s")) != NULL)//手动全收全放
+            if ((json_data_ctr_parse = cJSON_GetObjectItem(json_data_string_parse, "s")) != NULL) //手动全收全放
             {
-                if((work_status!=WORK_FIRE)&&(work_status!=WORK_PROTECT))
+                if ((work_status != WORK_FIRE) && (work_status != WORK_PROTECT))
                 {
                     if ((json_data_angle_parse = cJSON_GetObjectItem(json_data_string_parse, "last")) != NULL)
                     {
                         mqtt_json_s.mqtt_last = json_data_angle_parse->valueint;
                         printf("mqtt_last=%d\n", mqtt_json_s.mqtt_last);
-                    }               
-                    work_status=WORK_HAND;
-                    strcpy(mqtt_json_s.mqtt_mode, "0");//json上传模式改为0手动
+                    }
+                    work_status = WORK_HAND;
+                    strcpy(mqtt_json_s.mqtt_mode, "0"); //json上传模式改为0手动
                     if (json_data_ctr_parse->valueint == 1)
                     {
-                        http_send_mes(POST_ALLUP);  
-                        Motor_AutoCtl(0,0);
+                        http_send_mes(POST_ALLUP);
+                        Motor_AutoCtl(0, 0);
                     }
                     else if (json_data_ctr_parse->valueint == -1)
                     {
-                        http_send_mes(POST_ALLDOWN);  
-                        Motor_AutoCtl(100,80);
+                        http_send_mes(POST_ALLDOWN);
+                        Motor_AutoCtl(100, 80);
                     }
                 }
             }
-            if ((json_data_ctr_parse = cJSON_GetObjectItem(json_data_string_parse, "c")) != NULL)//指令手动切自动
+            if ((json_data_ctr_parse = cJSON_GetObjectItem(json_data_string_parse, "c")) != NULL) //指令手动切自动
             {
-                if (strcmp(json_data_ctr_parse->valuestring,"a")==0)//收到控制台切换auto指令
+                if (strcmp(json_data_ctr_parse->valuestring, "a") == 0) //收到控制台切换auto指令
                 {
-                    work_status=WORK_AUTO;
+                    work_status = WORK_AUTO;
                     strcpy(mqtt_json_s.mqtt_mode, "1");
-                    http_send_mes(POST_TARGET); //直接发送目标结果 
-                    printf("hand to auto,auto_height=%d,auto_angle=%d\n",mqtt_json_s.mqtt_height,mqtt_json_s.mqtt_angle);
-                    if((mqtt_json_s.mqtt_height==0)&&(mqtt_json_s.mqtt_angle==0))//目标是0.0直接到0.0
+                    http_send_mes(POST_TARGET); //直接发送目标结果
+                    printf("hand to auto,auto_height=%d,auto_angle=%d\n", mqtt_json_s.mqtt_height, mqtt_json_s.mqtt_angle);
+                    if ((mqtt_json_s.mqtt_height == 0) && (mqtt_json_s.mqtt_angle == 0)) //目标是0.0直接到0.0
                     {
-                        Motor_AutoCtl((int)mqtt_json_s.mqtt_height, (int)mqtt_json_s.mqtt_angle);//转自动控制
+                        Motor_AutoCtl((int)mqtt_json_s.mqtt_height, (int)mqtt_json_s.mqtt_angle); //转自动控制
                     }
                     else
                     {
-                        Motor_SetAllDown();//先清零
-                        Motor_AutoCtl((int)mqtt_json_s.mqtt_height, (int)mqtt_json_s.mqtt_angle);//转自动控制
+                        Motor_SetAllDown();                                                       //先清零
+                        Motor_AutoCtl((int)mqtt_json_s.mqtt_height, (int)mqtt_json_s.mqtt_angle); //转自动控制
                     }
                 }
-                if (strcmp(json_data_ctr_parse->valuestring,"m")==0)//收到控制台手动控制指令
+                if (strcmp(json_data_ctr_parse->valuestring, "m") == 0) //收到控制台手动控制指令
                 {
-                    if((work_status!=WORK_FIRE)&&(work_status!=WORK_PROTECT))
+                    if ((work_status != WORK_FIRE) && (work_status != WORK_PROTECT))
                     {
                         if ((json_data_angle_parse = cJSON_GetObjectItem(json_data_string_parse, "last")) != NULL)
                         {
                             mqtt_json_s.mqtt_last = json_data_angle_parse->valueint;
                             printf("mqtt_last=%d\n", mqtt_json_s.mqtt_last);
-                        }     
-                        work_status=WORK_HAND;
-                        strcpy(mqtt_json_s.mqtt_mode, "0");//json上传模式改为0手动
+                        }
+                        work_status = WORK_HAND;
+                        strcpy(mqtt_json_s.mqtt_mode, "0"); //json上传模式改为0手动
                         http_send_mes(POST_NORMAL);
                     }
                 }
@@ -695,7 +672,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
             printf("Json Formatting error6\n");
             cJSON_Delete(json_data_parse);
             cJSON_Delete(json_data_string_parse);
-            return 0;            
+            return 0;
         }
         cJSON_Delete(json_data_parse);
         cJSON_Delete(json_data_string_parse);
@@ -729,50 +706,50 @@ void create_http_json(uint8_t post_status, creat_json *pCreat_json)
     Motor_Value_Query(&mqtt_height1, &mqtt_angle1);
     printf("Motor_Value_Query,mqtt_angle1=%d,mqtt_height1=%d\r\n", mqtt_angle1, mqtt_height1);
 
-    if(post_status==POST_ANGLE_ADD)
+    if (post_status == POST_ANGLE_ADD)
     {
-        if(mqtt_angle1<80)
+        if (mqtt_angle1 < 80)
         {
-            mqtt_angle1+=10;
+            mqtt_angle1 += 10;
         }
     }
-    else if(post_status==POST_ANGLE_SUB)
+    else if (post_status == POST_ANGLE_SUB)
     {
-        if(mqtt_angle1>0)
+        if (mqtt_angle1 > 0)
         {
-            mqtt_angle1-=10;
+            mqtt_angle1 -= 10;
         }
     }
-    else if(post_status==POST_HEIGHT_ADD)
+    else if (post_status == POST_HEIGHT_ADD)
     {
-        if(mqtt_height1<100)
+        if (mqtt_height1 < 100)
         {
-            mqtt_height1+=10;
-            mqtt_angle1=80;
+            mqtt_height1 += 10;
+            mqtt_angle1 = 80;
         }
     }
-    else if(post_status==POST_HEIGHT_SUB)
+    else if (post_status == POST_HEIGHT_SUB)
     {
-        if(mqtt_height1>0)
+        if (mqtt_height1 > 0)
         {
-            mqtt_height1-=10;
-            mqtt_angle1=0;
+            mqtt_height1 -= 10;
+            mqtt_angle1 = 0;
         }
     }
-    else if(post_status==POST_ALLDOWN)
+    else if (post_status == POST_ALLDOWN)
     {
-        mqtt_height1=100;
-        mqtt_angle1=80;
+        mqtt_height1 = 100;
+        mqtt_angle1 = 80;
     }
-    else if(post_status==POST_ALLUP)
+    else if (post_status == POST_ALLUP)
     {
-        mqtt_height1=0;
-        mqtt_angle1=0;
+        mqtt_height1 = 0;
+        mqtt_angle1 = 0;
     }
-    else if(post_status==POST_TARGET)
+    else if (post_status == POST_TARGET)
     {
-        mqtt_height1=mqtt_json_s.mqtt_height;
-        mqtt_angle1=mqtt_json_s.mqtt_angle;
+        mqtt_height1 = mqtt_json_s.mqtt_height;
+        mqtt_angle1 = mqtt_json_s.mqtt_angle;
     }
 
     itoa(mqtt_height1, mqtt_json_s.mqtt_height_char, 10);
@@ -815,28 +792,28 @@ void create_http_json(uint8_t post_status, creat_json *pCreat_json)
         //cJSON_AddItemToObject(next, "field1", cJSON_CreateString(mqtt_json_s.mqtt_height_char)); //高度
         //cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_angle_char));  //角度
         //cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_mode));        //模式
-        if(human_status==NOHUMAN)
+        if (human_status == NOHUMAN)
         {
-            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));                 
+            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
         }
-        else if(human_status==HAVEHUMAN)
+        else if (human_status == HAVEHUMAN)
         {
-            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));                 
+            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
         }
-        
-        cJSON_AddItemToObject(next, "field5", cJSON_CreateString(mqtt_json_s.mqtt_Rssi));        //WIFI RSSI
+
+        cJSON_AddItemToObject(next, "field5", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
     }
 
     char *cjson_printunformat;
-    cjson_printunformat=cJSON_PrintUnformatted(root);
+    cjson_printunformat = cJSON_PrintUnformatted(root);
     //pCreat_json->creat_json_b = cJSON_PrintUnformatted(root);
     //pCreat_json->creat_json_c = strlen(cJSON_PrintUnformatted(root));
 
-    pCreat_json->creat_json_c=strlen(cjson_printunformat);
+    pCreat_json->creat_json_c = strlen(cjson_printunformat);
     //pCreat_json->creat_json_b=cjson_printunformat;
     //pCreat_json->creat_json_b=malloc(pCreat_json->creat_json_c);
-    bzero(pCreat_json->creat_json_b,sizeof(pCreat_json->creat_json_b));
-    memcpy(pCreat_json->creat_json_b,cjson_printunformat,pCreat_json->creat_json_c);
+    bzero(pCreat_json->creat_json_b, sizeof(pCreat_json->creat_json_b));
+    memcpy(pCreat_json->creat_json_b, cjson_printunformat, pCreat_json->creat_json_c);
     //printf("http_json=%s\n",pCreat_json->creat_json_b);
     free(cjson_printunformat);
     cJSON_Delete(root);
