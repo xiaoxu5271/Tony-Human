@@ -26,6 +26,8 @@
 #include "Fire.h"
 #include "sht30dis.h"
 
+float tem = 0.00, hum = 0.00; //定义全剧变量  温度，湿度
+
 void timer_periodic_cb(void *arg);
 
 esp_timer_handle_t timer_periodic_handle = 0; //定时器句柄
@@ -109,7 +111,7 @@ static void Human_Task(void *arg)
 
 static void Sht30_Task(void *arg)
 {
-        float tem, hum;
+
         while (1)
         {
                 sht30_SingleShotMeasure(&tem, &hum);

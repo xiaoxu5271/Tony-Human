@@ -17,6 +17,8 @@
  FUNCTION PROTOTYPES
 *******************************************************************************/
 
+extern float tem, hum; //定义全剧变量  温度，湿度
+
 int sht30_init(void);
 unsigned char SHT3X_CalcCrc(unsigned char *data, unsigned char nbrOfBytes);
 unsigned char SHT3X_CheckCrc(unsigned char *pdata, unsigned char nbrOfBytes, unsigned char checksum);
