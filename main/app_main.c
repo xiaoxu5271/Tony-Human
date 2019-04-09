@@ -26,8 +26,6 @@
 #include "Fire.h"
 #include "sht30dis.h"
 
-float tem = 0.00, hum = 0.00; //定义全剧变量  温度，湿度
-
 void timer_periodic_cb(void *arg);
 
 esp_timer_handle_t timer_periodic_handle = 0; //定时器句柄
@@ -99,28 +97,6 @@ void timer_periodic_cb(void *arg) //200ms中断一次
         }
 }
 
-static void Human_Task(void *arg)
-{
-        while (1)
-        {
-                Humanapp();
-
-                vTaskDelay(200 / portTICK_RATE_MS);
-        }
-}
-
-static void Sht30_Task(void *arg)
-{
-
-        while (1)
-        {
-                sht30_SingleShotMeasure(&tem, &hum);
-                ESP_LOGI("SHT30", "temp:%4.2f C \r\n", tem); //℃打印出来是乱码,所以用C
-                ESP_LOGI("SHT30", "hum:%4.2f %%RH \r\n", hum);
-                vTaskDelay(3000 / portTICK_RATE_MS);
-        }
-}
-
 static void Uart0_Task(void *arg)
 {
         while (1)
@@ -160,10 +136,10 @@ void app_main(void)
         Uart0_Init();
         Human_Init();
         sht30_init();
+        Led_Init();
         //   strcpy(SerialNum,"AAA0003HUM1");
         //   strcpy(ProductId,"28343913545840b3b9b42c568e78e243");
 
-        Led_Init();
         //   //模拟清空序列号，串口烧写
         //   uint8_t data_write[16] = "\0";
         //   E2prom_Write(0x30, data_write, 16);
@@ -244,6 +220,4 @@ void app_main(void)
 
         initialise_http();
         initialise_mqtt();
-
-        //Led_Status =  LED_STA_INIT;
 }

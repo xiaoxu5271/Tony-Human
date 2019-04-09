@@ -20,10 +20,11 @@
 #include "Smartconfig.h"
 #include "Json_parse.h"
 
-#define FIRMWARE "HUM1-V0.0.1"
+#define FIRMWARE "HUM1-T"
 
 #define POST_NORMAL 0X00
 #define POST_HEIGHT_ADD 0X01
+
 #define POST_HEIGHT_SUB 0X02
 #define POST_ANGLE_ADD 0X03
 #define POST_ANGLE_SUB 0X04

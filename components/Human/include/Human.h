@@ -4,6 +4,7 @@
 
 extern void Human_Init(void);
 extern void Humanapp(void);
+extern void Human_Task(void *arg);
 
 #define GPIO_HUMAN 27
 

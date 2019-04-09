@@ -32,8 +32,8 @@
 =========================== 
 */
 //I2C
-#define I2C_SCL_IO 19              //SCL->IO33
-#define I2C_SDA_IO 18              //SDA->IO32
+#define I2C_SCL_IO 19              //SCL->IO19
+#define I2C_SDA_IO 18              //SDA->IO18
 #define I2C_MASTER_NUM I2C_NUM_1   //I2C_1
 #define WRITE_BIT I2C_MASTER_WRITE //写:0
 #define READ_BIT I2C_MASTER_READ   //读:1
@@ -44,17 +44,18 @@
 
 //SHT30
 #define SHT30_WRITE_ADDR 0x44 //地址
-#define CMD_FETCH_DATA_H 0x22 //循环采样，参考sht30 datasheet
+#define CMD_FETCH_DATA_H 0x22 //循环采样，参考sht30 datasheet           1S两次
 #define CMD_FETCH_DATA_L 0x36
 
+#define CMD_MSB_0_5MSP 0x20 //循环采样，参考sht30 datasheet          0.5MPS
+#define CMD_LSB_0_5MSP 0x32
 /*
 ===========================
 全局变量定义
 =========================== 
 */
 unsigned char sht30_buf[6] = {0};
-float g_temp = 0.0, g_rh = 0.0;
-
+float tem = 0.00, hum = 0.00; //定义全局变量  温度，湿度
 /*
 ===========================
 函数声明
@@ -63,8 +64,8 @@ float g_temp = 0.0, g_rh = 0.0;
 
 /*
 * IIC初始化
-* @param[in]   void  		       :无
-* @retval      void                :无
+* @param[in]   void  	         :无
+* @retval      void                    :无
 * @note        修改日志 
 *               Ver0.0.1:
 */
@@ -97,8 +98,8 @@ int sht30_init(void)
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();                                //新建操作I2C句柄
         i2c_master_start(cmd);                                                       //启动I2C
         i2c_master_write_byte(cmd, SHT30_WRITE_ADDR << 1 | WRITE_BIT, ACK_CHECK_EN); //发地址+写+检查ack
-        i2c_master_write_byte(cmd, CMD_FETCH_DATA_H, ACK_CHECK_EN);                  //发数据高8位+检查ack
-        i2c_master_write_byte(cmd, CMD_FETCH_DATA_L, ACK_CHECK_EN);                  //发数据低8位+检查ack
+        i2c_master_write_byte(cmd, CMD_MSB_0_5MSP, ACK_CHECK_EN);                    //发数据高8位+检查ack
+        i2c_master_write_byte(cmd, CMD_LSB_0_5MSP, ACK_CHECK_EN);                    //发数据低8位+检查ack
         i2c_master_stop(cmd);                                                        //停止I2C
         ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 100 / portTICK_RATE_MS);     //I2C发送
         i2c_cmd_link_delete(cmd);                                                    //删除I2C句柄
@@ -218,5 +219,16 @@ void sht30_SingleShotMeasure(float *temp, float *humi)
         else
         {
                 ESP_LOGI("SHT30", "Get sht30 file !!!\r\n");
+        }
+}
+
+void Sht30_Task(void *arg)
+{
+        while (1)
+        {
+                sht30_SingleShotMeasure(&tem, &hum);
+                ESP_LOGI("SHT30", "temp:%4.2f C \r\n", tem); //℃打印出来是乱码,所以用C
+                ESP_LOGI("SHT30", "hum:%4.2f %%RH \r\n", hum);
+                vTaskDelay(4000 / portTICK_RATE_MS);
         }
 }

@@ -45,3 +45,13 @@ void Humanapp(void)
         human_temp=human_gpio_value;
     }*/
 }
+
+void Human_Task(void *arg)
+{
+        while (1)
+        {
+                Humanapp();
+
+                vTaskDelay(200 / portTICK_RATE_MS);
+        }
+}

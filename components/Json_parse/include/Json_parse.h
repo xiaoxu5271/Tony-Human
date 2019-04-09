@@ -55,8 +55,10 @@ struct
         char mqtt_command_id[32];
         char mqtt_string[256];
         char mqtt_Rssi[8];
-        char mqtt_tem[8]; //温度
-        char mqtt_hum[8]; //湿度
+        char mqtt_tem[8];       //温度
+        char mqtt_hum[8];       //湿度
+        char mqtt_ota_url[128]; //OTA升级地址
+
 } mqtt_json_s;
 
 struct
