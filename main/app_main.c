@@ -136,7 +136,7 @@ void app_main(void)
         Uart0_Init();
         Human_Init();
         sht30_init();
-        //Led_Init();
+        Led_Init();
         //   strcpy(SerialNum,"AAA0003HUM1");
         //   strcpy(ProductId,"28343913545840b3b9b42c568e78e243");
 
