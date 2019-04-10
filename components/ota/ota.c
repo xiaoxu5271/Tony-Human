@@ -20,6 +20,8 @@
 #include "ota.h"
 
 static const char *TAG = "ota";
+// extern const uint8_t server_cert_pem_start[] asm("_binary_ca_cert_pem_start");
+// extern const uint8_t server_cert_pem_end[] asm("_binary_ca_cert_pem_end");
 
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
@@ -54,8 +56,8 @@ void ota_task(void *pvParameter)
 {
         ESP_LOGI(TAG, "Starting OTA...");
 
-        // vTaskDelete(Human_Task);
-        // vTaskDelete(Sht30_Task);
+        // vTaskSuspend(Human_Task);
+        // vTaskSuspend(Sht30_Task);
 
         /* Wait for the callback to set the CONNECTED_BIT in the
        event group.
@@ -68,7 +70,7 @@ void ota_task(void *pvParameter)
         esp_http_client_config_t config = {
             .url = mqtt_json_s.mqtt_ota_url,
 
-            // .cert_pem = (char *)server_cert_pem_start,       //如果使用http地址则需要屏蔽此条代码
+            //     .cert_pem = (char *)server_cert_pem_start, //如果使用http地址则需要屏蔽此条代码
             .event_handler = _http_event_handler,
         };
 

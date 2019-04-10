@@ -322,7 +322,11 @@ int http_activate(void)
 uint8_t Last_Led_Status;
 void http_send_mes(uint8_t post_status)
 {
-        Last_Led_Status = Led_Status;
+        if (Led_Status != LED_STA_SEND) //解决两次发送间隔过短，导致LED一直闪烁
+        {
+                Last_Led_Status = Led_Status;
+        }
+
         Led_Status = LED_STA_SEND;
 
         const struct addrinfo hints = {
