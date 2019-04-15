@@ -56,6 +56,7 @@ int read_bluetooth(void)
         return 1;
 }
 
+//解析蓝牙数据包
 esp_err_t parse_objects_bluetooth(char *blu_json_data)
 {
         cJSON *cjson_blu_data_parse = NULL;
@@ -424,6 +425,7 @@ esp_err_t parse_objects_heart(char *json_data)
         return 1;
 }
 
+//解析MQTT      指令
 esp_err_t parse_objects_mqtt(char *mqtt_json_data)
 {
         cJSON *json_data_parse = NULL;
@@ -469,6 +471,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
                 json_data_string_parse = cJSON_Parse(json_data_string_parse->valuestring); //将command_string再次构建成json格式，以便二次解析
                 if (json_data_string_parse != NULL)
                 {
+
                         printf("MQTT-command_string  = %s\r\n", cJSON_Print(json_data_string_parse));
 
                         //收到OTA相关指令
@@ -477,18 +480,26 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
                             (json_data_url = cJSON_GetObjectItem(json_data_string_parse, "url")) != NULL)
                         {
 
+                                http_send_mes(POST_NORMAL); //回传commond_id 通知平台完成指令
                                 printf("OTA命令进入\r\n");
 
-                                //如果命令是OTA，并且升级的版本号与当前版本不一样
-                                if (strcmp(json_data_action->valuestring, "ota") == 0 && strcmp(json_data_vesion->valuestring, FIRMWARE) != 0)
+                                //如果命令是OTA
+                                if (strcmp(json_data_action->valuestring, "ota") == 0)
                                 {
-                                        strcpy(mqtt_json_s.mqtt_ota_url, json_data_url->valuestring);
-                                        printf("OTA_URL=%s\r\n OTA_VERSION=%s\r\n", mqtt_json_s.mqtt_ota_url, json_data_vesion->valuestring);
-                                        ota_start(); //启动OTA
+                                        if (strcmp(json_data_vesion->valuestring, FIRMWARE) != 0) //判断版本号
+                                        {
+                                                strcpy(mqtt_json_s.mqtt_ota_url, json_data_url->valuestring);
+                                                printf("OTA_URL=%s\r\n OTA_VERSION=%s\r\n", mqtt_json_s.mqtt_ota_url, json_data_vesion->valuestring);
+                                                ota_start(); //启动OTA
+                                        }
+                                        else
+                                        {
+                                                printf("当前版本无需升级 \r\n");
+                                        }
                                 }
                                 else
                                 {
-                                        printf("Action非ota，或者当前版本无需升级\r\n");
+                                        printf("Action非ota \r\n");
                                 }
                         }
                         else

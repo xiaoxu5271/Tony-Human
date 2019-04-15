@@ -124,7 +124,9 @@ void init_wifi(void)
         memset(&s_staconf.sta, 0, sizeof(s_staconf));
         ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
         wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+
         ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+        ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE)); //实验，测试解决wifi中断问题
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
         ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
         if (s_staconf.sta.ssid[0] != '\0')

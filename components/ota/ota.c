@@ -69,7 +69,7 @@ void ota_task(void *pvParameter)
 
         esp_http_client_config_t config = {
             .url = mqtt_json_s.mqtt_ota_url,
-
+            .timeout_ms = 10000,
             //     .cert_pem = (char *)server_cert_pem_start, //如果使用http地址则需要屏蔽此条代码
             .event_handler = _http_event_handler,
         };

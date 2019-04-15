@@ -66,6 +66,7 @@ esp_timer_handle_t http_suspend_p = 0;
 
 void http_suspends(void *arg)
 {
+        ESP_LOGI(TAG, "HTTP_任务恢复");
         xTaskResumeFromISR(httpHandle);
 }
 
@@ -129,7 +130,6 @@ void http_get_task(void *pvParameters)
                                     false, true, portMAX_DELAY);
                 ESP_LOGI(TAG, "Connected to AP");
                 WifiStatus = WIFISTATUS_CONNET;
-                ESP_LOGI(TAG, "Now Work Status=%d", work_status);
                 ESP_LOGI("RAM", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
 
                 six_time_count++; //定时60s
@@ -225,6 +225,7 @@ void http_get_task(void *pvParameters)
                         //ESP_LOGI("wifi", "7free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
                 }
         stop:
+                ESP_LOGI(TAG, "HTTP_任务挂起");
                 vTaskSuspend(httpHandle);
         }
 }
