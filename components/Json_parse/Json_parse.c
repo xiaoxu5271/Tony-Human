@@ -352,6 +352,7 @@ esp_err_t parse_Uart0(char *json_data)
 
                 return 0;
         }
+
         else
         {
                 json_data_parse_ProductID = cJSON_GetObjectItem(json_data_parse, "ProductID");
@@ -581,4 +582,253 @@ void create_http_json(uint8_t post_status, creat_json *pCreat_json)
         free(cjson_printunformat);
         cJSON_Delete(root);
         //return pCreat_json;
+}
+
+esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
+{
+        if (NULL == pcCmdBuffer) //null
+        {
+                return FAILURE;
+        }
+
+        cJSON *pJson = cJSON_Parse(pcCmdBuffer); //parse json data
+        if (NULL == pJson)
+        {
+                cJSON_Delete(pJson); //delete pJson
+
+                return FAILURE;
+        }
+
+        cJSON *pSub = cJSON_GetObjectItem(pJson, "Command"); //"Command"
+        if (NULL != pSub)
+        {
+                if (!strcmp((char const *)pSub->valuestring, "SetupProduct")) //Command:SetupProduct
+                {
+                        pSub = cJSON_GetObjectItem(pJson, "Password"); //"Password"
+                        if (NULL != pSub)
+                        {
+
+                                if (!strcmp((char const *)pSub->valuestring, "CloudForce"))
+                                {
+                                        //       E2prom_Write(PRODUCTURI_FLAG_ADDR, PRODUCT_URI, strlen(PRODUCT_URI), 1); //save product-uri flag
+
+                                        pSub = cJSON_GetObjectItem(pJson, "ProductID"); //"ProductID"
+                                        if (NULL != pSub)
+                                        {
+                                                printf("ProductID= %s\n", pSub->valuestring);
+                                                E2prom_Write(PRODUCT_ID_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring)); //save ProductID
+                                        }
+
+                                        pSub = cJSON_GetObjectItem(pJson, "SeriesNumber"); //"SeriesNumber"
+                                        if (NULL != pSub)
+                                        {
+                                                printf("SeriesNumber= %s\n", pSub->valuestring);
+                                                E2prom_Write(SERISE_NUM_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring)); //save SeriesNumber
+                                        }
+
+                                        pSub = cJSON_GetObjectItem(pJson, "Host"); //"Host"
+                                        if (NULL != pSub)
+                                        {
+
+                                                //E2prom_Write(HOST_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring), 1); //save host in at24c08
+                                        }
+
+                                        pSub = cJSON_GetObjectItem(pJson, "apn"); //"apn"
+                                        if (NULL != pSub)
+                                        {
+
+                                                //E2prom_Write(APN_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring), 1); //save apn
+                                        }
+
+                                        pSub = cJSON_GetObjectItem(pJson, "user"); //"user"
+                                        if (NULL != pSub)
+                                        {
+
+                                                //E2prom_Write(BEARER_USER_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring), 1); //save user
+                                        }
+
+                                        pSub = cJSON_GetObjectItem(pJson, "pwd"); //"pwd"
+                                        if (NULL != pSub)
+                                        {
+
+                                                // E2prom_Write(BEARER_PWD_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring), 1); //save pwd
+                                        }
+
+                                        //清空API-KEY存储，激活后获取
+                                        uint8_t data_write2[33] = "\0";
+                                        E2prom_Write(0x00, data_write2, 32);
+
+                                        //清空channelid，激活后获取
+                                        uint8_t data_write3[16] = "\0";
+                                        E2prom_Write(0x20, data_write3, 16);
+
+                                        uint8_t zerobuf[256] = "\0";
+                                        E2prom_BluWrite(0x00, (uint8_t *)zerobuf, 256); //清空蓝牙
+                                        printf("SetupProduct Successed !");
+                                        printf("{\"status\":0,\"code\": 0}");
+                                        vTaskDelay(3000 / portTICK_RATE_MS);
+                                        cJSON_Delete(pJson);
+                                        fflush(stdout); //使stdout清空，就会立刻输出所有在缓冲区的内容。
+                                        esp_restart();  //芯片复位 函数位于esp_system.h
+
+                                        return SUCCESS;
+                                }
+                        }
+                }
+                // else if (!strcmp((char const *)pSub->valuestring, "SetupHost")) //Command:SetupHost
+                // {
+                //         pSub = cJSON_GetObjectItem(pJson, "Host"); //"Host"
+                //         if (NULL != pSub)
+                //         {
+
+                //                 E2prom_Write(HOST_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring), 1); //save host
+                //         }
+
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return SUCCESS;
+                // }
+                else if (!strcmp((char const *)pSub->valuestring, "SetupWifi")) //Command:SetupWifi
+                {
+                        pSub = cJSON_GetObjectItem(pJson, "SSID"); //"SSID"
+                        if (NULL != pSub)
+                        {
+                                bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
+                                strcpy(wifi_data.wifi_ssid, pSub->valuestring);
+                                printf("WIFI_SSID = %s\r\n", pSub->valuestring);
+                        }
+
+                        pSub = cJSON_GetObjectItem(pJson, "password"); //"password"
+                        if (NULL != pSub)
+                        {
+
+                                bzero(wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
+                                strcpy(wifi_data.wifi_pwd, pSub->valuestring);
+                                printf("WIFI_PWD = %s\r\n", pSub->valuestring);
+                        }
+
+                        pSub = cJSON_GetObjectItem(pJson, "type"); //"type"
+                        if (NULL != pSub)
+                        {
+                        }
+
+                        pSub = cJSON_GetObjectItem(pJson, "backup_ip"); //"backup_ip"
+                        if (NULL != pSub)
+                        {
+                        }
+
+                        pSub = cJSON_GetObjectItem(pJson, "apn"); //"apn"
+                        if (NULL != pSub)
+                        {
+                        }
+
+                        pSub = cJSON_GetObjectItem(pJson, "user"); //"user"
+                        if (NULL != pSub)
+                        {
+                        }
+
+                        pSub = cJSON_GetObjectItem(pJson, "pwd"); //"pwd"
+                        if (NULL != pSub)
+                        {
+                        }
+
+                        printf("{\"status\":0,\"code\": 0}");
+                        initialise_wifi(wifi_data.wifi_ssid, wifi_data.wifi_pwd);
+                        cJSON_Delete(pJson); //delete pJson
+
+                        return 1;
+                }
+                // else if (!strcmp((char const *)pSub->valuestring, "ReadProduct")) //Command:ReadProduct
+                // {
+
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 2;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "ReadWifi")) //Command:ReadWifi
+                // {
+
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 3;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "GetLastError")) //Command:GetLastError
+                // {
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 4;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "BreakOut")) //Command:BreakOut
+                // {
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 5;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "SetMetaData")) //Command:SetMetaData
+                // {
+                //         pSub = cJSON_GetObjectItem(pJson, "metadata"); //"metadata"
+                //         if (NULL != pSub)
+                //         {
+                //                 Parse_metadata(pSub->valuestring);
+                //         }
+
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return SUCCESS;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "ReadMetaData")) //Command:ReadMetaData
+                // {
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 6;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "ScanWifiList")) //Command:ScanWifiList
+                // {
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 7;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "CheckSensors")) //Command:CheckSensors
+                // {
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 8;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "CheckModule")) //Command:CheckModule
+                // {
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 11;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "ReadData")) //Command:ReadData
+                // {
+
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 9;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "ClearData")) //Command:ClearData
+                // {
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return 10;
+                // }
+                // else if (!strcmp((char const *)pSub->valuestring, "DeviceActivate")) //DeviceActivate
+                // {
+                //         pSub = cJSON_GetObjectItem(pJson, "ActivateData"); //"ActivateData"
+                //         if (NULL != pSub)
+                //         {
+
+                //                 ParseSetJSONData(pSub->valuestring);
+                //         }
+
+                //         cJSON_Delete(pJson); //delete pJson
+
+                //         return SUCCESS;
+                // }
+        }
+
+        cJSON_Delete(pJson); //delete pJson
+
+        return FAILURE;
 }

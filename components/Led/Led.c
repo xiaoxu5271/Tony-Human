@@ -5,19 +5,21 @@
 
 #include "Led.h"
 
+#if 1
+
+#define GPIO_LED_B 17
+#define GPIO_LED_G 21
+#define GPIO_LED_R 22
+
+#else
+
 #define GPIO_LED_B 21
 #define GPIO_LED_G 22
 #define GPIO_LED_R 23
 
-uint8_t Last_Led_Status;
+#endif
 
-void Led_R_On(void);
-void Led_G_On(void);
-void Led_B_On(void);
-void Led_Y_On(void);
-void Led_C_On(void);
-void Led_Off(void);
-void Led_B_Off(void);
+uint8_t Last_Led_Status;
 
 static void Led_Task(void *arg)
 {

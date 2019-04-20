@@ -25,6 +25,8 @@
 #include "RtcUsr.h"
 // #include "Fire.h"
 #include "sht30dis.h"
+#include "Switch.h"
+#include "user_app.h"
 
 void timer_periodic_cb(void *arg);
 
@@ -137,6 +139,8 @@ void app_main(void)
         Human_Init();
         sht30_init();
         Led_Init();
+        // Switch_Init();
+        user_app_key_init();
         //   strcpy(SerialNum,"AAA0003HUM1");
         //   strcpy(ProductId,"28343913545840b3b9b42c568e78e243");
 
@@ -210,9 +214,6 @@ void app_main(void)
         if (err != ESP_OK)
         {
                 printf("timer periodic create err code:%d\n", err);
-        }
-        else
-        {
         }
 
         xTaskCreate(Human_Task, "Human_Task", 8192, NULL, 5, NULL);

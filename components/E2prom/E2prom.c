@@ -5,23 +5,6 @@
 #include "driver/i2c.h"
 #include "E2prom.h"
 
-#define I2C_MASTER_SCL_IO 19        /*!< gpio number for I2C master clock */
-#define I2C_MASTER_SDA_IO 18        /*!< gpio number for I2C master data  */
-#define I2C_MASTER_NUM I2C_NUM_1    /*!< I2C port number for master dev */
-#define I2C_MASTER_TX_BUF_DISABLE 0 /*!< I2C master do not need buffer */
-#define I2C_MASTER_RX_BUF_DISABLE 0 /*!< I2C master do not need buffer */
-#define I2C_MASTER_FREQ_HZ 100000   /*!< I2C master clock frequency */
-
-#define ACK_CHECK_EN 0x1  /*!< I2C master will check ack from slave*/
-#define ACK_CHECK_DIS 0x0 /*!< I2C master will not check ack from slave */
-#define ACK_VAL 0x0       /*!< I2C ack value */
-#define NACK_VAL 0x1      /*!< I2C nack value */
-
-#define ADDR_PAGE0 0xA8
-#define ADDR_PAGE1 0xAA
-#define ADDR_PAGE2 0xAC
-#define ADDR_PAGE3 0xAE
-
 static const char *TAG = "EEPROM";
 
 static esp_err_t EE_Page_Write(uint8_t page, uint8_t reg_addr, uint8_t *dat, int length)
