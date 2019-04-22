@@ -89,7 +89,7 @@ void long_pressed_cb(uint8_t key_num, uint8_t *long_pressed_counts)
         }
 }
 
-void user_key_cd_task(void)
+void user_key_cd_task(void *arg)
 {
         while (1)
         {
@@ -99,8 +99,6 @@ void user_key_cd_task(void)
                         Task_key_num = 0;
                         printf("AP START....\r\n");
                         wifi_init_softap();
-                        //initialise_wifi("XIAOXU", "12345678");
-                        //my_tcp_connect();
                         break;
 
                 default:

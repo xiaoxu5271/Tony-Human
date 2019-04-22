@@ -45,6 +45,7 @@ int http_activate(void);
 #define NOHUMAN 0x00
 #define HAVEHUMAN 0x01
 uint8_t human_status;
+TaskHandle_t httpHandle;
 extern uint8_t Last_Led_Status;
 
 #endif

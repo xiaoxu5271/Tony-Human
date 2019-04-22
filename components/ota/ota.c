@@ -14,6 +14,7 @@
 #include "nvs_flash.h"
 #include "Smartconfig.h"
 #include "Json_parse.h"
+#include "Http.h"
 #include "Human.h"
 #include "sht30dis.h"
 
@@ -52,12 +53,13 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
         return ESP_OK;
 }
 
-void ota_task(void *pvParameter)
+void ota_start(void)
 {
         ESP_LOGI(TAG, "Starting OTA...");
 
-        // vTaskSuspend(Human_Task);
-        // vTaskSuspend(Sht30_Task);
+        vTaskSuspend(httpHandle);
+        vTaskSuspend(Sht30_Handle);
+        vTaskSuspend(Human_Handle);
 
         /* Wait for the callback to set the CONNECTED_BIT in the
        event group.
@@ -83,13 +85,4 @@ void ota_task(void *pvParameter)
         {
                 ESP_LOGE(TAG, "Firmware Upgrades Failed");
         }
-        while (1)
-        {
-                vTaskDelay(1000 / portTICK_PERIOD_MS);
-        }
-}
-
-void ota_start(void)
-{
-        xTaskCreate(&ota_task, "ota_task", 8192, NULL, 5, NULL);
 }

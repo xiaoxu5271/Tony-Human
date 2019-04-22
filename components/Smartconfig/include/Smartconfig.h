@@ -2,6 +2,7 @@
 #define __S_C
 
 #include "freertos/event_groups.h"
+#include "freertos/task.h"
 
 void smartconfig_example_task(void *parm);
 void initialise_wifi(char *wifi_ssid, char *wifi_password);
@@ -12,6 +13,7 @@ void reconnect_wifi_usr(void);
 static const int CONNECTED_BIT = BIT0;
 static const int ESPTOUCH_DONE_BIT = BIT1;
 
+TaskHandle_t my_tcp_connect_Handle;
 EventGroupHandle_t wifi_event_group;
 
 #define WIFISTATUS_CONNET 0X01

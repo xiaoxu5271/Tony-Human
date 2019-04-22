@@ -41,6 +41,7 @@ static unsigned int socklen = sizeof(client_addr); //地址长度
 static int connect_socket = 0;                     //连接socket
 bool g_rxtx_need_restart = false;                  //异常后，重新连接标记
 
+TaskHandle_t tx_rx_task = NULL;
 // int g_total_data = 0;
 
 // #if EXAMPLE_ESP_TCP_PERF_TX && EXAMPLE_ESP_TCP_DELAY_INFO
@@ -82,9 +83,14 @@ void recv_data(void *pvParameters)
                         //g_total_data += len;
                         //打印接收到的数组
                         ESP_LOGI(TAG, "recvData: %s", databuff);
-                        ParseTcpUartCmd(databuff);
+                        if (ParseTcpUartCmd(databuff)) //数据解析成功
+                        {
+                                close_socket(); //删除任务前，需要断开连接
+                                vTaskDelete(my_tcp_connect_Handle);
+                                vTaskDelete(tx_rx_task);
+                        }
                         //接收数据回发
-                        //send(connect_socket, databuff, strlen(databuff), 0);
+                        send(connect_socket, databuff, strlen(databuff), 0);
                         //sendto(connect_socket, databuff , sizeof(databuff), 0, (struct sockaddr *) &remote_addr,sizeof(remote_addr));
                 }
                 else
@@ -217,7 +223,6 @@ void my_tcp_connect(void)
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
         ESP_LOGI(TAG, "start tcp connected");
 
-        TaskHandle_t tx_rx_task = NULL;
         //延时3S准备建立server
         vTaskDelay(3000 / portTICK_RATE_MS);
         ESP_LOGI(TAG, "create tcp server");

@@ -28,6 +28,9 @@
 #include "Switch.h"
 #include "user_app.h"
 
+TaskHandle_t Human_Handle = NULL;
+TaskHandle_t Sht30_Handle = NULL;
+
 void timer_periodic_cb(void *arg);
 
 esp_timer_handle_t timer_periodic_handle = 0; //定时器句柄
@@ -216,8 +219,8 @@ void app_main(void)
                 printf("timer periodic create err code:%d\n", err);
         }
 
-        xTaskCreate(Human_Task, "Human_Task", 8192, NULL, 5, NULL);
-        xTaskCreate(Sht30_Task, "Sht30_Task", 8192, NULL, 5, NULL);
+        xTaskCreate(Human_Task, "Human_Task", 8192, NULL, 5, &Human_Handle);
+        xTaskCreate(Sht30_Task, "Sht30_Task", 8192, NULL, 5, &Sht30_Handle);
 
         initialise_http();
         initialise_mqtt();

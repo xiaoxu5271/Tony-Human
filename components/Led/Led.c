@@ -34,48 +34,26 @@ static void Led_Task(void *arg)
                         vTaskDelay(300 / portTICK_RATE_MS);
                         break;
 
-                case LED_STA_TOUCH:
+                case LED_STA_WORK:
+                        Led_G_On();
+                        vTaskDelay(100 / portTICK_RATE_MS);
+                        break;
+
+                case LED_STA_AP:
+                        Led_Off();
                         Led_R_On();
                         vTaskDelay(300 / portTICK_RATE_MS);
-                        Led_G_On();
+                        Led_Off();
+                        Led_B_On();
                         vTaskDelay(300 / portTICK_RATE_MS);
                         break;
 
                 case LED_STA_NOSER:
                         Led_R_On();
-                        vTaskDelay(10 / portTICK_RATE_MS);
+                        vTaskDelay(100 / portTICK_RATE_MS);
                         break;
 
                 case LED_STA_WIFIERR:
-                        Led_B_On();
-                        vTaskDelay(300 / portTICK_RATE_MS);
-                        Led_Off();
-                        vTaskDelay(300 / portTICK_RATE_MS);
-                        break;
-
-                case LED_STA_HAND:
-                        Led_Y_On();
-                        vTaskDelay(10 / portTICK_RATE_MS);
-                        break;
-
-                case LED_STA_LOCAL:
-                        Led_C_On();
-                        vTaskDelay(10 / portTICK_RATE_MS);
-                        break;
-
-                case LED_STA_AUTO:
-                        Led_G_On();
-                        vTaskDelay(10 / portTICK_RATE_MS);
-                        break;
-
-                case LED_STA_PROTECT:
-                        Led_G_On();
-                        vTaskDelay(300 / portTICK_RATE_MS);
-                        Led_Off();
-                        vTaskDelay(300 / portTICK_RATE_MS);
-                        break;
-
-                case LED_STA_FIRE:
                         Led_R_On();
                         vTaskDelay(300 / portTICK_RATE_MS);
                         Led_Off();
@@ -161,7 +139,7 @@ void Led_Y_On(void)
         gpio_set_level(GPIO_LED_B, 1);
 }
 
-void Led_C_On(void) //青色
+void Led_C_On(void) //
 {
         gpio_set_level(GPIO_LED_R, 1);
         gpio_set_level(GPIO_LED_G, 0);
