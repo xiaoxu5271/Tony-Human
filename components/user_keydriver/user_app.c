@@ -13,6 +13,7 @@
 #include <esp_log.h>
 #include "tcp_bsp.h"
 #include "Smartconfig.h"
+#include "Mqtt.h"
 
 uint8_t Task_key_num = 0;
 
@@ -44,6 +45,7 @@ void short_pressed_cb(uint8_t key_num, uint8_t *short_pressed_counts)
                         break;
                 case 2:
                         ESP_LOGI("short_pressed_cb", "double press!!!\n");
+                        Task_key_num = 2;
                         break;
                 case 3:
                         ESP_LOGI("short_pressed_cb", "trible press!!!\n");
@@ -99,6 +101,11 @@ void user_key_cd_task(void *arg)
                         Task_key_num = 0;
                         printf("AP START....\r\n");
                         wifi_init_softap();
+                        break;
+
+                case 2:
+                        Task_key_num = 0;
+                        stop_user_mqtt();
                         break;
 
                 default:

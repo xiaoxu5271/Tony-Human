@@ -20,7 +20,7 @@
 #include "Smartconfig.h"
 #include "Json_parse.h"
 
-#define FIRMWARE "HUM1-V0.0.8"
+#define FIRMWARE "HUM1-V0.0.9"
 
 #define POST_NORMAL 0X00
 #define POST_HEIGHT_ADD 0X01
@@ -46,6 +46,7 @@ int http_activate(void);
 #define HAVEHUMAN 0x01
 uint8_t human_status;
 TaskHandle_t httpHandle;
+esp_timer_handle_t http_timer_suspend_p;
 extern uint8_t Last_Led_Status;
 
 #endif

@@ -5,11 +5,11 @@
 #include "Bluetooth.h"
 #include "Human.h"
 #include "Led.h"
+#include "Smartconfig.h"
 
 #define WEB_SERVER "api.ubibot.cn"
 #define WEB_PORT 80
 
-extern const int CONNECTED_BIT;
 extern uint8_t data_read[34];
 
 static char *TAG = "HTTP";
@@ -62,7 +62,7 @@ struct HTTP_STA
           "\r\n\r\n"};
 
 TaskHandle_t httpHandle = NULL;
-esp_timer_handle_t http_suspend_p = 0;
+esp_timer_handle_t http_timer_suspend_p = NULL;
 
 void http_suspends(void *arg)
 {
@@ -116,8 +116,9 @@ void http_get_task(void *pvParameters)
         mqtt_json_s.mqtt_angle = 0;
         //http_send_mes(POST_ALLDOWN);
         /***打开定时器10s开启一次***/
-        esp_timer_create(&http_suspend, &http_suspend_p);
-        esp_timer_start_periodic(http_suspend_p, 1000 * 1000 * 10);
+        printf("HTTP定时器打开！！！");
+        esp_timer_create(&http_suspend, &http_timer_suspend_p);
+        esp_timer_start_periodic(http_timer_suspend_p, 1000 * 1000 * 10);
         /***打开定时器×**/
 
         while (1)

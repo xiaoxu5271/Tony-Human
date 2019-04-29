@@ -25,11 +25,13 @@
 #include "RtcUsr.h"
 // #include "Fire.h"
 #include "sht30dis.h"
-#include "Switch.h"
 #include "user_app.h"
+#include "ota.h"
+#include "w5500_driver.h"
+#include "w5500_spi.h"
 
-TaskHandle_t Human_Handle = NULL;
-TaskHandle_t Sht30_Handle = NULL;
+// TaskHandle_t Human_Handle = NULL;
+// TaskHandle_t Sht30_Handle = NULL;
 
 void timer_periodic_cb(void *arg);
 
@@ -147,22 +149,6 @@ void app_main(void)
         //   strcpy(SerialNum,"AAA0003HUM1");
         //   strcpy(ProductId,"28343913545840b3b9b42c568e78e243");
 
-        //   //模拟清空序列号，串口烧写
-        //   uint8_t data_write[16] = "\0";
-        //   E2prom_Write(0x30, data_write, 16);
-
-        //   //模拟清空Productid，串口烧写
-        //   uint8_t data_write1[32] = "\0";
-        //   E2prom_Write(0x40, data_write1, 32);
-
-        //   //模拟清空API-KEY存储，激活后获取
-        //   uint8_t data_write2[33]="\0";
-        //   E2prom_Write(0x00, data_write2, 32);
-
-        //   //模拟清空channelid，激活后获取
-        //   uint8_t data_write3[16]="\0";
-        //   E2prom_Write(0x20, data_write3, 16);
-
         xTaskCreate(Uart0_Task, "Uart0_Task", 4096, NULL, 10, NULL);
 
         /*step1 判断是否有序列号和product id****/
@@ -172,19 +158,29 @@ void app_main(void)
         E2prom_Read(0x40, (uint8_t *)ProductId, 32);
         printf("ProductId=%s\n", ProductId);
 
+        // EE_byte_Write(ADDR_PAGE2, need_update_add, 0);     //存放OTA升级需求参数
+        // EE_byte_Write(ADDR_PAGE2, update_fail_num_add, 0); //存放OTA升级重试次数
+        // char zero_data[256];
+        // bzero(zero_data, sizeof(zero_data));
+        // E2prom_Ota_Write(0x00, (uint8_t *)zero_data, 256); //清空蓝牙
+
         if ((SerialNum[0] == 0xff) && (SerialNum[1] == 0xff)) //新的eeprom，先清零
         {
                 printf("new eeprom\n");
-                char zero_data[512];
+                char zero_data[256];
                 bzero(zero_data, sizeof(zero_data));
                 E2prom_Write(0x00, (uint8_t *)zero_data, 256);
-                E2prom_BluWrite(0x00, (uint8_t *)zero_data, 512); //清空蓝牙
+                E2prom_BluWrite(0x00, (uint8_t *)zero_data, 256);  //清空蓝牙
+                E2prom_Ota_Write(0x00, (uint8_t *)zero_data, 256); //清空蓝牙
 
                 E2prom_Read(0x30, (uint8_t *)SerialNum, 16);
                 printf("SerialNum=%s\n", SerialNum);
 
                 E2prom_Read(0x40, (uint8_t *)ProductId, 32);
                 printf("ProductId=%s\n", ProductId);
+
+                EE_byte_Write(ADDR_PAGE2, need_update_add, 0);     //存放OTA升级需求参数
+                EE_byte_Write(ADDR_PAGE2, update_fail_num_add, 0); //存放OTA升级重试次数
         }
 
         if ((strlen(SerialNum) == 0) || (strlen(ProductId) == 0)) //未获取到序列号或productid，未烧写序列号
@@ -224,4 +220,17 @@ void app_main(void)
 
         initialise_http();
         initialise_mqtt();
+
+        EE_byte_Read(ADDR_PAGE2, need_update_add, &need_update);
+        EE_byte_Read(ADDR_PAGE2, update_fail_num_add, &update_fail_num);
+        printf(" nead_update: %d       update_fail_num: %d\n", need_update, update_fail_num);
+        if (need_update == 1)
+        {
+                printf("需要升级，已失败次数 %d \n", update_fail_num);
+                ota_start();
+        }
+        else
+        {
+                printf("无需升级\n");
+        }
 }

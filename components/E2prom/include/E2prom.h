@@ -55,9 +55,15 @@ ESP_OK 读取成功
 #define PRODUCT_ID_ADDR 0x40
 #define SERISE_NUM_ADDR 0x30
 
+esp_err_t EE_byte_Write(uint8_t page, uint8_t reg_addr, uint8_t dat);
+esp_err_t EE_byte_Read(uint8_t page, uint8_t reg_addr, uint8_t *dat);
+
 extern void E2prom_Init(void);
 extern int E2prom_Write(uint8_t addr, uint8_t *data_write, int len);
 extern int E2prom_Read(uint8_t addr, uint8_t *data_read, int len);
 extern int E2prom_BluWrite(uint8_t addr, uint8_t *data_write, int len);
 extern int E2prom_BluRead(uint8_t addr, uint8_t *data_read, int len);
+extern int E2prom_Ota_Write(uint8_t addr, uint8_t *data_write, int len);
+extern int E2prom_Ota_Read(uint8_t addr, uint8_t *data_read, int len);
+
 #endif
