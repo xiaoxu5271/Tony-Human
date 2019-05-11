@@ -9,6 +9,9 @@
   *
   *
 *******************************************************************************/
+#ifndef __W5500_DRIVER_H__
+#define __W5500_DRIVER_H__
+
 #define RETRY_TIME_OUT 3
 
 /* Operation mode bits */
@@ -37,10 +40,19 @@
 #define PIN_NUM_W5500_REST 25
 #define PIN_NUM_W5500_INT 26
 
+#define HOST_NAME "api.ubibot.cn" //"api.ubibot.cn"api.yeelink.net
+
+#define RJ45_CONNECTED 1
+#define RJ45_DISCONNECT 1
+
+extern uint8_t RJ45_State;
+
 /*-------------------------------- Includes ----------------------------------*/
 //extern short Ethernet_http_application(uint8_t mode);
-void w5500_user_int(void);
+int8_t w5500_user_int(void);
+int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size);
 
+#endif
 /*******************************************************************************
                                       END         
 *******************************************************************************/

@@ -8,6 +8,7 @@
 #include "freertos/event_groups.h"
 
 #include "Smartconfig.h"
+#include "w5500_driver.h"
 #include "Http.h"
 #include "Nvs.h"
 #include "Mqtt.h"
@@ -16,22 +17,15 @@
 
 #include "Human.h"
 #include "Uart0.h"
-// #include "Motorctl.h"
-// #include "Wind.h"
-// #include "Wallkey.h"
+
 #include "Led.h"
 #include "E2prom.h"
-// #include "Localcalculation.h"
+
 #include "RtcUsr.h"
-// #include "Fire.h"
+
 #include "sht30dis.h"
 #include "user_app.h"
 #include "ota.h"
-#include "w5500_driver.h"
-#include "w5500_spi.h"
-
-// TaskHandle_t Human_Handle = NULL;
-// TaskHandle_t Sht30_Handle = NULL;
 
 void timer_periodic_cb(void *arg);
 
@@ -133,10 +127,6 @@ void app_main(void)
         mqtt_json_s.mqtt_height = -1;
         mqtt_json_s.mqtt_angle = -1;
 
-        //Motor_Init();
-        //Wind_Init();
-        //Wallkey_Init();
-
         //Led_On();
         E2prom_Init();
         //Fire_Init();
@@ -144,8 +134,12 @@ void app_main(void)
         Human_Init();
         sht30_init();
         Led_Init();
-        // Switch_Init();
         user_app_key_init();
+
+        if (w5500_user_int() == SUCCESS)
+        {
+                printf("W5500初始化成功！！！\n");
+        }
         //   strcpy(SerialNum,"AAA0003HUM1");
         //   strcpy(ProductId,"28343913545840b3b9b42c568e78e243");
 
@@ -200,10 +194,11 @@ void app_main(void)
         ble_app_start();
         init_wifi();
 
-        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                            false, true, portMAX_DELAY);
-
-        http_activate(); //激活
+        if (RJ45_State == RJ45_DISCONNECT)
+        {
+                xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
+                                    false, true, portMAX_DELAY);
+        }
 
         vTaskDelay(5000 / portTICK_RATE_MS); //延时5s，开机滤掉抖动状态
         human_status = NOHUMAN;

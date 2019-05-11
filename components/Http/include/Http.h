@@ -33,17 +33,21 @@
 #define POST_TARGET 0X07    //HTTP直接上传目标值，用于手动切自动的状态上传
 #define POST_NOCOMMAND 0X08 //HTTP只上传平台，无commnd id
 
-void initialise_http(void);
-
-void http_send_mes(uint8_t post_status);
-int http_activate(void);
-
 #define HTTP_STA_SERIAL_NUMBER 0x00
 #define HTTP_KEY_GET 0x01
 #define HTTP_KEY_NOT_GET 0x02
 
 #define NOHUMAN 0x00
 #define HAVEHUMAN 0x01
+
+#define WEB_SERVER "api.ubibot.cn"
+#define WEB_PORT 80
+
+void initialise_http(void);
+
+void http_send_mes(uint8_t post_status);
+int http_activate(void);
+
 uint8_t human_status;
 TaskHandle_t httpHandle;
 esp_timer_handle_t http_timer_suspend_p;

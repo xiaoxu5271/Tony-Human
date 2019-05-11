@@ -8,26 +8,8 @@
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 
-#include "lwip/sockets.h"
-#include "lwip/dns.h"
-#include "lwip/netdb.h"
-#include "lwip/igmp.h"
-
-#include "esp_wifi.h"
-#include "esp_system.h"
-#include "esp_event.h"
-#include "esp_event_loop.h"
-#include "nvs_flash.h"
-#include "soc/rtc_cntl_reg.h"
-#include "rom/cache.h"
 #include "driver/spi_master.h"
-#include "esp_log.h"
-#include "esp_spi_flash.h"
-
-#include "soc/gpio_reg.h"
 #include "driver/gpio.h"
-#include "esp_intr_alloc.h"
-
 #include "w5500_spi.h"
 
 /*
@@ -49,7 +31,7 @@ spi_device_interface_config_t devcfg = {
     .command_bits = 0,
     .address_bits = 0,
     .dummy_bits = 0,
-    .clock_speed_hz = 2500000,
+    .clock_speed_hz = 1 * 1000 * 1000,
     .duty_cycle_pos = 128, //50% duty cycle
     .mode = 0,
     .spics_io_num = -1, //PIN_NUM_CS,           //W5500需要自己调用该引脚的开关
@@ -59,7 +41,7 @@ spi_device_interface_config_t devcfg = {
 
 };
 
-void spi_init(void)
+void w5500_spi_init(void)
 {
         /************初始化CS引脚***********/
         gpio_config_t io_conf;
@@ -77,7 +59,6 @@ void spi_init(void)
         gpio_config(&io_conf);
         gpio_set_level(PIN_NUM_CS, 1);
 
-        
         /**************安装SPI设备*************/
         esp_err_t ret;
         //Initialize the SPI bus

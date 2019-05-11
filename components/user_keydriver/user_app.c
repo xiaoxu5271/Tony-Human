@@ -105,7 +105,7 @@ void user_key_cd_task(void *arg)
 
                 case 2:
                         Task_key_num = 0;
-                        stop_user_mqtt();
+                        // stop_user_mqtt();
                         break;
 
                 default:

@@ -25,10 +25,12 @@
 #include "wizchip_conf.h"
 #include "w5500_driver.h"
 
-#include "socket.h"
+#include "w5500_socket.h"
 
 #include "w5500_spi.h"
-#include "dhcp.h"
+#include "w5500_dhcp.h"
+#include "w5500_dns.h"
+#include "Http.h"
 
 // extern OsiSyncObj_t Spi_Mutex;   //Used for SPI Lock
 // extern OsiSyncObj_t cJSON_Mutex; //Used for cJSON Lock
@@ -40,17 +42,22 @@
 // extern OsiSyncObj_t xBinary7; //For Power Measure Task
 
 #define RJ45_DEBUG 1
-#define FAILURE 0
+#define FAILURE -1
 #define SUCCESS 1
-#define RJ45_STATUS_TIMEOUT 5
+#define RJ45_STATUS_TIMEOUT 3
+#define W5500_DNS_FAIL -3
+#define NO_RJ45_ACCESS -4
 
-uint8_t LAN_HOST_NAME[16];
+uint32_t socker_port = 3000;
+uint8_t LAN_WEB_SERVER[16];
 uint8_t ethernet_buf[ETHERNET_DATA_BUF_SIZE];
 uint8_t dns_host_ip[4];
+uint8_t server_port = 80;
 uint8_t standby_dns[4] = {8, 8, 8, 8};
+uint8_t RJ45_State;
+
 wiz_NetInfo gWIZNETINFO;
 wiz_NetInfo gWIZNETINFO_READ;
-extern char HOST_NAME[64];
 extern char POST_REQUEST_URI[255];
 extern char Post_Data_Buffer[4096];
 extern volatile bool NET_DATA_POST;
@@ -72,6 +79,9 @@ static unsigned long lan_post_data_len = 0;
 static unsigned long lan_read_data_end_addr = 0;
 static unsigned long lan_MemoryAddr = 0;
 static char lan_mac_buf[18] = {0};
+uint8_t Http_Buffer;
+
+SemaphoreHandle_t xMutex_W5500_SPI;
 
 /*******************************************************************************
 // Reset w5500 chip with w5500 RST pin                                
@@ -81,7 +91,7 @@ void w5500_reset(void)
         gpio_set_level(PIN_NUM_W5500_REST, 0);
         vTaskDelay(10 / portTICK_RATE_MS);
         gpio_set_level(PIN_NUM_W5500_REST, 1);
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(2000 / portTICK_RATE_MS);
 }
 
 /*******************************************************************************
@@ -89,7 +99,7 @@ void w5500_reset(void)
 *******************************************************************************/
 void spi_cris_en(void)
 {
-        //osi_SyncObjWait(&Spi_Mutex, OSI_WAIT_FOREVER); //SPI Semaphore Take
+        xSemaphoreTake(xMutex_W5500_SPI, portMAX_DELAY); //SPI Semaphore Take
 }
 
 /*******************************************************************************
@@ -97,7 +107,7 @@ void spi_cris_en(void)
 *******************************************************************************/
 void spi_cris_ex(void)
 {
-        //////osi_SyncObjSignal(&Spi_Mutex); //SPI Semaphore Give
+        xSemaphoreGive(xMutex_W5500_SPI); //SPI Semaphore Give
 }
 
 /*******************************************************************************
@@ -122,88 +132,6 @@ void spi_cs_deselect(void)
         // gpio_set_level(PIN_NUM_CS, 1);
 }
 
-// /*******************************************************************************
-// // callback function to read byte using SPI
-// *******************************************************************************/
-// uint8_t spi_readbyte(void)
-// {
-//         return SPI_SendReciveByte(0x00);
-// }
-
-// /*******************************************************************************
-// // callback function to write byte using SPI
-// *******************************************************************************/
-// void spi_writebyte(uint8_t writebyte)
-// {
-//         SPI_SendReciveByte(writebyte);
-// }
-
-// /*******************************************************************************
-// // callback function to burst read using SPI
-// *******************************************************************************/
-// void spi_readburst(uint8_t *read_buf, uint16_t buf_len)
-// {
-//         uint16_t i;
-
-//         for (i = 0; i < buf_len; i++)
-//         {
-//                 read_buf[i] = spi_readbyte();
-//         }
-// }
-
-// /*******************************************************************************
-// // callback function to burst write using SPI
-// *******************************************************************************/
-// void spi_writeburst(uint8_t *write_buf, uint16_t buf_len)
-// {
-//         uint16_t i;
-
-//         for (i = 0; i < buf_len; i++)
-//         {
-//                 spi_writebyte(write_buf[i]);
-//         }
-// }
-
-// void spi_write_data(uint16_t reg_addr, uint8_t ctrl_cmd, uint8_t *write_buf, uint16_t buf_len)
-// {
-//         uint16_t i;
-
-//         SET_SPI2_CS_OFF(); //w5500 spi cs enable
-
-//         SPI_SendReciveByte((uint8_t)((reg_addr) >> 8));
-
-//         SPI_SendReciveByte((uint8_t)(reg_addr)); //16bit address last 8 bit address
-
-//         SPI_SendReciveByte(ctrl_cmd);
-
-//         for (i = 0; i < buf_len; i++)
-//         {
-//                 SPI_SendReciveByte(write_buf[i]);
-//         }
-
-//         SET_SPI2_CS_ON(); //w5500 spi cs disable
-// }
-
-// void spi_read_data(uint16_t reg_addr, uint8_t ctrl_cmd, uint8_t *read_buf, uint16_t buf_len)
-// {
-//         uint16_t i;
-
-//         SET_SPI2_CS_OFF(); //w5500 spi cs enable
-
-//         SPI_SendReciveByte((uint8_t)((reg_addr) >> 8));
-
-//         SPI_SendReciveByte((uint8_t)(reg_addr)); //16bit address last 8 bit address
-
-//         SPI_SendReciveByte(ctrl_cmd);
-
-//         for (i = 0; i < buf_len; i++)
-//         {
-//                 read_buf[i] = SPI_SendReciveByte(0x00);
-//         }
-
-//         SET_SPI2_CS_ON(); //w5500 spi cs disable
-// }
-
 /*******************************************************************************
 // init w5500 driver lib                               
 *******************************************************************************/
@@ -212,7 +140,7 @@ void w5500_lib_init(void)
         // /* Critical section callback */
         reg_wizchip_cris_cbfunc(spi_cris_en, spi_cris_ex);
 
-        /* Chip selection call back  不可�? */
+        /* Chip selection call back  */
         reg_wizchip_cs_cbfunc(spi_cs_select, spi_cs_deselect);
 
         /* SPI Read & Write callback function */
@@ -238,59 +166,84 @@ void w5500_lib_init(void)
 /*******************************************************************************
 // check RJ45 connected                              
 *******************************************************************************/
-esp_err_t check_rj45_status(void)
+uint8_t check_rj45_status(void)
 {
-        //uint8_t i;
+        uint8_t i;
 
         // for (i = 0; i < RJ45_STATUS_TIMEOUT; i++)
-        // {
+
         if (IINCHIP_READ(PHYCFGR) & 0x01)
         {
                 printf("RJ45 OK\n");
                 return ESP_OK;
         }
-        // vTaskDelay(100 / portTICK_RATE_MS);
-        //printf("RJ45 FAIL\n ");
+        // printf("RJ45 FAIL\n ");
+        // vTaskDelay(1000 / portTICK_RATE_MS);
 
-        //osi_Sleep(100); //delay 0.1s
-        // }
-        else
-        {
-                printf("RJ45 FAIL\n ");
-                return ESP_FAIL;
-        }
+        printf("RJ45 FAIL\n ");
+        return ESP_FAIL;
 }
 
-/**
-*@brief		检RJ45连接
-*@param		ÎÞ
-*@return	ÎÞ
-*/
-// uint8_t getPHYStatus(void)
-// {
-//         return IINCHIP_READ(PHYCFGR);
-// }
-
-void PHY_check(void)
+/****************DHCP IP更新回调函数*****************/
+void my_ip_assign(void)
 {
-        uint8_t PHY_connect = 0;
-        PHY_connect = 0x01 & IINCHIP_READ(PHYCFGR);
-        if (PHY_connect == 0)
-        {
-                printf(" \r\n cheak net!\r\n");
+        getIPfromDHCP(gWIZNETINFO.ip);
 
-                // while (PHY_connect == 0)
-                // {
-                //         PHY_connect = 0x01 & getPHYStatus();
-                //         printf(" .");
-                //         vTaskDelay(10 / portTICK_RATE_MS);
-                // }
-                // printf(" \r\n");
-        }
-        else
+        getGWfromDHCP(gWIZNETINFO.gw);
+
+        getSNfromDHCP(gWIZNETINFO.sn);
+
+        getDNSfromDHCP(gWIZNETINFO.dns);
+
+        gWIZNETINFO.dhcp = NETINFO_DHCP; //NETINFO_STATIC; //< 1 - Static, 2 - DHCP
+
+        ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
+
+#ifdef RJ45_DEBUG
+        ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO);
+        printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO.mac[0], gWIZNETINFO.mac[1], gWIZNETINFO.mac[2], gWIZNETINFO.mac[3], gWIZNETINFO.mac[4], gWIZNETINFO.mac[5]);
+        printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
+        printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO.gw[0], gWIZNETINFO.gw[1], gWIZNETINFO.gw[2], gWIZNETINFO.gw[3]);
+        printf("SUB: %d.%d.%d.%d\r\n", gWIZNETINFO.sn[0], gWIZNETINFO.sn[1], gWIZNETINFO.sn[2], gWIZNETINFO.sn[3]);
+        printf("DNS: %d.%d.%d.%d\r\n", gWIZNETINFO.dns[0], gWIZNETINFO.dns[1], gWIZNETINFO.dns[2], gWIZNETINFO.dns[3]);
+#endif
+}
+
+/****************DHCP IP冲突函数*****************/
+void my_ip_conflict(void)
+{
+        printf("DHCP IP 冲突\n");
+}
+
+/****************解析DNS*****************/
+int8_t lan_dns_resolve(uint8_t *dns_buf)
+{
+        //   osi_at24c08_ReadData(HOST_ADDR,(uint8_t*)WEB_SERVER,sizeof(WEB_SERVER),1);  //read the host name
+
+        DNS_init(SOCK_DHCP, dns_buf);
+
+        if (DNS_run(gWIZNETINFO.dns, (uint8_t *)WEB_SERVER, dns_host_ip) > 0)
         {
-                printf("success!!!\n");
+#ifdef RJ45_DEBUG
+                printf("host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
+#endif
+
+                return SUCCESS;
         }
+        else if (DNS_run(standby_dns, (uint8_t *)HOST_NAME, dns_host_ip) > 0)
+        {
+#ifdef RJ45_DEBUG
+                printf("s_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
+#endif
+
+                return SUCCESS;
+        }
+
+#ifdef RJ45_DEBUG
+        printf("n_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
+#endif
+
+        return FAILURE;
 }
 
 /*******************************************************************************
@@ -303,24 +256,14 @@ void W5500_Network_Init(void)
         uint8_t ip[4] = {192, 168, 1, 123};                    //< Source IP Address
         uint8_t sn[4] = {255, 255, 255, 0};                    //< Subnet Mask
         uint8_t gw[4] = {192, 168, 1, 1};                      //< Gateway IP Address
-        uint8_t dns[4] = {6, 6, 6, 6};                         //< DNS server IP Address
+        uint8_t dns[4] = {114, 114, 114, 114};                 //< DNS server IP Address
 
         uint8_t txsize[MAX_SOCK_NUM] = {4, 2, 2, 2, 2, 2, 2, 0}; //socket 0,16K
         uint8_t rxsize[MAX_SOCK_NUM] = {4, 2, 2, 2, 2, 2, 2, 0}; //socket 0,16K
 
+        esp_read_mac(mac, 3); //      获取芯片内部默认出厂MAC，
+
         wizchip_init(txsize, rxsize);
-
-        //osi_at24c08_ReadData(MAC_ADDR, (uint8_t *)mac, sizeof(mac), 1); //Read mac
-
-        //dhcp_mode = osi_at24c08_read_byte(DHCP_MODE_ADDR);
-
-        //osi_at24c08_ReadData(STATIC_IP_ADDR, ip, sizeof(ip), 1);
-
-        //osi_at24c08_ReadData(STATIC_SN_ADDR, sn, sizeof(sn), 1);
-
-        //osi_at24c08_ReadData(STATIC_GW_ADDR, gw, sizeof(gw), 1);
-
-        //osi_at24c08_ReadData(STATIC_DNS_ADDR, dns, sizeof(dns), 1);
 
         memcpy(gWIZNETINFO.mac, mac, 6);
         memcpy(gWIZNETINFO.ip, ip, 4);
@@ -353,69 +296,201 @@ void W5500_Network_Init(void)
         E_NetTimeout.time_100us = 1000; //< time unit 100us
         wizchip_settimeout(&E_NetTimeout);
 
+        if (gWIZNETINFO.dhcp == NETINFO_DHCP)
+        {
+                Ethernet_Timeout = 0;
+                uint8_t dhcp_retry = 0;
+
+                reg_dhcp_cbfunc(my_ip_assign, my_ip_assign, my_ip_conflict);
+
+                DHCP_init(SOCK_DHCP, ethernet_buf);
+
+                while (DHCP_run() != DHCP_IP_LEASED)
+                {
+                        switch (DHCP_run())
+                        {
+                        case DHCP_IP_ASSIGN:
+#ifdef RJ45_DEBUG
+                                printf("DHCP_IP_ASSIGN.\r\n");
+#endif
+                        case DHCP_IP_CHANGED: /* If this block empty, act with default_ip_assign & default_ip_update */
+                                              //
+                                              // Add to ...
+                                              //
+#ifdef RJ45_DEBUG
+                                printf("DHCP_IP_CHANGED.\r\n");
+#endif
+                                break;
+
+                        case DHCP_IP_LEASED:
+                                //
+                                // TO DO YOUR NETWORK APPs.
+                                //
+#ifdef RJ45_DEBUG
+                                printf("DHCP_IP_LEASED.\r\n");
+
+                                printf("DHCP LEASED TIME : %d Sec\r\n", getDHCPLeasetime());
+#endif
+                                break;
+
+                        case DHCP_FAILED:
+#ifdef RJ45_DEBUG
+                                printf("DHCP_FAILED.\r\n");
+#endif
+
+                                if (dhcp_retry++ > RETRY_TIME_OUT)
+                                {
+                                        DHCP_stop(); // if restart, recall DHCP_init()
+                                }
+                                break;
+
+                        default:
+                                break;
+                        }
+                }
+        }
         printf("Network_init success!!!\n");
 }
 
-void my_ip_assign(void)
+int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
-        getIPfromDHCP(gWIZNETINFO.ip);
+        int8_t ret = 0;
+        uint16_t size = 0;
 
-        getGWfromDHCP(gWIZNETINFO.gw);
+        while (1)
+        {
+                switch (getSn_SR(SOCK_DHCP))
+                {
 
-        getSNfromDHCP(gWIZNETINFO.sn);
+                case SOCK_INIT:
+                        // printf("SOCK_INIT!!!\n");
+                        ret = lan_connect(SOCK_DHCP, dns_host_ip, server_port);
+                        if (ret <= 0)
+                        {
+                                printf("INIT FAIL CODE : %d\n", ret);
+                                return ret;
+                        }
+                        break;
 
-        getDNSfromDHCP(gWIZNETINFO.dns);
+                case SOCK_ESTABLISHED:
+                        if (getSn_IR(SOCK_DHCP) & Sn_IR_CON)
+                        {
+                                // printf("SOCK_ESTABLISHED!!!\n");
+                                setSn_IR(SOCK_DHCP, Sn_IR_CON);
+                        }
+                        printf("send_buff   : %s, size :%d \n", (char *)send_buff, send_size);
+                        lan_send(SOCK_DHCP, (const uint8_t *)send_buff, send_size);
 
-        gWIZNETINFO.dhcp = NETINFO_DHCP; //NETINFO_STATIC; //< 1 - Static, 2 - DHCP
+                        vTaskDelay(100 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
 
-        ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
+                        size = getSn_RX_RSR(SOCK_DHCP);
+                        printf("recv_size = %d\n", size);
+                        if (size > 0)
+                        {
+                                if (size > ETHERNET_DATA_BUF_SIZE)
+                                {
+                                        size = ETHERNET_DATA_BUF_SIZE;
+                                }
+                                bzero((char *)recv_buff, recv_size); //写入之前清0
+                                ret = lan_recv(SOCK_DHCP, (uint8_t *)recv_buff, size);
+                                if (ret < 0)
+                                {
+                                        printf("w5500 recv failed! %d\n", ret);
+                                        return ret;
+                                        //break;
+                                }
+                                else
+                                {
+                                        //printf("w5500 recv  : %s\n", (char *)recv_buff);
+                                }
+                        }
 
-#ifdef RJ45_DEBUG
-        ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO);
-        printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO.mac[0], gWIZNETINFO.mac[1], gWIZNETINFO.mac[2], gWIZNETINFO.mac[3], gWIZNETINFO.mac[4], gWIZNETINFO.mac[5]);
-        printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
-        printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO.gw[0], gWIZNETINFO.gw[1], gWIZNETINFO.gw[2], gWIZNETINFO.gw[3]);
-        printf("SUB: %d.%d.%d.%d\r\n", gWIZNETINFO.sn[0], gWIZNETINFO.sn[1], gWIZNETINFO.sn[2], gWIZNETINFO.sn[3]);
-        printf("DNS: %d.%d.%d.%d\r\n", gWIZNETINFO.dns[0], gWIZNETINFO.dns[1], gWIZNETINFO.dns[2], gWIZNETINFO.dns[3]);
-#endif
+                        lan_close(SOCK_DHCP);
+                        break;
+
+                case SOCK_CLOSE_WAIT:
+                        printf("SOCK_CLOSE_WAIT!!!\n");
+
+                        break;
+
+                case SOCK_CLOSED:
+                        // printf("Closed\r\n");
+                        lan_socket(SOCK_DHCP, Sn_MR_TCP, socker_port++, 0x00);
+                        if (ret > 0) //需要等到接收到数据才退出函数
+                                return ret;
+                        break;
+
+                default:
+                        break;
+                }
+                vTaskDelay(100 / portTICK_RATE_MS);
+        }
 }
 
-void w5500_user_int(void)
+/*****************RJ45_CHECK****************/
+void RJ45_Check_Task(void *arg)
 {
-        gpio_config_t io_conf;
+        uint8_t need_reinit = 0;
+        while (1)
+        {
+                if (check_rj45_status() == ESP_OK)
+                {
+                        RJ45_State = RJ45_CONNECTED;
+                        if (need_reinit == 1)
+                        {
+                                W5500_Network_Init();
+                        }
+                        need_reinit = 0;
+                }
+                else
+                {
+                        RJ45_State = RJ45_DISCONNECT;
+                        need_reinit = 1;
+                }
+                vTaskDelay(500 / portTICK_RATE_MS);
+        }
+}
 
-        //disable interrupt
+/*******************有线网初始化*******************/
+int8_t w5500_user_int(void)
+{
+        w5500_spi_init();
+
+        gpio_config_t io_conf;
         io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
-        //set as output mode
         io_conf.mode = GPIO_MODE_OUTPUT;
-        //bit mask of the pins that you want to set,e.g.GPIO16
         io_conf.pin_bit_mask = (1 << PIN_NUM_W5500_REST);
-        //disable pull-down mode
         io_conf.pull_down_en = 0;
-        //disable pull-up mode
         io_conf.pull_up_en = 1;
-        //configure GPIO with the given settings
         gpio_config(&io_conf);
         io_conf.pin_bit_mask = (1 << PIN_NUM_W5500_INT);
         gpio_config(&io_conf);
 
+        xMutex_W5500_SPI = xSemaphoreCreateMutex(); //创建W5500 SPI 发送互斥信号
+
         w5500_reset();
-        PHY_check();
         w5500_lib_init();
 
         // printf(" VERSIONR_ID: %02x\n", IINCHIP_READ(VERSIONR));
-
-        // W5500_Network_Init();
-
-        // esp_err_t ret;
-        // ret = check_rj45_status();
-        // ESP_ERROR_CHECK(ret);
-        PHY_check();
-
-        vTaskDelay(100 / portTICK_RATE_MS);
-        my_ip_assign();
-
-        //xTaskCreate(do_tcp_server, "do_tcp_server", 8192, NULL, 2, NULL);
+        int8_t ret;
+        ret = check_rj45_status();
+        if (ret != ESP_OK)
+        {
+                printf("未检测到网线接入!\n");
+                return NO_RJ45_ACCESS;
+        }
+        printf("网线接入!\n");
+        W5500_Network_Init();
+        ret = lan_dns_resolve(ethernet_buf);
+        if (ret != SUCCESS)
+        {
+                printf("初始化DNS解析失败!\n");
+                return W5500_DNS_FAIL;
+        }
+        printf("DNS_SUCCESS!!!\n");
+        RJ45_State = RJ45_CONNECTED;
+        // xTaskCreate(RJ45_Check_Task, "lan_http_send_task", 8192, NULL, 8, NULL); //创建任务，不断检查RJ45连接状态
+        return SUCCESS;
 }
 
 /*******************************************************************************

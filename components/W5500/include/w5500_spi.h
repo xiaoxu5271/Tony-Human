@@ -8,8 +8,7 @@
 #define PIN_NUM_CLK 18
 #define PIN_NUM_CS 5
 
-void spi_init(void);
-void spi_test(void);
+void w5500_spi_init(void);
 void spi_select_w5500(void);
 void spi_deselect_w5500(void);
 void spi_writebyte(uint8_t writebyte);

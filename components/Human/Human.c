@@ -38,12 +38,6 @@ void Humanapp(void)
                 http_send_mes(POST_NORMAL);
                 need_send = 0;
         }
-
-        /*if(human_temp!=human_gpio_value)//突变
-    {
-        http_send_mes(POST_NORMAL);
-        human_temp=human_gpio_value;
-    }*/
 }
 
 void Human_Task(void *arg)

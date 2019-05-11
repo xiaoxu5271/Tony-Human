@@ -18,7 +18,7 @@
                         "args": [
                                 "flash"
                         ]
-                }
+                },
                 {
                         "label": "flash&monitor",
                         "type": "shell",
@@ -27,6 +27,16 @@
                                 "flash",
                                 "monitor"
                         ]
+                },
+                {
+                        "label": "openocd",
+                        "type": "shell",
+                        "isBackground": true,
+                        "options": {
+                                "cwd": "/root/esp32/openocd-esp32"
+                        },
+                        "command": "bin/openocd -s share/openocd/scripts -f interface/jlink.cfg -f board/esp-wroom-32.cfg",
+                        "problemMatcher": []
                 }
         ]
 }
