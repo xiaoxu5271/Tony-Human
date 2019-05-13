@@ -54,7 +54,7 @@ uint8_t ethernet_buf[ETHERNET_DATA_BUF_SIZE];
 uint8_t dns_host_ip[4];
 uint8_t server_port = 80;
 uint8_t standby_dns[4] = {8, 8, 8, 8};
-uint8_t RJ45_State;
+uint8_t RJ45_STATUS;
 
 wiz_NetInfo gWIZNETINFO;
 wiz_NetInfo gWIZNETINFO_READ;
@@ -354,7 +354,7 @@ void W5500_Network_Init(void)
 
 int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
-        int8_t ret = 0;
+        int32_t ret = 0;
         uint16_t size = 0;
 
         while (1)
@@ -435,7 +435,7 @@ void RJ45_Check_Task(void *arg)
         {
                 if (check_rj45_status() == ESP_OK)
                 {
-                        RJ45_State = RJ45_CONNECTED;
+                        RJ45_STATUS = RJ45_CONNECTED;
                         if (need_reinit == 1)
                         {
                                 W5500_Network_Init();
@@ -444,7 +444,7 @@ void RJ45_Check_Task(void *arg)
                 }
                 else
                 {
-                        RJ45_State = RJ45_DISCONNECT;
+                        RJ45_STATUS = RJ45_DISCONNECT;
                         need_reinit = 1;
                 }
                 vTaskDelay(500 / portTICK_RATE_MS);
@@ -488,7 +488,7 @@ int8_t w5500_user_int(void)
                 return W5500_DNS_FAIL;
         }
         printf("DNS_SUCCESS!!!\n");
-        RJ45_State = RJ45_CONNECTED;
+        RJ45_STATUS = RJ45_CONNECTED;
         // xTaskCreate(RJ45_Check_Task, "lan_http_send_task", 8192, NULL, 8, NULL); //创建任务，不断检查RJ45连接状态
         return SUCCESS;
 }

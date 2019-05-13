@@ -135,11 +135,6 @@ void app_main(void)
         sht30_init();
         Led_Init();
         user_app_key_init();
-
-        if (w5500_user_int() == SUCCESS)
-        {
-                printf("W5500初始化成功！！！\n");
-        }
         //   strcpy(SerialNum,"AAA0003HUM1");
         //   strcpy(ProductId,"28343913545840b3b9b42c568e78e243");
 
@@ -194,7 +189,12 @@ void app_main(void)
         ble_app_start();
         init_wifi();
 
-        if (RJ45_State == RJ45_DISCONNECT)
+        if (w5500_user_int() == SUCCESS)
+        {
+                printf("W5500初始化成功！！！\n");
+        }
+
+        if (RJ45_STATUS == RJ45_DISCONNECT)
         {
                 xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                                     false, true, portMAX_DELAY);

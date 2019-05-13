@@ -43,14 +43,15 @@
 #define HOST_NAME "api.ubibot.cn" //"api.ubibot.cn"api.yeelink.net
 
 #define RJ45_CONNECTED 1
-#define RJ45_DISCONNECT 1
+#define RJ45_DISCONNECT 2
 
-extern uint8_t RJ45_State;
+extern uint8_t RJ45_STATUS;
 
 /*-------------------------------- Includes ----------------------------------*/
 //extern short Ethernet_http_application(uint8_t mode);
 int8_t w5500_user_int(void);
 int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size);
+uint8_t RJ45_State(void);
 
 #endif
 /*******************************************************************************

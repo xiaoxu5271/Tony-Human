@@ -1,3 +1,12 @@
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_system.h"
+#include "esp_wifi.h"
+#include "esp_event_loop.h"
+#include "esp_log.h"
+#include "nvs_flash.h"
 
 #include "nvs.h"
 #include "Json_parse.h"
@@ -165,8 +174,9 @@ int8_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uint
 
         xSemaphoreTake(xMutex_Http_Send, portMAX_DELAY);
         int8_t ret;
-        if (RJ45_State == RJ45_CONNECTED)
+        if (RJ45_STATUS == RJ45_CONNECTED)
         {
+                printf("lan send!!!\n");
                 ret = lan_http_send(send_buff, send_size, recv_buff, recv_size);
                 xSemaphoreGive(xMutex_Http_Send);
                 return ret;
@@ -174,6 +184,7 @@ int8_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uint
 
         else
         {
+                printf("wifi send!!!\n");
                 return wifi_http_send(send_buff, send_size, recv_buff, recv_size);
         }
 }
@@ -211,11 +222,22 @@ void http_get_task(void *pvParameters)
                 /* Wait for the callback to set the CONNECTED_BIT in the
            event group.a
         */
+
                 WifiStatus = WIFISTATUS_DISCONNET;
-                xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                                    false, true, portMAX_DELAY);
-                ESP_LOGI(TAG, "Connected to AP");
-                WifiStatus = WIFISTATUS_CONNET;
+
+                if (RJ45_STATUS == RJ45_DISCONNECT)
+                {
+                        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
+                                            false, true, portMAX_DELAY);
+
+                        ESP_LOGI(TAG, "Connected to AP");
+                        WifiStatus = WIFISTATUS_CONNET;
+                }
+                else
+                {
+                        ESP_LOGI(TAG, "Connected to LAN");
+                }
+
                 ESP_LOGI("RAM", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
 
                 six_time_count++; //定时60s
@@ -251,8 +273,6 @@ int http_activate(void)
 
         printf("build_http=%s\n", build_http);
 
-        //等待http发送完成
-        // xEventGroupWaitBits(http_event_group, HTTP_USEING_BIT, false, true, portMAX_DELAY);
         if (http_send_buff(build_http, 256, recv_buf, 1024) > 0)
         {
                 return -1;
