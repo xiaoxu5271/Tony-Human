@@ -70,15 +70,6 @@ extern void PostAddrChage(unsigned long data_num, unsigned long end_addr);    //
 uint8_t Ethernet_Timeout = 0; //ethernet http application time out
 uint8_t Ethernet_netSet_val = 0;
 uint8_t ethernet_http_mode = ACTIVE_DEVICE_MODE;
-static bool lan_EndFlag = 0;
-static uint16_t lan_read_data_num = 0;
-static uint16_t lan_post_data_sum = 0;
-static uint16_t lan_post_data_num = 0;
-static uint16_t lan_delete_data_num = 0;
-static unsigned long lan_post_data_len = 0;
-static unsigned long lan_read_data_end_addr = 0;
-static unsigned long lan_MemoryAddr = 0;
-static char lan_mac_buf[18] = {0};
 uint8_t Http_Buffer;
 
 SemaphoreHandle_t xMutex_W5500_SPI;
@@ -168,7 +159,6 @@ void w5500_lib_init(void)
 *******************************************************************************/
 uint8_t check_rj45_status(void)
 {
-        uint8_t i;
 
         // for (i = 0; i < RJ45_STATUS_TIMEOUT; i++)
 
@@ -379,7 +369,7 @@ int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint1
                                 setSn_IR(SOCK_DHCP, Sn_IR_CON);
                         }
                         printf("send_buff   : %s, size :%d \n", (char *)send_buff, send_size);
-                        lan_send(SOCK_DHCP, (const uint8_t *)send_buff, send_size);
+                        lan_send(SOCK_DHCP, (uint8_t *)send_buff, send_size);
 
                         vTaskDelay(100 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
 
