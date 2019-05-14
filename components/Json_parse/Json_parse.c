@@ -430,13 +430,8 @@ esp_err_t parse_objects_heart(char *json_data)
 esp_err_t parse_objects_mqtt(char *mqtt_json_data)
 {
         cJSON *json_data_parse = NULL;
-        cJSON *json_data_angle_parse = NULL;
-        cJSON *json_data_height_parse = NULL;
-        cJSON *json_data_mode_parse = NULL;
-        cJSON *json_data_sun_condition_parse = NULL;
         cJSON *json_data_string_parse = NULL;
         cJSON *json_data_command_id_parse = NULL;
-        cJSON *json_data_ctr_parse = NULL;
 
         //OTA相关
         cJSON *json_data_action = NULL;
@@ -532,8 +527,6 @@ void create_http_json(uint8_t post_status, creat_json *pCreat_json)
         cJSON *next = cJSON_CreateObject();
         cJSON *fe_body = cJSON_CreateArray();
         //char status_creat_json_c[256];
-        char status_creat_json[128];
-        char status_cj[4];
 
         //printf("Server_Timer_SEND() %s", (char *)Server_Timer_SEND());
         //strncpy(http_json_c.http_time[20], Server_Timer_SEND(), 20);

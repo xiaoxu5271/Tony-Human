@@ -121,8 +121,6 @@ static void Uart0_Task(void *arg)
 void app_main(void)
 {
         nvs_flash_init(); //初始化flash
-
-        WifiStatus = WIFISTATUS_DISCONNET;
         work_status = WORK_INIT;
         mqtt_json_s.mqtt_height = -1;
         mqtt_json_s.mqtt_angle = -1;
@@ -194,11 +192,8 @@ void app_main(void)
                 printf("W5500初始化成功！！！\n");
         }
 
-        if (RJ45_STATUS == RJ45_DISCONNECT)
-        {
-                xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                                    false, true, portMAX_DELAY);
-        }
+        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
+                            false, true, portMAX_DELAY);
 
         vTaskDelay(5000 / portTICK_RATE_MS); //延时5s，开机滤掉抖动状态
         human_status = NOHUMAN;

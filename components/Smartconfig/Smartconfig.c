@@ -19,6 +19,10 @@
 #include "esp_log.h"
 #include "Led.h"
 #include "tcp_bsp.h"
+#include "w5500_driver.h"
+
+TaskHandle_t my_tcp_connect_Handle;
+EventGroupHandle_t wifi_event_group;
 
 wifi_config_t s_staconf;
 
@@ -49,11 +53,13 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 
                 if (start_AP != 1) //判断是不是要进入AP模式
                 {
-                        Led_Status = LED_STA_WIFIERR; //断网
+                        if (RJ45_STATUS == RJ45_DISCONNECT)
+                        {
+                                Led_Status = LED_STA_WIFIERR; //断网
+                                xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+                        }
                         esp_wifi_connect();
                 }
-
-                xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
                 break;
 
         case SYSTEM_EVENT_AP_STACONNECTED: //AP模式-有STA连接成功

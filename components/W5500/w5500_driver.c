@@ -31,6 +31,8 @@
 #include "w5500_dhcp.h"
 #include "w5500_dns.h"
 #include "Http.h"
+#include "Led.h"
+#include "Smartconfig.h"
 
 // extern OsiSyncObj_t Spi_Mutex;   //Used for SPI Lock
 // extern OsiSyncObj_t cJSON_Mutex; //Used for cJSON Lock
@@ -48,7 +50,7 @@
 #define W5500_DNS_FAIL -3
 #define NO_RJ45_ACCESS -4
 
-uint32_t socker_port = 3000;
+uint32_t socker_port = 3000; //不可变
 uint8_t LAN_WEB_SERVER[16];
 uint8_t ethernet_buf[ETHERNET_DATA_BUF_SIZE];
 uint8_t dns_host_ip[4];
@@ -82,7 +84,7 @@ void w5500_reset(void)
         gpio_set_level(PIN_NUM_W5500_REST, 0);
         vTaskDelay(10 / portTICK_RATE_MS);
         gpio_set_level(PIN_NUM_W5500_REST, 1);
-        vTaskDelay(2000 / portTICK_RATE_MS);
+        vTaskDelay(2000 / portTICK_RATE_MS); //时间不能再短
 }
 
 /*******************************************************************************
@@ -164,13 +166,13 @@ uint8_t check_rj45_status(void)
 
         if (IINCHIP_READ(PHYCFGR) & 0x01)
         {
-                printf("RJ45 OK\n");
+                // printf("RJ45 OK\n");
                 return ESP_OK;
         }
         // printf("RJ45 FAIL\n ");
         // vTaskDelay(1000 / portTICK_RATE_MS);
 
-        printf("RJ45 FAIL\n ");
+        // printf("RJ45 FAIL\n ");
         return ESP_FAIL;
 }
 
@@ -349,9 +351,9 @@ int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint1
 
         while (1)
         {
-                switch (getSn_SR(SOCK_DHCP))
+                uint8_t temp;
+                switch (temp = getSn_SR(SOCK_DHCP))
                 {
-
                 case SOCK_INIT:
                         // printf("SOCK_INIT!!!\n");
                         ret = lan_connect(SOCK_DHCP, dns_host_ip, server_port);
@@ -404,13 +406,15 @@ int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint1
                         break;
 
                 case SOCK_CLOSED:
-                        // printf("Closed\r\n");
+                        printf("Closed\r\n");
                         lan_socket(SOCK_DHCP, Sn_MR_TCP, socker_port++, 0x00);
                         if (ret > 0) //需要等到接收到数据才退出函数
                                 return ret;
                         break;
 
                 default:
+                        printf("send get %2x\n", temp);
+                        lan_close(SOCK_DHCP); //网线断开重联后会返回 0X22，自动进入UDP模式，所以需要关闭连接。
                         break;
                 }
                 vTaskDelay(100 / portTICK_RATE_MS);
@@ -425,19 +429,25 @@ void RJ45_Check_Task(void *arg)
         {
                 if (check_rj45_status() == ESP_OK)
                 {
-                        RJ45_STATUS = RJ45_CONNECTED;
                         if (need_reinit == 1)
                         {
                                 W5500_Network_Init();
                         }
                         need_reinit = 0;
+                        RJ45_STATUS = RJ45_CONNECTED; //需要放在最后，等待重新初始化完成
+                        Led_Status = LED_STA_WORK;    //联网工作
+                        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
                 }
                 else
                 {
                         RJ45_STATUS = RJ45_DISCONNECT;
+                        if (need_reinit == 0)
+                        {
+                                printf("网线连接断开！\n"); //只打印一次
+                        }
                         need_reinit = 1;
                 }
-                vTaskDelay(500 / portTICK_RATE_MS);
+                vTaskDelay(100 / portTICK_RATE_MS);
         }
 }
 
@@ -479,7 +489,7 @@ int8_t w5500_user_int(void)
         }
         printf("DNS_SUCCESS!!!\n");
         RJ45_STATUS = RJ45_CONNECTED;
-        // xTaskCreate(RJ45_Check_Task, "lan_http_send_task", 8192, NULL, 8, NULL); //创建任务，不断检查RJ45连接状态
+        xTaskCreate(RJ45_Check_Task, "lan_http_send_task", 8192, NULL, 1, NULL); //创建任务，不断检查RJ45连接状态
         return SUCCESS;
 }
 

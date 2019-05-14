@@ -82,10 +82,6 @@ esp_timer_handle_t http_timer_suspend_p = NULL;
 int8_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
         printf("wifi http send start!\n");
-
-        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                            false, true, portMAX_DELAY);
-
         const struct addrinfo hints = {
             .ai_family = AF_INET,
             .ai_socktype = SOCK_STREAM,
@@ -222,21 +218,8 @@ void http_get_task(void *pvParameters)
                 /* Wait for the callback to set the CONNECTED_BIT in the
            event group.a
         */
-
-                WifiStatus = WIFISTATUS_DISCONNET;
-
-                if (RJ45_STATUS == RJ45_DISCONNECT)
-                {
-                        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                                            false, true, portMAX_DELAY);
-
-                        ESP_LOGI(TAG, "Connected to AP");
-                        WifiStatus = WIFISTATUS_CONNET;
-                }
-                else
-                {
-                        ESP_LOGI(TAG, "Connected to LAN");
-                }
+                xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
+                                    false, true, portMAX_DELAY);
 
                 ESP_LOGI("RAM", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
 

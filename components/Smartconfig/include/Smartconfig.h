@@ -10,11 +10,10 @@ void init_wifi(void);
 void wifi_init_softap(void);
 void wifi_init_apsta(void);
 void reconnect_wifi_usr(void);
-static const int CONNECTED_BIT = BIT0;
-static const int ESPTOUCH_DONE_BIT = BIT1;
 
-TaskHandle_t my_tcp_connect_Handle;
-EventGroupHandle_t wifi_event_group;
+static const int CONNECTED_BIT = BIT0;
+extern TaskHandle_t my_tcp_connect_Handle;
+extern EventGroupHandle_t wifi_event_group;
 
 #define WIFISTATUS_CONNET 0X01
 #define WIFISTATUS_DISCONNET 0X00
