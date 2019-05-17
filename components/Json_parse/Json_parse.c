@@ -439,7 +439,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
         cJSON *json_data_vesion = NULL;
 
         json_data_parse = cJSON_Parse(mqtt_json_data);
-        printf("%s", cJSON_Print(json_data_parse));
+        // printf("%s", cJSON_Print(json_data_parse));
 
         if (mqtt_json_data[0] != '{')
         {

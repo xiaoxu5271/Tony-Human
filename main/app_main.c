@@ -193,7 +193,7 @@ void app_main(void)
         }
 
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                            false, true, portMAX_DELAY);
+                            false, true, portMAX_DELAY); //等待网络连接、
 
         vTaskDelay(5000 / portTICK_RATE_MS); //延时5s，开机滤掉抖动状态
         human_status = NOHUMAN;

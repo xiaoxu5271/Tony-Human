@@ -16,14 +16,22 @@
 #include "lwip/sockets.h"
 #include "lwip/dns.h"
 #include "lwip/netdb.h"
-
+#include "Mqtt.h"
 #include "esp_log.h"
 #include "mqtt_client.h"
+
 #include "Json_parse.h"
 #include "Smartconfig.h"
 #include "Bluetooth.h"
+#include "lan_mqtt.h"
+#include "w5500_driver.h"
 
-#include "Mqtt.h"
+char mqtt_pwd[41];
+char mqtt_usr[17];
+char mqtt_topic[100];
+
+uint8_t wifi_mqtt_status = 0;
+uint8_t MQTT_INIT_STA = 0;
 
 static const char *TAG = "MQTT_CLIENT";
 
@@ -34,14 +42,12 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
         esp_mqtt_client_handle_t client_handler = event->client;
         int msg_id;
         // your_context_t *context = event->context;
-        char topic[100];
-        sprintf(topic, "%s%s%s%s%s%c", "/product/", ProductId, "/channel/", ChannelId, "/control", '\0');
         //printf("!!!!!!!!!!!!!!!!!topic=%s\n",topic);
         switch (event->event_id)
         {
         case MQTT_EVENT_CONNECTED:
                 ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-                msg_id = esp_mqtt_client_subscribe(client_handler, topic, 0);
+                msg_id = esp_mqtt_client_subscribe(client_handler, mqtt_topic, 0);
                 //msg_id = esp_mqtt_client_subscribe(client_handler, "/product/undefined/channel/225/control", 0);
                 ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
@@ -69,7 +75,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_DATA:
                 ESP_LOGI(TAG, "MQTT_EVENT_DATA");
                 //printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-                //printf("DATA=%.*s\r\n", event->data_len, event->data);
+                printf("DATA=%.*s\r\n", event->data_len, event->data);
                 //printf("strchr --> %s", strchr(event->data, "{"));
                 //parse_objects_mqtt(strchr(event->data, "{"));
                 parse_objects_mqtt(event->data); //收到平台MQTT数据并解析
@@ -86,29 +92,44 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 
 void initialise_mqtt(void)
 {
-        char mqtt_pwd[41];
-        char mqtt_usr[17];
-
         sprintf(mqtt_pwd, "%s%s%c", "api_key=", ApiKey, '\0');
         sprintf(mqtt_usr, "%s%s%c", "c_id=", ChannelId, '\0');
+        sprintf(mqtt_topic, "%s%s%s%s%s%c", "/product/", ProductId, "/channel/", ChannelId, "/control", '\0');
 
-        const esp_mqtt_client_config_t mqtt_cfg = {
-            .uri = "mqtt://api.ubibot.cn",
-            .event_handle = mqtt_event_handler,
-            //.username = "c_id=225",
-            .username = mqtt_usr,
-            //.password = "api_key=00000000000000000000000000000000"
-            .password = mqtt_pwd,
-            .client_id = BleName};
+        const esp_mqtt_client_config_t mqtt_cfg =
+            {
+                .uri = "mqtt://api.ubibot.cn",
+                .event_handle = mqtt_event_handler,
+                //.username = "c_id=225",
+                .username = mqtt_usr,
+                //.password = "api_key=00000000000000000000000000000000"
+                .password = mqtt_pwd,
+                .client_id = BleName
+
+            };
+        client = esp_mqtt_client_init(&mqtt_cfg);
 
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                             false, true, portMAX_DELAY);
-        client = esp_mqtt_client_init(&mqtt_cfg);
-        ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+
+        if (RJ45_STATUS == RJ45_CONNECTED)
+        {
+                if (lan_mqtt_status == 0)
+                {
+                        start_lan_mqtt();
+                }
+        }
+        else
+        {
+                start_wifi_mqtt();
+        }
+        MQTT_INIT_STA = 1;
+        // ESP_ERROR_CHECK(esp_mqtt_client_start(client));
 }
 
-void stop_user_mqtt(void)
+void stop_wifi_mqtt(void)
 {
+        wifi_mqtt_status = 0;
         ESP_LOGI(TAG, "停止MQTT连接");
         if (esp_mqtt_client_stop(client))
         {
@@ -116,11 +137,12 @@ void stop_user_mqtt(void)
         }
 }
 
-void start_user_mqtt(void)
+void start_wifi_mqtt(void)
 {
+        wifi_mqtt_status = 1;
         ESP_LOGI(TAG, "开启MQTT连接");
         if (esp_mqtt_client_start(client))
         {
-                ESP_LOGI(TAG, "停止MQTT连接成功");
+                ESP_LOGI(TAG, "开启MQTT连接成功");
         }
 }

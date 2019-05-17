@@ -26,12 +26,7 @@ EventGroupHandle_t wifi_event_group;
 
 wifi_config_t s_staconf;
 
-enum wifi_connect_sta
-{
-        connect_Y = 1,
-        connect_N = 2,
-};
-uint8_t wifi_con_sta = 0;
+uint8_t wifi_connect_sta = connect_N;
 uint8_t start_AP = 0;
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
@@ -45,12 +40,13 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         case SYSTEM_EVENT_STA_GOT_IP:
                 xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
                 Led_Status = LED_STA_WORK; //联网工作
+                wifi_connect_sta = connect_Y;
                 break;
 
         case SYSTEM_EVENT_STA_DISCONNECTED:
 
                 ESP_LOGI(TAG, "断网");
-
+                wifi_connect_sta = connect_N;
                 if (start_AP != 1) //判断是不是要进入AP模式
                 {
                         if (RJ45_STATUS == RJ45_DISCONNECT)

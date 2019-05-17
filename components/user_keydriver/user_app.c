@@ -104,12 +104,38 @@ void user_key_cd_task(void *arg)
                         break;
 
                 case 2:
-                        Task_key_num = 0;
+                        // Task_key_num = 0;
                         // stop_user_mqtt();
                         break;
 
                 default:
                         break;
+                }
+                vTaskDelay(100 / portTICK_RATE_MS);
+        }
+}
+
+static void vTask_view_Work(void *pvParameters)
+{
+        uint8_t pcWriteBuffer[500];
+
+        while (1)
+        {
+                if (Task_key_num == 2)
+                {
+                        Task_key_num = 0;
+                        /* K1键按下 打印任务执行情况 */
+
+                        printf("=======================================================\r\n");
+                        printf("任务名           任务状态   优先级      剩余栈   任务序号\r\n");
+                        vTaskList((char *)&pcWriteBuffer);
+                        printf("%s\r\n", pcWriteBuffer);
+
+                        printf("\r\n任务名            运行计数              使用率\r\n");
+                        vTaskGetRunTimeStats((char *)&pcWriteBuffer);
+                        printf("%s\r\n", pcWriteBuffer);
+
+                        /* 其他的键值不处理 */
                 }
                 vTaskDelay(100 / portTICK_RATE_MS);
         }
@@ -129,4 +155,5 @@ void user_app_key_init(void)
         err_code = user_key_init(gs_m_key_config, BOARD_BUTTON_COUNT, DECOUNE_TIMER, long_pressed_cb, short_pressed_cb);
         ESP_LOGI("user_app_key_init", "user_key_init is %d\n", err_code);
         xTaskCreate(user_key_cd_task, "user_key_cd_task", 8192, NULL, 1, NULL);
+        xTaskCreate(vTask_view_Work, "vTask_view_Work", 8192, NULL, 1, NULL);
 }

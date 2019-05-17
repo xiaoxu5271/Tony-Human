@@ -32,16 +32,9 @@
 #include "w5500_dns.h"
 #include "Http.h"
 #include "Led.h"
+#include "lan_mqtt.h"
 #include "Smartconfig.h"
-
-// extern OsiSyncObj_t Spi_Mutex;   //Used for SPI Lock
-// extern OsiSyncObj_t cJSON_Mutex; //Used for cJSON Lock
-// extern OsiSyncObj_t xMutex5;     //Used for Post_Data_Buffer Lock
-
-// extern OsiSyncObj_t xBinary2; //For Temp&Humi Sensor Task
-// extern OsiSyncObj_t xBinary3; //For Light Sensor Task
-// extern OsiSyncObj_t xBinary6; //For external Temprature Measure
-// extern OsiSyncObj_t xBinary7; //For Power Measure Task
+#include "Mqtt.h"
 
 #define RJ45_DEBUG 1
 #define FAILURE -1
@@ -49,30 +42,18 @@
 #define RJ45_STATUS_TIMEOUT 3
 #define W5500_DNS_FAIL -3
 #define NO_RJ45_ACCESS -4
+// #define WEB_SERVER "api.ubibot.cn"
 
-uint32_t socker_port = 3000; //不可变
-uint8_t LAN_WEB_SERVER[16];
+uint32_t socker_port = 3000; //本地端口 不可变
 uint8_t ethernet_buf[ETHERNET_DATA_BUF_SIZE];
 uint8_t dns_host_ip[4];
 uint8_t server_port = 80;
 uint8_t standby_dns[4] = {8, 8, 8, 8};
 uint8_t RJ45_STATUS;
+uint8_t Ethernet_Timeout = 0; //ethernet http application time out
 
 wiz_NetInfo gWIZNETINFO;
 wiz_NetInfo gWIZNETINFO_READ;
-extern char POST_REQUEST_URI[255];
-extern char Post_Data_Buffer[4096];
-extern volatile bool NET_DATA_POST;
-extern volatile unsigned long POST_NUM;
-extern volatile unsigned long DELETE_ADDR, POST_ADDR, WRITE_ADDR;
-
-extern short Prase_Resp_Data(uint8_t mode, char *recv_buf, uint16_t buf_len); //Prase GPRS/ETHERNET Post Resp Data
-extern void PostAddrChage(unsigned long data_num, unsigned long end_addr);    //deleted the post data
-
-uint8_t Ethernet_Timeout = 0; //ethernet http application time out
-uint8_t Ethernet_netSet_val = 0;
-uint8_t ethernet_http_mode = ACTIVE_DEVICE_MODE;
-uint8_t Http_Buffer;
 
 SemaphoreHandle_t xMutex_W5500_SPI;
 
@@ -159,20 +140,13 @@ void w5500_lib_init(void)
 /*******************************************************************************
 // check RJ45 connected                              
 *******************************************************************************/
-uint8_t check_rj45_status(void)
+int8_t check_rj45_status(void)
 {
-
-        // for (i = 0; i < RJ45_STATUS_TIMEOUT; i++)
-
         if (IINCHIP_READ(PHYCFGR) & 0x01)
         {
                 // printf("RJ45 OK\n");
                 return ESP_OK;
         }
-        // printf("RJ45 FAIL\n ");
-        // vTaskDelay(1000 / portTICK_RATE_MS);
-
-        // printf("RJ45 FAIL\n ");
         return ESP_FAIL;
 }
 
@@ -351,6 +325,7 @@ int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint1
 
         while (1)
         {
+                printf("while ing !!!\n");
                 uint8_t temp;
                 switch (temp = getSn_SR(SOCK_DHCP))
                 {
@@ -407,7 +382,7 @@ int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint1
 
                 case SOCK_CLOSED:
                         printf("Closed\r\n");
-                        lan_socket(SOCK_DHCP, Sn_MR_TCP, socker_port++, 0x00);
+                        lan_socket(SOCK_DHCP, Sn_MR_TCP, socker_port, 0x00);
                         if (ret > 0) //需要等到接收到数据才退出函数
                                 return ret;
                         break;
@@ -432,19 +407,39 @@ void RJ45_Check_Task(void *arg)
                         if (need_reinit == 1)
                         {
                                 W5500_Network_Init();
+                                lan_dns_resolve(ethernet_buf);
                         }
                         need_reinit = 0;
-                        RJ45_STATUS = RJ45_CONNECTED; //需要放在最后，等待重新初始化完成
-                        Led_Status = LED_STA_WORK;    //联网工作
-                        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+                        RJ45_STATUS = RJ45_CONNECTED;                        //需要放在最后，等待重新初始化完成
+                        Led_Status = LED_STA_WORK;                           //联网工作
+                        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT); //联网标志
+
+                        if (lan_mqtt_status == 0)
+                        {
+                                start_lan_mqtt();
+                        }
+                        if (wifi_mqtt_status == 1)
+                        {
+                                stop_wifi_mqtt();
+                        }
                 }
                 else
                 {
                         RJ45_STATUS = RJ45_DISCONNECT;
                         if (need_reinit == 0)
                         {
-                                printf("网线连接断开！\n"); //只打印一次
+                                vTaskDelay(100 / portTICK_RATE_MS); //等待 lan_mqtt 断开连接
+                                printf("网线连接断开！\n");         //只打印一次
                         }
+
+                        if (wifi_connect_sta == connect_Y)
+                        {
+                                if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //初始化完成
+                                {
+                                        start_wifi_mqtt();
+                                }
+                        }
+
                         need_reinit = 1;
                 }
                 vTaskDelay(100 / portTICK_RATE_MS);
@@ -455,6 +450,7 @@ void RJ45_Check_Task(void *arg)
 int8_t w5500_user_int(void)
 {
         w5500_spi_init();
+        lan_mqtt_init();
 
         gpio_config_t io_conf;
         io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
@@ -470,16 +466,17 @@ int8_t w5500_user_int(void)
 
         w5500_reset();
         w5500_lib_init();
-
+        xTaskCreate(RJ45_Check_Task, "lan_http_send_task", 8192, NULL, 1, NULL); //创建任务，不断检查RJ45连接状态
         // printf(" VERSIONR_ID: %02x\n", IINCHIP_READ(VERSIONR));
         int8_t ret;
         ret = check_rj45_status();
         if (ret != ESP_OK)
         {
+                RJ45_STATUS = RJ45_DISCONNECT;
                 printf("未检测到网线接入!\n");
                 return NO_RJ45_ACCESS;
         }
-        printf("网线接入!\n");
+        // printf("网线接入!\n");
         W5500_Network_Init();
         ret = lan_dns_resolve(ethernet_buf);
         if (ret != SUCCESS)
@@ -489,7 +486,6 @@ int8_t w5500_user_int(void)
         }
         printf("DNS_SUCCESS!!!\n");
         RJ45_STATUS = RJ45_CONNECTED;
-        xTaskCreate(RJ45_Check_Task, "lan_http_send_task", 8192, NULL, 1, NULL); //创建任务，不断检查RJ45连接状态
         return SUCCESS;
 }
 

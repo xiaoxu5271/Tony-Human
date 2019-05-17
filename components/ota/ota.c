@@ -63,7 +63,7 @@ void ota_task(void *arg)
         vTaskSuspend(httpHandle);
         vTaskSuspend(Sht30_Handle);
         vTaskSuspend(Human_Handle);
-        stop_user_mqtt();
+        stop_wifi_mqtt();
 
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                             false, true, portMAX_DELAY);
@@ -113,7 +113,7 @@ void ota_task(void *arg)
                         esp_timer_start_periodic(http_timer_suspend_p, 1000 * 1000 * 10);
                         xTaskResumeFromISR(Sht30_Handle);
                         xTaskResumeFromISR(Human_Handle);
-                        start_user_mqtt();
+                        start_wifi_mqtt();
                 }
                 else
                 {

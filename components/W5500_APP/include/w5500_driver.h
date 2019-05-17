@@ -46,12 +46,12 @@
 #define RJ45_DISCONNECT 2
 
 extern uint8_t RJ45_STATUS;
+extern uint8_t dns_host_ip[4];
 
 /*-------------------------------- Includes ----------------------------------*/
 //extern short Ethernet_http_application(uint8_t mode);
 int8_t w5500_user_int(void);
 int8_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size);
-uint8_t RJ45_State(void);
 
 #endif
 /*******************************************************************************
