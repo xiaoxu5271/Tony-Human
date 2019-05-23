@@ -31,7 +31,7 @@
 void initialise_http(void);
 
 void http_send_mes(uint8_t post_status);
-int http_activate(void);
+int32_t http_activate(void);
 
 uint8_t human_status;
 TaskHandle_t httpHandle;

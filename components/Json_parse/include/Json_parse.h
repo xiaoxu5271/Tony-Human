@@ -124,18 +124,12 @@ int read_bluetooth(void);
 //creat_json *create_http_json(uint8_t post_status);
 void create_http_json(uint8_t post_status, creat_json *pCreat_json);
 
-enum
-{
-        Automatic_mode = 1,       //自动
-        Manual_mode = 0,          //手动
-        Storm_mode = 1,           //风速大强制收帘
-        Not_Storm_mode = 0,       //阳光强，正常控制
-        Frost_protection = 1,     //结霜，强制收帘
-        Not_frost_protection = 0, //未结霜
-};
-
 uint8_t work_status;    //当前工作状态
 uint8_t protect_status; //保护状态，用于火灾和风速混合保护的切换
+
+unsigned long fn_dp; //数据发送频率
+unsigned long fn_th; //温湿度频率
+uint8_t cg_data_led; //发送数据 LED状态
 
 int auto_ctl_count; //自动控制指令计数，收到平台的自动控制指令后该变量清零，在定时器中每1s+1，加到180S（3min）后，进入本地计算
 

@@ -38,6 +38,65 @@ char get_num[2];
 char *key;
 int n = 0, i;
 
+static short Parse_metadata(char *ptrptr)
+{
+        bool fn_flag = 0;
+
+        if (NULL == ptrptr)
+        {
+                return FAILURE;
+        }
+
+        cJSON *pJsonJson = cJSON_Parse(ptrptr);
+        if (NULL == pJsonJson)
+        {
+                cJSON_Delete(pJsonJson); //delete pJson
+
+                return FAILURE;
+        }
+
+        cJSON *pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_th"); //"fn_th"
+        if (NULL != pSubSubSub)
+        {
+
+                if ((unsigned long)pSubSubSub->valueint != fn_th)
+                {
+                        fn_flag = 1;
+                        fn_th = (unsigned long)pSubSubSub->valueint;
+                        printf("fn_th = %ld\n", fn_th);
+                }
+        }
+
+        pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_dp"); //"fn_dp"
+        if (NULL != pSubSubSub)
+        {
+
+                if ((unsigned long)pSubSubSub->valueint != fn_dp)
+                {
+                        fn_flag = 1;
+                        fn_dp = (unsigned long)pSubSubSub->valueint;
+                        printf("fn_dp = %ld\n", fn_dp);
+                }
+        }
+
+        pSubSubSub = cJSON_GetObjectItem(pJsonJson, "cg_data_led"); //"cg_data_led"
+        if (NULL != pSubSubSub)
+        {
+
+                if ((uint8_t)pSubSubSub->valueint != cg_data_led)
+                {
+                        cg_data_led = (uint8_t)pSubSubSub->valueint;
+                        printf("cg_data_led = %d\n", cg_data_led);
+                }
+
+                cJSON_Delete(pJsonJson);
+
+                return SUCCESS;
+        }
+
+        return 1;
+}
+
 int read_bluetooth(void)
 {
         uint8_t bluetooth_sta[256];
@@ -215,7 +274,7 @@ esp_err_t parse_objects_http_active(char *http_json_data)
         cJSON *json_data_parse_time_value = NULL;
         cJSON *json_data_parse_channel_channel_write_key = NULL;
         cJSON *json_data_parse_channel_channel_id_value = NULL;
-        //cJSON *json_data_parse_command_value = NULL;
+        cJSON *json_data_parse_channel_metadata = NULL;
         cJSON *json_data_parse_channel_value = NULL;
         //char *json_print;
 
@@ -263,7 +322,10 @@ esp_err_t parse_objects_http_active(char *http_json_data)
 
                         json_data_parse_channel_channel_write_key = cJSON_GetObjectItem(json_data_parse_channel_value, "write_key");
                         json_data_parse_channel_channel_id_value = cJSON_GetObjectItem(json_data_parse_channel_value, "channel_id");
+                        json_data_parse_channel_metadata = cJSON_GetObjectItem(json_data_parse_channel_value, "metadata");
 
+                        // printf("metadata: %s\n", json_data_parse_channel_metadata->valuestring);
+                        Parse_metadata(json_data_parse_channel_metadata->valuestring);
                         //printf("api key=%s\r\n", json_data_parse_channel_channel_write_key->valuestring);
                         //printf("channel_id=%s\r\n", json_data_parse_channel_channel_id_value->valuestring);
 
@@ -305,8 +367,8 @@ esp_err_t parse_objects_http_respond(char *http_json_data)
         }
         else
         {
-
                 json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "result");
+                printf("result: %s\n", json_data_parse_value->valuestring);
                 if (!(strcmp(json_data_parse_value->valuestring, "error")))
                 {
                         json_data_parse_errorcode = cJSON_GetObjectItem(json_data_parse, "errorCode");
@@ -319,12 +381,19 @@ esp_err_t parse_objects_http_respond(char *http_json_data)
 
                                 //清空channelid，激活后获取
                                 uint8_t data_write3[16] = "\0";
-                                ;
+
                                 E2prom_Write(0x20, data_write3, 16);
 
                                 fflush(stdout); //使stdout清空，就会立刻输出所有在缓冲区的内容。
                                 esp_restart();  //芯片复位 函数位于esp_system.h
                         }
+                }
+
+                json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "metadata");
+                if (json_data_parse_value != NULL)
+                {
+                        // printf("metadata: %s\n", json_data_parse_value->valuestring);
+                        Parse_metadata(json_data_parse_value->valuestring);
                 }
         }
         cJSON_Delete(json_data_parse);

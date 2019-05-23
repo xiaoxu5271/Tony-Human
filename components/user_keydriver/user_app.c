@@ -155,5 +155,5 @@ void user_app_key_init(void)
         err_code = user_key_init(gs_m_key_config, BOARD_BUTTON_COUNT, DECOUNE_TIMER, long_pressed_cb, short_pressed_cb);
         ESP_LOGI("user_app_key_init", "user_key_init is %d\n", err_code);
         xTaskCreate(user_key_cd_task, "user_key_cd_task", 8192, NULL, 1, NULL);
-        xTaskCreate(vTask_view_Work, "vTask_view_Work", 8192, NULL, 1, NULL);
+        // xTaskCreate(vTask_view_Work, "vTask_view_Work", 8192, NULL, 1, NULL);
 }

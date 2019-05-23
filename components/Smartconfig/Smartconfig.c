@@ -31,123 +31,123 @@ uint8_t start_AP = 0;
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
-        switch (event->event_id)
+    switch (event->event_id)
+    {
+    case SYSTEM_EVENT_STA_START:
+        //esp_wifi_connect();
+        break;
+
+    case SYSTEM_EVENT_STA_GOT_IP:
+        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+        Led_Status = LED_STA_WORK; //联网工作
+        wifi_connect_sta = connect_Y;
+        break;
+
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+
+        ESP_LOGI(TAG, "断网");
+        wifi_connect_sta = connect_N;
+        if (start_AP != 1) //判断是不是要进入AP模式
         {
-        case SYSTEM_EVENT_STA_START:
-                //esp_wifi_connect();
-                break;
-
-        case SYSTEM_EVENT_STA_GOT_IP:
-                xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-                Led_Status = LED_STA_WORK; //联网工作
-                wifi_connect_sta = connect_Y;
-                break;
-
-        case SYSTEM_EVENT_STA_DISCONNECTED:
-
-                ESP_LOGI(TAG, "断网");
-                wifi_connect_sta = connect_N;
-                if (start_AP != 1) //判断是不是要进入AP模式
-                {
-                        if (RJ45_STATUS == RJ45_DISCONNECT)
-                        {
-                                Led_Status = LED_STA_WIFIERR; //断网
-                                xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-                        }
-                        esp_wifi_connect();
-                }
-                break;
-
-        case SYSTEM_EVENT_AP_STACONNECTED: //AP模式-有STA连接成功
-                //作为ap，有sta连接
-                ESP_LOGI(TAG, "station:" MACSTR " join,AID=%d\n",
-                         MAC2STR(event->event_info.sta_connected.mac),
-                         event->event_info.sta_connected.aid);
-                xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-                break;
-
-        case SYSTEM_EVENT_AP_STADISCONNECTED: //AP模式-有STA断线
-                ESP_LOGI(TAG, "station:" MACSTR "leave,AID=%d\n",
-                         MAC2STR(event->event_info.sta_disconnected.mac),
-                         event->event_info.sta_disconnected.aid);
-
-                g_rxtx_need_restart = true;
+            if (LAN_DNS_STATUS == 0)
+            {
+                Led_Status = LED_STA_WIFIERR; //断网
                 xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-                break;
-
-        default:
-                break;
+            }
+            esp_wifi_connect();
         }
-        return ESP_OK;
+        break;
+
+    case SYSTEM_EVENT_AP_STACONNECTED: //AP模式-有STA连接成功
+        //作为ap，有sta连接
+        ESP_LOGI(TAG, "station:" MACSTR " join,AID=%d\n",
+                 MAC2STR(event->event_info.sta_connected.mac),
+                 event->event_info.sta_connected.aid);
+        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+        break;
+
+    case SYSTEM_EVENT_AP_STADISCONNECTED: //AP模式-有STA断线
+        ESP_LOGI(TAG, "station:" MACSTR "leave,AID=%d\n",
+                 MAC2STR(event->event_info.sta_disconnected.mac),
+                 event->event_info.sta_disconnected.aid);
+
+        g_rxtx_need_restart = true;
+        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+        break;
+
+    default:
+        break;
+    }
+    return ESP_OK;
 }
 
 void initialise_wifi(char *wifi_ssid, char *wifi_password)
 {
-        printf("WIFI Reconnect,SSID=%s,PWD=%s\r\n", wifi_ssid, wifi_password);
+    printf("WIFI Reconnect,SSID=%s,PWD=%s\r\n", wifi_ssid, wifi_password);
 
-        ESP_ERROR_CHECK(esp_wifi_stop());
-        ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
+    ESP_ERROR_CHECK(esp_wifi_stop());
+    ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
 
-        if (s_staconf.sta.ssid[0] != '\0') //判断当前系统中是否有WIFI信息,
-        {
-                memset(&s_staconf.sta, 0, sizeof(s_staconf)); //清空原有数据
-        }
-        strcpy(s_staconf.sta.ssid, wifi_ssid);
-        strcpy(s_staconf.sta.password, wifi_password);
+    if (s_staconf.sta.ssid[0] != '\0') //判断当前系统中是否有WIFI信息,
+    {
+        memset(&s_staconf.sta, 0, sizeof(s_staconf)); //清空原有数据
+    }
+    strcpy(s_staconf.sta.ssid, wifi_ssid);
+    strcpy(s_staconf.sta.password, wifi_password);
 
-        if (start_AP == 1) //如果是从AP模式进入，则需要重新设置为STA模式
-        {
-                start_AP = 0;
-                ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-        }
+    if (start_AP == 1) //如果是从AP模式进入，则需要重新设置为STA模式
+    {
+        start_AP = 0;
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    }
 
-        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
-        ESP_ERROR_CHECK(esp_wifi_start());
-        esp_wifi_connect();
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    esp_wifi_connect();
 }
 
 void reconnect_wifi_usr(void)
 {
-        printf("WIFI Reconnect\r\n");
-        ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
+    printf("WIFI Reconnect\r\n");
+    ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
 
-        ESP_ERROR_CHECK(esp_wifi_stop());
-        memset(&s_staconf.sta, 0, sizeof(s_staconf));
+    ESP_ERROR_CHECK(esp_wifi_stop());
+    memset(&s_staconf.sta, 0, sizeof(s_staconf));
 
-        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
-        ESP_ERROR_CHECK(esp_wifi_start());
-        esp_wifi_connect();
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    esp_wifi_connect();
 }
 
 void init_wifi(void) //
 {
-        start_AP = 0;
-        tcpip_adapter_init();
-        wifi_event_group = xEventGroupCreate();
-        memset(&s_staconf.sta, 0, sizeof(s_staconf));
-        ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    start_AP = 0;
+    tcpip_adapter_init();
+    wifi_event_group = xEventGroupCreate();
+    memset(&s_staconf.sta, 0, sizeof(s_staconf));
+    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
-        ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-        ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE)); //实验，测试解决wifi中断问题
-        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-        ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
-        if (s_staconf.sta.ssid[0] != '\0')
-        {
-                printf("wifi_init_sta finished.");
-                printf("connect to ap SSID:%s password:%s\r\n",
-                       s_staconf.sta.ssid, s_staconf.sta.password);
-                ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
-                ESP_ERROR_CHECK(esp_wifi_start());
-                esp_wifi_connect();
-                //Led_Status = LED_STA_TOUCH;
-        }
-        else
-        {
-                printf("Waiting for SetupWifi ....\r\n");
-                wifi_init_softap();
-                my_tcp_connect();
-        }
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE)); //实验，测试解决wifi中断问题
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
+    if (s_staconf.sta.ssid[0] != '\0')
+    {
+        printf("wifi_init_sta finished.");
+        printf("connect to ap SSID:%s password:%s\r\n",
+               s_staconf.sta.ssid, s_staconf.sta.password);
+        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
+        ESP_ERROR_CHECK(esp_wifi_start());
+        esp_wifi_connect();
+        //Led_Status = LED_STA_TOUCH;
+    }
+    else
+    {
+        printf("Waiting for SetupWifi ....\r\n");
+        wifi_init_softap();
+        my_tcp_connect();
+    }
 }
 
 /*
@@ -162,28 +162,28 @@ void init_wifi(void) //
 //TaskHandle_t my_tcp_connect_Handle = NULL;
 void wifi_init_softap(void)
 {
-        start_AP = 1;
-        Led_Status = LED_STA_AP;
-        ESP_ERROR_CHECK(esp_wifi_stop());
-        wifi_config_t wifi_config = {
-            .ap = {
-                .ssid = SOFT_AP_SSID,
-                .password = SOFT_AP_PAS,
-                .ssid_len = 0,
-                .max_connection = SOFT_AP_MAX_CONNECT,
-                .authmode = WIFI_AUTH_WPA_WPA2_PSK}};
-        if (strlen(SOFT_AP_PAS) == 0)
-        {
-                wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-        }
-        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
-        ESP_ERROR_CHECK(esp_wifi_start());
-        ESP_LOGI(TAG, "SoftAP set finish,SSID:%s password:%s \n",
-                 wifi_config.ap.ssid, wifi_config.ap.password);
+    start_AP = 1;
+    Led_Status = LED_STA_AP;
+    ESP_ERROR_CHECK(esp_wifi_stop());
+    wifi_config_t wifi_config = {
+        .ap = {
+            .ssid = SOFT_AP_SSID,
+            .password = SOFT_AP_PAS,
+            .ssid_len = 0,
+            .max_connection = SOFT_AP_MAX_CONNECT,
+            .authmode = WIFI_AUTH_WPA_WPA2_PSK}};
+    if (strlen(SOFT_AP_PAS) == 0)
+    {
+        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+    }
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_LOGI(TAG, "SoftAP set finish,SSID:%s password:%s \n",
+             wifi_config.ap.ssid, wifi_config.ap.password);
 
-        //my_tcp_connect_Handle = NULL;
-        xTaskCreate(&my_tcp_connect_task, "my_tcp_connect_task", 4096, NULL, 5, &my_tcp_connect_Handle);
+    //my_tcp_connect_Handle = NULL;
+    xTaskCreate(&my_tcp_connect_task, "my_tcp_connect_task", 4096, NULL, 5, &my_tcp_connect_Handle);
 }
 
 /*
@@ -196,27 +196,27 @@ void wifi_init_softap(void)
 */
 void wifi_init_apsta(void)
 {
-        wifi_event_group = xEventGroupCreate();
-        tcpip_adapter_init();
-        ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-        ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-        ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-        wifi_config_t sta_wifi_config;
-        ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &sta_wifi_config));
+    wifi_event_group = xEventGroupCreate();
+    tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    wifi_config_t sta_wifi_config;
+    ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &sta_wifi_config));
 
-        wifi_config_t ap_wifi_config =
-            {
-                .ap = {
-                    .ssid = "esp32_ap",
-                    .password = "",
-                    //     .authmode = WIFI_AUTH_WPA_WPA2_PSK,
-                    .max_connection = 1,
-                },
-            };
+    wifi_config_t ap_wifi_config =
+        {
+            .ap = {
+                .ssid = "esp32_ap",
+                .password = "",
+                //     .authmode = WIFI_AUTH_WPA_WPA2_PSK,
+                .max_connection = 1,
+            },
+        };
 
-        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
-        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_wifi_config));
-        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_wifi_config));
-        ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
 }
