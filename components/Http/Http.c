@@ -81,7 +81,7 @@ esp_timer_handle_t http_timer_suspend_p = NULL;
 
 int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
-    printf("wifi http send start!\n");
+    // printf("wifi http send start!\n");
     const struct addrinfo hints = {
         .ai_family = AF_INET,
         .ai_socktype = SOCK_STREAM,
@@ -96,7 +96,6 @@ int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uin
     {
         ESP_LOGE(TAG, "DNS lookup failed err=%d res=%p", err, res);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        xSemaphoreGive(xMutex_Http_Send);
         return -1;
     }
 
@@ -112,7 +111,6 @@ int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uin
         close(s);
         freeaddrinfo(res);
         vTaskDelay(4000 / portTICK_PERIOD_MS);
-        xSemaphoreGive(xMutex_Http_Send);
         return -1;
     }
     ESP_LOGI(TAG, "... allocated socket");
@@ -123,20 +121,18 @@ int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uin
         close(s);
         freeaddrinfo(res);
         vTaskDelay(4000 / portTICK_PERIOD_MS);
-        xSemaphoreGive(xMutex_Http_Send);
         return -1;
     }
 
     ESP_LOGI(TAG, "... connected");
     freeaddrinfo(res);
 
-    printf("http_send_buff send_buff: %s\n", (char *)send_buff);
+    ESP_LOGD(TAG, "http_send_buff send_buff: %s\n", (char *)send_buff);
     if (write(s, (char *)send_buff, send_size) < 0) //step4：发送http包
     {
         ESP_LOGE(TAG, "... socket send failed");
         close(s);
         vTaskDelay(4000 / portTICK_PERIOD_MS);
-        xSemaphoreGive(xMutex_Http_Send);
         return -1;
     }
     ESP_LOGI(TAG, "... socket send success");
@@ -148,8 +144,7 @@ int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uin
     {
         ESP_LOGE(TAG, "... failed to set socket receiving timeout");
         close(s);
-        vTaskDelay(4000 / portTICK_PERIOD_MS);
-        xSemaphoreGive(xMutex_Http_Send);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
         return -1;
     }
     ESP_LOGI(TAG, "... set socket receiving timeout success");
@@ -158,39 +153,31 @@ int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uin
 
     bzero((uint16_t *)recv_buff, recv_size);
     r = read(s, (uint16_t *)recv_buff, recv_size);
-    printf("r=%d,activate recv_buf=%s\r\n", r, (char *)recv_buff);
+    ESP_LOGD(TAG, "r=%d,activate recv_buf=%s\r\n", r, (char *)recv_buff);
     close(s);
-    printf("http send end!\n");
-    xSemaphoreGive(xMutex_Http_Send);
+    // printf("http send end!\n");
     return r;
 }
 
 int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
-
     xSemaphoreTake(xMutex_Http_Send, portMAX_DELAY);
     int32_t ret;
     if (LAN_DNS_STATUS == 1)
     {
-        if (lan_dns_resolve() == SUCCESS)
-        {
-            printf("lan send!!!\n");
-            ret = lan_http_send(send_buff, send_size, recv_buff, recv_size);
-            // printf("lan_http_send return :%d\n", ret);
-            xSemaphoreGive(xMutex_Http_Send);
-            return ret;
-        }
-        else
-        {
-            LAN_DNS_STATUS = 0;
-            return -1;
-        }
+        printf("lan send!!!\n");
+        ret = lan_http_send(send_buff, send_size, recv_buff, recv_size);
+        // printf("lan_http_send return :%d\n", ret);
+        xSemaphoreGive(xMutex_Http_Send);
+        return ret;
     }
 
     else
     {
         printf("wifi send!!!\n");
-        return wifi_http_send(send_buff, send_size, recv_buff, recv_size);
+        ret = wifi_http_send(send_buff, send_size, recv_buff, recv_size);
+        xSemaphoreGive(xMutex_Http_Send);
+        return ret;
     }
 }
 
@@ -287,6 +274,18 @@ void http_send_mes(uint8_t post_status)
     char recv_buf[1024];
     char build_po_url[256];
     char build_po_url_json[1024];
+    char NET_NAME[35];
+    if (LAN_DNS_STATUS == 1)
+    {
+
+        bzero(NET_NAME, sizeof(NET_NAME));
+        strcpy(NET_NAME, "Wired Network");
+    }
+    else
+    {
+        bzero(NET_NAME, sizeof(NET_NAME));
+        strcpy(NET_NAME, wifi_data.wifi_ssid);
+    }
 
     creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
     //pCreat_json1->creat_json_b=malloc(1024);
@@ -297,21 +296,21 @@ void http_send_mes(uint8_t post_status)
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, http.POST_URL_SSID, wifi_data.wifi_ssid,
+        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, http.POST_URL_SSID, NET_NAME,
                 http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
     else
     {
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_SSID, wifi_data.wifi_ssid, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
+        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_SSID, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
                 http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
 
     sprintf(build_po_url_json, "%s%s", build_po_url, pCreat_json1->creat_json_b);
 
-    printf("JSON_test = : %s\n", pCreat_json1->creat_json_b);
+    // printf("JSON_test = : %s\n", pCreat_json1->creat_json_b);
 
     free(pCreat_json1);
-    printf("build_po_url_json =\r\n%s\r\n build end \r\n", build_po_url_json);
+    // printf("build_po_url_json =\r\n%s\r\n build end \r\n", build_po_url_json);
     //ESP_LOGI("wifi", "2free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
 
     //发送并解析返回数据
