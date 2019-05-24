@@ -20,6 +20,7 @@
 #include "Led.h"
 #include "tcp_bsp.h"
 #include "w5500_driver.h"
+#include "Json_parse.h"
 
 TaskHandle_t my_tcp_connect_Handle;
 EventGroupHandle_t wifi_event_group;
@@ -84,6 +85,8 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 void initialise_wifi(char *wifi_ssid, char *wifi_password)
 {
     printf("WIFI Reconnect,SSID=%s,PWD=%s\r\n", wifi_ssid, wifi_password);
+    bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
+    strcpy(wifi_data.wifi_ssid, wifi_ssid);
 
     ESP_ERROR_CHECK(esp_wifi_stop());
     ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
@@ -137,6 +140,10 @@ void init_wifi(void) //
         printf("wifi_init_sta finished.");
         printf("connect to ap SSID:%s password:%s\r\n",
                s_staconf.sta.ssid, s_staconf.sta.password);
+
+        bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
+        strcpy(wifi_data.wifi_ssid, s_staconf.sta.ssid);
+
         ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
         ESP_ERROR_CHECK(esp_wifi_start());
         esp_wifi_connect();
