@@ -204,9 +204,9 @@ void http_get_task(void *pvParameters)
 
     //http_send_mes(POST_ALLDOWN);
     /***打开定时器10s开启一次***/
-    printf("HTTP定时器打开！！！");
-    esp_timer_create(&http_suspend, &http_timer_suspend_p);
-    esp_timer_start_periodic(http_timer_suspend_p, 1000 * 1000 * 10);
+    // printf("HTTP定时器打开！！！");
+    // esp_timer_create(&http_suspend, &http_timer_suspend_p);
+    // esp_timer_start_periodic(http_timer_suspend_p, 1000 * 1000 * 10);
     /***打开定时器×**/
 
     while (1)
@@ -217,26 +217,31 @@ void http_get_task(void *pvParameters)
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                             false, true, portMAX_DELAY);
 
-        ESP_LOGI("RAM", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
+        ESP_LOGD("heap_size", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
 
         six_time_count++; //定时60s
-        if (six_time_count >= 6)
+        if (fn_dp > 0)
         {
-            six_time_count = 0;
+            if (six_time_count >= fn_dp)
+            {
+                six_time_count = 0;
 
-            if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
-            {
-                parse_objects_heart(strchr(recv_buf, '{'));
-                http_send_mes(POST_NOCOMMAND);
+                if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
+                {
+                    parse_objects_heart(strchr(recv_buf, '{'));
+                    http_send_mes(POST_NOCOMMAND);
+                }
+                else
+                {
+                    printf("hart recv 0!\r\n");
+                }
             }
-            else
-            {
-                printf("hart recv 0!\r\n");
-            }
-            //ESP_LOGI("wifi", "7free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
         }
-        ESP_LOGI(TAG, "HTTP_任务挂起");
-        vTaskSuspend(httpHandle);
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+        // ESP_LOGI(TAG, "HTTP_任务挂起");
+        // vTaskSuspend(httpHandle);
     }
 }
 

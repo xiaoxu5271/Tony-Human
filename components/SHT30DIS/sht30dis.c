@@ -25,6 +25,7 @@
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "sht30dis.h"
+#include "Json_parse.h"
 
 /*
 ===========================
@@ -202,7 +203,7 @@ int sht30_get_value(void)
 * 获取sht30单次计算后的温湿度
 * @param[in]   void  		       :无
 * @retval      void                :无
-* @note        修改日志 
+* @note        修改日志  
 *               Ver0.0.1:
 */
 
@@ -213,7 +214,7 @@ void sht30_SingleShotMeasure(float *temp, float *humi)
         //算法参考sht30 datasheet
         *temp = ((((sht30_buf[0] * 256) + sht30_buf[1]) * 175) / 65535.0 - 45);
         *humi = (((sht30_buf[3] * 256) + (sht30_buf[4])) * 100 / 65535.0);
-        // ESP_LOGI("SHT30", "temp:%4.2f C \r\n", temp); //℃打印出来是乱码,所以用C
+        // ESP_LOGI("SHT30", "temp:%4.2f C \r\n", temp); //℃打印出来是乱码,所以用s
         // ESP_LOGI("SHT30", "hum:%4.2f %%RH \r\n", humi);
     }
     else
@@ -224,11 +225,22 @@ void sht30_SingleShotMeasure(float *temp, float *humi)
 
 void Sht30_Task(void *arg)
 {
+    uint8_t count = 0;
     while (1)
     {
-        sht30_SingleShotMeasure(&tem, &hum);
-        ESP_LOGD("SHT30", "temp:%4.2f C \r\n", tem); //℃打印出来是乱码,所以用C
-        ESP_LOGD("SHT30", "hum:%4.2f %%RH \r\n", hum);
-        vTaskDelay(4000 / portTICK_RATE_MS);
+        // xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
+
+        if (fn_th > 0)
+        {
+            if (count++ > fn_th)
+            {
+                sht30_SingleShotMeasure(&tem, &hum);
+                ESP_LOGI("SHT30", "temp:%4.2f C \r\n", tem); //℃打印出来是乱码,所以用C代替
+                ESP_LOGI("SHT30", "hum:%4.2f %%RH \r\n", hum);
+                count = 0;
+            }
+        }
+
+        vTaskDelay(1000 / portTICK_RATE_MS);
     }
 }
