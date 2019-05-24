@@ -227,8 +227,8 @@ void Sht30_Task(void *arg)
     while (1)
     {
         sht30_SingleShotMeasure(&tem, &hum);
-        ESP_LOGI("SHT30", "temp:%4.2f C \r\n", tem); //℃打印出来是乱码,所以用C
-        ESP_LOGI("SHT30", "hum:%4.2f %%RH \r\n", hum);
+        ESP_LOGD("SHT30", "temp:%4.2f C \r\n", tem); //℃打印出来是乱码,所以用C
+        ESP_LOGD("SHT30", "hum:%4.2f %%RH \r\n", hum);
         vTaskDelay(4000 / portTICK_RATE_MS);
     }
 }

@@ -184,6 +184,7 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data)
                 {
                         return BLU_NO_WIFI_PWD;
                 }
+                
                 else
                 {
                         bzero(wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
@@ -368,7 +369,7 @@ esp_err_t parse_objects_http_respond(char *http_json_data)
         else
         {
                 json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "result");
-                printf("result: %s\n", json_data_parse_value->valuestring);
+                // printf("result: %s\n", json_data_parse_value->valuestring);
                 if (!(strcmp(json_data_parse_value->valuestring, "error")))
                 {
                         json_data_parse_errorcode = cJSON_GetObjectItem(json_data_parse, "errorCode");
@@ -487,7 +488,7 @@ esp_err_t parse_objects_heart(char *json_data)
                 json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "server_time");
                 Server_Timer_GET(json_data_parse_value->valuestring);
                 json_print = cJSON_Print(json_data_parse_value);
-                printf("json_data_parse_value %s\n", json_print);
+                // printf("json_data_parse_value %s\n", json_print);
         }
         free(json_print);
         cJSON_Delete(json_data_parse);
