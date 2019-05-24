@@ -872,18 +872,24 @@ uint8_t check_DHCP_timeout(void)
             switch (dhcp_state)
             {
             case STATE_DHCP_DISCOVER:
+#ifdef _DHCP_DEBUG_
                 printf("<<timeout>> state : STATE_DHCP_DISCOVER\r\n");
+#endif
                 send_DHCP_DISCOVER();
                 break;
 
             case STATE_DHCP_REQUEST:
+#ifdef _DHCP_DEBUG_
                 printf("<<timeout>> state : STATE_DHCP_REQUEST\r\n");
+#endif
 
                 send_DHCP_REQUEST();
                 break;
 
             case STATE_DHCP_REREQUEST:
+#ifdef _DHCP_DEBUG_
                 printf("<<timeout>> state : STATE_DHCP_REREQUEST\r\n");
+#endif
 
                 send_DHCP_REQUEST();
                 break;

@@ -51,7 +51,7 @@ uint8_t server_port = 80;
 uint8_t standby_dns[4] = {8, 8, 8, 8};
 uint8_t RJ45_STATUS;
 uint8_t LAN_DNS_STATUS = 0;
-uint8_t Ethernet_Timeout = 0; //ethernet http application time out
+// uint8_t Ethernet_Timeout = 0; //ethernet http application time out
 
 wiz_NetInfo gWIZNETINFO;
 wiz_NetInfo gWIZNETINFO_READ;
@@ -250,12 +250,12 @@ void W5500_Network_Init(void)
   ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
 
 #ifdef RJ45_DEBUG
-  ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO_READ);
-  printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO_READ.mac[0], gWIZNETINFO_READ.mac[1], gWIZNETINFO_READ.mac[2], gWIZNETINFO_READ.mac[3], gWIZNETINFO_READ.mac[4], gWIZNETINFO_READ.mac[5]);
-  printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.ip[0], gWIZNETINFO_READ.ip[1], gWIZNETINFO_READ.ip[2], gWIZNETINFO_READ.ip[3]);
-  printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.gw[0], gWIZNETINFO_READ.gw[1], gWIZNETINFO_READ.gw[2], gWIZNETINFO_READ.gw[3]);
-  printf("SUB: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.sn[0], gWIZNETINFO_READ.sn[1], gWIZNETINFO_READ.sn[2], gWIZNETINFO_READ.sn[3]);
-  printf("DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
+  // ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO_READ);
+  // printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO_READ.mac[0], gWIZNETINFO_READ.mac[1], gWIZNETINFO_READ.mac[2], gWIZNETINFO_READ.mac[3], gWIZNETINFO_READ.mac[4], gWIZNETINFO_READ.mac[5]);
+  // printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.ip[0], gWIZNETINFO_READ.ip[1], gWIZNETINFO_READ.ip[2], gWIZNETINFO_READ.ip[3]);
+  // printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.gw[0], gWIZNETINFO_READ.gw[1], gWIZNETINFO_READ.gw[2], gWIZNETINFO_READ.gw[3]);
+  // printf("SUB: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.sn[0], gWIZNETINFO_READ.sn[1], gWIZNETINFO_READ.sn[2], gWIZNETINFO_READ.sn[3]);
+  // printf("DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
 #endif
 
   wiz_NetTimeout E_NetTimeout;
@@ -263,19 +263,25 @@ void W5500_Network_Init(void)
   E_NetTimeout.time_100us = 1000; //< time unit 100us
   wizchip_settimeout(&E_NetTimeout);
 
+  printf("Network_init success!!!\n");
+}
+
+int8_t W5500_DHCP_Init(void)
+{
   if (gWIZNETINFO.dhcp == NETINFO_DHCP)
   {
-    Ethernet_Timeout = 0;
+    // Ethernet_Timeout = 0;
     uint8_t dhcp_retry = 0;
     uint8_t ret_DHCP_run = 0;
     reg_dhcp_cbfunc(my_ip_assign, my_ip_assign, my_ip_conflict);
 
     DHCP_init(SOCK_DHCP, ethernet_buf);
 
-    while (DHCP_run() != DHCP_IP_LEASED)
+    while ((ret_DHCP_run = DHCP_run()) != DHCP_IP_LEASED)
     {
-      ret_DHCP_run = DHCP_run();
+#ifdef RJ45_DEBUG
       printf("ret_DHCP_run = %d \n", ret_DHCP_run);
+#endif
       switch (ret_DHCP_run)
       {
       case DHCP_IP_ASSIGN:
@@ -297,7 +303,6 @@ void W5500_Network_Init(void)
         //
 #ifdef RJ45_DEBUG
         printf("DHCP_IP_LEASED.\r\n");
-
         printf("DHCP LEASED TIME : %d Sec\r\n", getDHCPLeasetime());
 #endif
         break;
@@ -309,6 +314,7 @@ void W5500_Network_Init(void)
 
         if (dhcp_retry++ > RETRY_TIME_OUT)
         {
+          return FAILURE;
           DHCP_stop(); // if restart, recall DHCP_init()
         }
         break;
@@ -317,8 +323,9 @@ void W5500_Network_Init(void)
 #ifdef RJ45_DEBUG
         printf("DHCP_STOPPED.\r\n");
 #endif
-        vTaskDelay(10000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
-        DHCP_init(SOCK_DHCP, ethernet_buf);
+        return FAILURE;
+        // vTaskDelay(10000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
+        // DHCP_init(SOCK_DHCP, ethernet_buf);
         break;
 
       default:
@@ -327,7 +334,8 @@ void W5500_Network_Init(void)
       vTaskDelay(100 / portTICK_RATE_MS);
     }
   }
-  printf("Network_init success!!!\n");
+
+  return SUCCESS;
 }
 
 int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
@@ -387,7 +395,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
         }
         else
         {
-          printf(" len : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
+          // printf(" len : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
         }
       }
 
@@ -400,7 +408,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
       break;
 
     case SOCK_CLOSED:
-      printf("Closed\r\n");
+      // printf("Closed\r\n");
       lan_socket(SOCK_DHCP, Sn_MR_TCP, socker_port, 0x00);
       if (rec_ret > 0) //需要等到接收到数据才退出函数
       {
@@ -423,6 +431,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 void RJ45_Check_Task(void *arg)
 {
   uint8_t need_reinit = 1;
+  W5500_Network_Init();
   while (1)
   {
     //获取网络状态
@@ -431,8 +440,16 @@ void RJ45_Check_Task(void *arg)
       RJ45_STATUS = RJ45_CONNECTED; //
       if (need_reinit == 1)
       {
-        W5500_Network_Init();
-        need_reinit = 0;
+        if (W5500_DHCP_Init() != SUCCESS)
+        {
+          need_reinit = 1;
+          vTaskDelay(5000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
+          continue;
+        }
+        else
+        {
+          need_reinit = 0;
+        }
       }
       if (LAN_DNS_STATUS == 0)
       {
@@ -470,7 +487,7 @@ void RJ45_Check_Task(void *arg)
 
       if (wifi_connect_sta == connect_Y)
       {
-        if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //初始化完成
+        if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
         {
           start_wifi_mqtt();
         }
@@ -516,25 +533,7 @@ int8_t w5500_user_int(void)
   w5500_reset();
   w5500_lib_init();
   xTaskCreate(RJ45_Check_Task, "RJ45_Check_Task", 8192, NULL, 1, NULL); //创建任务，不断检查RJ45连接状态
-  // printf(" VERSIONR_ID: %02x\n", IINCHIP_READ(VERSIONR));
-  // int8_t ret;
-  // ret = check_rj45_status();
-  // if (ret != ESP_OK)
-  // {
-  //   RJ45_STATUS = RJ45_DISCONNECT;
-  //   printf("未检测到网线接入!\n");
-  //   return NO_RJ45_ACCESS;
-  // }
-  // // printf("网线接入!\n");
-  // W5500_Network_Init();
-  // ret = lan_dns_resolve();
-  // if (ret != SUCCESS)
-  // {
-  //   printf("初始化DNS解析失败!\n");
-  //   return W5500_DNS_FAIL;
-  // }
-  // printf("DNS_SUCCESS!!!\n");
-  // RJ45_STATUS = RJ45_CONNECTED;
+
   return SUCCESS;
 }
 
