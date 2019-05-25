@@ -95,8 +95,8 @@ void initialise_wifi(char *wifi_ssid, char *wifi_password)
     {
         memset(&s_staconf.sta, 0, sizeof(s_staconf)); //清空原有数据
     }
-    strcpy(s_staconf.sta.ssid, wifi_ssid);
-    strcpy(s_staconf.sta.password, wifi_password);
+    strcpy((char *)s_staconf.sta.ssid, wifi_ssid);
+    strcpy((char *)s_staconf.sta.password, wifi_password);
 
     if (start_AP == 1) //如果是从AP模式进入，则需要重新设置为STA模式
     {
@@ -142,7 +142,7 @@ void init_wifi(void) //
                s_staconf.sta.ssid, s_staconf.sta.password);
 
         bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
-        strcpy(wifi_data.wifi_ssid, s_staconf.sta.ssid);
+        strcpy(wifi_data.wifi_ssid, (char *)s_staconf.sta.ssid);
 
         ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
         ESP_ERROR_CHECK(esp_wifi_start());
