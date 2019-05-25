@@ -219,7 +219,6 @@ void http_get_task(void *pvParameters)
 
         ESP_LOGD("heap_size", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
 
-        six_time_count++; //定时60s
         if (fn_dp > 0)
         {
             if (six_time_count >= fn_dp)
@@ -236,9 +235,10 @@ void http_get_task(void *pvParameters)
                     printf("hart recv 0!\r\n");
                 }
             }
+            six_time_count++;
         }
 
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS); //1s
 
         // ESP_LOGI(TAG, "HTTP_任务挂起");
         // vTaskSuspend(httpHandle);
@@ -282,7 +282,6 @@ void http_send_mes(uint8_t post_status)
     char NET_NAME[35];
     if (LAN_DNS_STATUS == 1)
     {
-
         bzero(NET_NAME, sizeof(NET_NAME));
         strcpy(NET_NAME, "Wired Network");
     }
@@ -316,7 +315,6 @@ void http_send_mes(uint8_t post_status)
 
     free(pCreat_json1);
     // printf("build_po_url_json =\r\n%s\r\n build end \r\n", build_po_url_json);
-    //ESP_LOGI("wifi", "2free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
 
     //发送并解析返回数据
     /***********調用函數發送***********/
