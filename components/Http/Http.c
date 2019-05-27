@@ -221,7 +221,7 @@ void http_get_task(void *pvParameters)
 
         if (fn_dp > 0)
         {
-            if (six_time_count >= fn_dp)
+            if (six_time_count++ >= fn_dp)
             {
                 six_time_count = 0;
 
@@ -235,7 +235,6 @@ void http_get_task(void *pvParameters)
                     printf("hart recv 0!\r\n");
                 }
             }
-            six_time_count++;
         }
 
         vTaskDelay(1000 / portTICK_PERIOD_MS); //1s

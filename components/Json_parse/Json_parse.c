@@ -607,9 +607,16 @@ void create_http_json(uint8_t post_status, creat_json *pCreat_json)
     {
         itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
     }
-
-    sprintf(mqtt_json_s.mqtt_tem, "%4.2f", tem);
-    sprintf(mqtt_json_s.mqtt_hum, "%4.2f", hum);
+    if (tem == 0 || hum == 0) //规避错误值
+    {
+        memset(mqtt_json_s.mqtt_tem, 0, sizeof(mqtt_json_s.mqtt_tem));
+        memset(mqtt_json_s.mqtt_hum, 0, sizeof(mqtt_json_s.mqtt_hum));
+    }
+    else
+    {
+        sprintf(mqtt_json_s.mqtt_tem, "%4.2f", tem);
+        sprintf(mqtt_json_s.mqtt_hum, "%4.2f", hum);
+    }
 
     //printf("status_creat_json %s\r\n", status_creat_json);
     cJSON_AddItemToObject(root, "feeds", fe_body);
