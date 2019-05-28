@@ -102,13 +102,13 @@ int sht30_init(void)
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();                                //新建操作I2C句柄
     i2c_master_start(cmd);                                                       //启动I2C
     i2c_master_write_byte(cmd, SHT30_WRITE_ADDR << 1 | WRITE_BIT, ACK_CHECK_EN); //发地址+写+检查ack
-                                                                                 // i2c_master_write_byte(cmd, CMD_MSB_0_5MSP, ACK_CHECK_EN);                    //发数据高8位+检查ack
-                                                                                 // i2c_master_write_byte(cmd, CMD_LSB_0_5MSP, ACK_CHECK_EN);                    //发数据低8位+检查ack
-    i2c_master_write_byte(cmd, CMD_MSB_NO_CLK, ACK_CHECK_EN);                    //发数据高8位+检查ack
-    i2c_master_write_byte(cmd, CMD_LSB_HIGH, ACK_CHECK_EN);                      //发数据低8位+检查ack
-    i2c_master_stop(cmd);                                                        //停止I2C
-    ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 100 / portTICK_RATE_MS);     //I2C发送
-    i2c_cmd_link_delete(cmd);                                                    //删除I2C句柄
+    i2c_master_write_byte(cmd, CMD_MSB_0_5MSP, ACK_CHECK_EN);                    //发数据高8位+检查ack
+    i2c_master_write_byte(cmd, CMD_LSB_0_5MSP, ACK_CHECK_EN);                    //发数据低8位+检查ack
+    // i2c_master_write_byte(cmd, CMD_MSB_NO_CLK, ACK_CHECK_EN);                    //发数据高8位+检查ack
+    // i2c_master_write_byte(cmd, CMD_LSB_HIGH, ACK_CHECK_EN);                      //发数据低8位+检查ack
+    i2c_master_stop(cmd);                                                    //停止I2C
+    ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 100 / portTICK_RATE_MS); //I2C发送
+    i2c_cmd_link_delete(cmd);                                                //删除I2C句柄
     return ret;
 }
 
@@ -272,13 +272,11 @@ int sht30_get_value(void)
 
 void sht30_SingleShotMeasure(float *temp, float *humi)
 {
-    if (sht30_SS_get_value() == ESP_OK) //获取温湿度
+    if (sht30_get_value() == ESP_OK) //获取温湿度
     {
         //算法参考sht30 datasheet
         *temp = ((((sht30_buf[0] * 256) + sht30_buf[1]) * 175) / 65535.0 - 45);
         *humi = (((sht30_buf[3] * 256) + (sht30_buf[4])) * 100 / 65535.0);
-        // ESP_LOGI("SHT30", "temp:%4.2f C \r\n", temp); //℃打印出来是乱码,所以用s
-        // ESP_LOGI("SHT30", "hum:%4.2f %%RH \r\n", humi);
     }
     else
     {
@@ -288,10 +286,7 @@ void sht30_SingleShotMeasure(float *temp, float *humi)
 
 void Sht30_Task(void *arg)
 {
-    sht30_SingleShotMeasure(&tem, &hum);
-    ESP_LOGI("SHT30", "temp:%4.2f C \r\n", tem); //℃打印出来是乱码,所以用C代替
-    ESP_LOGI("SHT30", "hum:%4.2f %%RH \r\n", hum);
-
+    sht30_init();
     uint8_t count = 0;
     while (1)
     {

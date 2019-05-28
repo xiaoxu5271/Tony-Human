@@ -116,7 +116,7 @@ static void Uart0_Task(void *arg)
     0x40 Protuct_id(32byte)
   EEPROM PAGE1
     0X00 bluesave  (256byte)
-  */
+*/
 
 void app_main(void)
 {
@@ -185,11 +185,7 @@ void app_main(void)
 
     ble_app_start();
     init_wifi();
-
-    if (w5500_user_int() == SUCCESS)
-    {
-        printf("W5500初始化成功！！！\n");
-    }
+    w5500_user_int();
 
     xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                         false, true, portMAX_DELAY); //等待网络连接、

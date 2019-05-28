@@ -13,9 +13,6 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer);
 
 esp_err_t creat_object(void);
 
-#define SUCCESS 1
-#define FAILURE 0
-
 #define WORK_INIT 0X00       //初始化
 #define WORK_AUTO 0x01       //平台自动模式
 #define WORK_HAND 0x02       //网页版手动模式
@@ -26,6 +23,10 @@ esp_err_t creat_object(void);
 #define WORK_PROTECT 0X07    //风速和结霜保护
 #define WORK_FIREINIT 0X08   //开机就火灾
 #define WORK_FIRE 0x09       //火灾保护状态
+
+#define NET_AUTO 0 //上网模式 自动
+#define NET_LAN 1  //上网模式 网线
+#define NET_WIFI 2 //上网模式 wifi
 
 #define PROTECT_ON 0X01  //当前有风速等平台保护状态
 #define PROTECT_OFF 0X00 //当前无风速等平台保护状态
@@ -127,9 +128,12 @@ void create_http_json(uint8_t post_status, creat_json *pCreat_json);
 uint8_t work_status;    //当前工作状态
 uint8_t protect_status; //保护状态，用于火灾和风速混合保护的切换
 
-unsigned long fn_dp; //数据发送频率
-unsigned long fn_th; //温湿度频率
-uint8_t cg_data_led; //发送数据 LED状态
+/************metadata 参数***********/
+extern unsigned long fn_dp; //数据发送频率
+extern unsigned long fn_th; //温湿度频率
+extern uint8_t cg_data_led; //发送数据 LED状态
+extern uint8_t net_mode;    //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
+/************************************/
 
 int auto_ctl_count; //自动控制指令计数，收到平台的自动控制指令后该变量清零，在定时器中每1s+1，加到180S（3min）后，进入本地计算
 

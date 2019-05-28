@@ -19,10 +19,16 @@
 #include "Human.h"
 #include "sht30dis.h"
 #include "ota.h"
+#include "Led.h"
 
 //wifi_config_t wifi_config;
 
 //#define DEBUG_0
+
+unsigned long fn_dp = 0; //数据发送频率
+unsigned long fn_th = 0; //温湿度频率
+uint8_t cg_data_led = 1; //发送数据 LED状态 0：不闪烁 1：闪烁
+uint8_t net_mode = 0;    //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
 
 typedef enum
 {
@@ -41,10 +47,9 @@ int n = 0, i;
 static short Parse_metadata(char *ptrptr)
 {
     bool fn_flag = 0;
-
     if (NULL == ptrptr)
     {
-        return FAILURE;
+        return 0;
     }
 
     cJSON *pJsonJson = cJSON_Parse(ptrptr);
@@ -52,7 +57,7 @@ static short Parse_metadata(char *ptrptr)
     {
         cJSON_Delete(pJsonJson); //delete pJson
 
-        return FAILURE;
+        return 0;
     }
 
     cJSON *pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_th"); //"fn_th"
@@ -87,13 +92,29 @@ static short Parse_metadata(char *ptrptr)
         {
             cg_data_led = (uint8_t)pSubSubSub->valueint;
             printf("cg_data_led = %d\n", cg_data_led);
+            if (cg_data_led == 0)
+            {
+                Turn_Off_LED();
+            }
+            else
+            {
+                Turn_ON_LED();
+            }
         }
-
-        cJSON_Delete(pJsonJson);
-
-        return SUCCESS;
     }
 
+    pSubSubSub = cJSON_GetObjectItem(pJsonJson, "net_mode"); //"net_mode"
+    if (NULL != pSubSubSub)
+    {
+
+        if ((uint8_t)pSubSubSub->valueint != net_mode)
+        {
+            net_mode = (uint8_t)pSubSubSub->valueint;
+            printf("net_mode = %d\n", net_mode);
+        }
+    }
+
+    cJSON_Delete(pJsonJson);
     return 1;
 }
 
@@ -659,7 +680,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
 {
     if (NULL == pcCmdBuffer) //null
     {
-        return FAILURE;
+        return ESP_FAIL;
     }
 
     cJSON *pJson = cJSON_Parse(pcCmdBuffer); //parse json data
@@ -667,7 +688,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
     {
         cJSON_Delete(pJson); //delete pJson
 
-        return FAILURE;
+        return ESP_FAIL;
     }
 
     cJSON *pSub = cJSON_GetObjectItem(pJson, "Command"); //"Command"
@@ -742,7 +763,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                     fflush(stdout); //使stdout清空，就会立刻输出所有在缓冲区的内容。
                     esp_restart();  //芯片复位 函数位于esp_system.h
 
-                    return SUCCESS;
+                    return ESP_OK;
                 }
             }
         }
@@ -901,5 +922,5 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
 
     cJSON_Delete(pJson); //delete pJson
 
-    return FAILURE;
+    return ESP_FAIL;
 }

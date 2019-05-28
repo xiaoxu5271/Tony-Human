@@ -28,6 +28,7 @@ EventGroupHandle_t wifi_event_group;
 wifi_config_t s_staconf;
 
 uint8_t wifi_connect_sta = connect_N;
+uint8_t wifi_work_sta = turn_on;
 uint8_t start_AP = 0;
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
@@ -50,12 +51,29 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         wifi_connect_sta = connect_N;
         if (start_AP != 1) //判断是不是要进入AP模式
         {
-            if (LAN_DNS_STATUS == 0)
+            switch (net_mode) //选择网络模式
             {
+            case NET_AUTO:
+                if (LAN_DNS_STATUS == 0)
+                {
+                    Led_Status = LED_STA_WIFIERR; //断网
+                    xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+                }
+                esp_wifi_connect();
+                break;
+
+            case NET_LAN:
+                break;
+
+            case NET_WIFI:
                 Led_Status = LED_STA_WIFIERR; //断网
                 xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+                esp_wifi_connect();
+                break;
+
+            default:
+                break;
             }
-            esp_wifi_connect();
         }
         break;
 
@@ -118,8 +136,7 @@ void reconnect_wifi_usr(void)
     memset(&s_staconf.sta, 0, sizeof(s_staconf));
 
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
-    ESP_ERROR_CHECK(esp_wifi_start());
-    esp_wifi_connect();
+    start_user_wifi();
 }
 
 void init_wifi(void) //
@@ -151,9 +168,9 @@ void init_wifi(void) //
     }
     else
     {
-        printf("Waiting for SetupWifi ....\r\n");
-        wifi_init_softap();
-        my_tcp_connect();
+        // printf("Waiting for SetupWifi ....\r\n");
+        // wifi_init_softap();
+        // my_tcp_connect();
     }
 }
 
@@ -226,4 +243,25 @@ void wifi_init_apsta(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_wifi_config));
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+}
+
+void stop_user_wifi(void)
+{
+    if (wifi_work_sta == turn_on)
+    {
+        ESP_ERROR_CHECK(esp_wifi_stop());
+        wifi_work_sta = turn_off;
+        printf("turn off WIFI! \n");
+    }
+}
+
+void start_user_wifi(void)
+{
+    if (wifi_work_sta == turn_off)
+    {
+        ESP_ERROR_CHECK(esp_wifi_start());
+        esp_wifi_connect();
+        wifi_work_sta = turn_on;
+        printf("turn on WIFI! \n");
+    }
 }

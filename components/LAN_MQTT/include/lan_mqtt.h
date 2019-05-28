@@ -31,5 +31,6 @@ typedef void (*mqtt_connect_callback)(void);
 void lan_mqtt_task(void *pvParameter);
 void lan_mqtt_init(void);
 void start_lan_mqtt(void);
+void stop_lan_mqtt(void);
 
 #endif /*__USER_MQTT_H*/

@@ -290,3 +290,9 @@ void start_lan_mqtt(void)
     lan_mqtt_status = 1;
     xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 2, NULL); //¿ªÆô LAN_MQTT
 }
+
+void stop_lan_mqtt(void)
+{
+    printf("stop lan mqtt!\n");
+    lan_close(MQTT_SOCKET);
+}
