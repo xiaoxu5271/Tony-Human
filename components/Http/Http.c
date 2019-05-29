@@ -42,6 +42,7 @@ struct HTTP_STA
     char POST_URL_FIRMWARE[16];
     char POST_URL_SSID[16];
     char POST_URL_COMMAND_ID[16];
+    char IP[10];
 
     char WEB_URL1[50];
     char WEB_URL2[20];
@@ -54,27 +55,35 @@ struct HTTP_STA
     char USER_AHENT[40];
     char CONTENT_LENGTH[30];
     char ENTER[10];
-} http = {"GET ",
-          "POST ",
-          "http://api.ubibot.cn/heartbeat?api_key=",
 
-          "http://api.ubibot.cn/update.json?api_key=",
-          "&metadata=true",
-          "&firmware=",
-          "&ssid=",
-          "&command_id=",
+}
 
-          "http://api.ubibot.cn/products/",
-          "/devices/",
-          "/activate",
+http =
+    {
+        "GET ",
+        "POST ",
+        "http://api.ubibot.cn/heartbeat?api_key=",
 
-          " HTTP/1.0\r\n",
-          " HTTP/1.1\r\n",
+        "http://api.ubibot.cn/update.json?api_key=",
+        "&metadata=true",
+        "&firmware=",
+        "&ssid=",
+        "&command_id=",
+        "&IP=",
 
-          "Host: api.ubibot.cn\r\n",
-          "User-Agent: dalian urban ILS1\r\n",
-          "Content-Length:",
-          "\r\n\r\n"};
+        "http://api.ubibot.cn/products/",
+        "/devices/",
+        "/activate",
+
+        " HTTP/1.0\r\n",
+        " HTTP/1.1\r\n",
+
+        "Host: api.ubibot.cn\r\n",
+        "User-Agent: dalian urban ILS1\r\n",
+        "Content-Length:",
+        "\r\n\r\n",
+
+};
 
 TaskHandle_t httpHandle = NULL;
 esp_timer_handle_t http_timer_suspend_p = NULL;
@@ -247,7 +256,6 @@ void http_get_task(void *pvParameters)
 //激活流程
 int32_t http_activate(void)
 {
-
     char build_http[256];
     char recv_buf[1024];
 
@@ -284,10 +292,11 @@ void http_send_mes(uint8_t post_status)
         bzero(NET_NAME, sizeof(NET_NAME));
         strcpy(NET_NAME, "ethernet");
         bzero(NET_MODE, sizeof(NET_MODE));
-        strcpy(NET_MODE, "&net");
+        strcpy(NET_MODE, "&net=");
     }
     else
     {
+        bzero(current_net_ip, sizeof(current_net_ip)); //有线网断开，不上传有线网IP
         bzero(NET_NAME, sizeof(NET_NAME));
         strcpy(NET_NAME, wifi_data.wifi_ssid);
         bzero(NET_MODE, sizeof(NET_MODE));
@@ -303,12 +312,12 @@ void http_send_mes(uint8_t post_status)
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, NET_MODE, NET_NAME,
+        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, current_net_ip, NET_MODE, NET_NAME,
                 http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
     else
     {
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, NET_MODE, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
+        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, current_net_ip, NET_MODE, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
                 http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
 
@@ -317,7 +326,7 @@ void http_send_mes(uint8_t post_status)
     // printf("JSON_test = : %s\n", pCreat_json1->creat_json_b);
 
     free(pCreat_json1);
-    // printf("build_po_url_json =\r\n%s\r\n build end \r\n", build_po_url_json);
+    printf("build_po_url_json =\r\n%s\r\n build end \r\n", build_po_url_json);
 
     //发送并解析返回数据
     /***********調用函數發送***********/

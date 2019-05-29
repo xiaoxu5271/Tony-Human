@@ -49,10 +49,12 @@
 extern uint8_t RJ45_STATUS;
 extern uint8_t LAN_DNS_STATUS;
 extern uint8_t dns_host_ip[4];
+extern char current_net_ip[20]; //当前内网IP，用于上传
 
 /*-------------------------------- Includes ----------------------------------*/
 //extern short Ethernet_http_application(uint8_t mode);
 int8_t w5500_user_int(void);
+void W5500_Network_Init(void);
 int8_t lan_dns_resolve(void);
 int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size);
 

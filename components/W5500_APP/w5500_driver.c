@@ -52,6 +52,7 @@
 uint32_t socker_port = 3000; //本地端口 不可变
 uint8_t ethernet_buf[ETHERNET_DATA_BUF_SIZE];
 uint8_t dns_host_ip[4];
+char current_net_ip[20]; //当前内网IP，用于上传
 uint8_t server_port = 80;
 uint8_t standby_dns[4] = {8, 8, 8, 8};
 uint8_t RJ45_STATUS;
@@ -176,6 +177,10 @@ void my_ip_assign(void)
 
 #ifdef RJ45_DEBUG
     ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO);
+    memset(current_net_ip, 0, sizeof(current_net_ip));
+    sprintf(current_net_ip, "&IP=%d.%d.%d.%d", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
+    printf("%s \n", current_net_ip);
+
     printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO.mac[0], gWIZNETINFO.mac[1], gWIZNETINFO.mac[2], gWIZNETINFO.mac[3], gWIZNETINFO.mac[4], gWIZNETINFO.mac[5]);
     printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
     printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO.gw[0], gWIZNETINFO.gw[1], gWIZNETINFO.gw[2], gWIZNETINFO.gw[3]);
@@ -226,23 +231,24 @@ int8_t lan_dns_resolve(void)
 *******************************************************************************/
 void W5500_Network_Init(void)
 {
-    uint8_t mac[6] = {0x06, 0x08, 0xdc, 0x00, 0xab, 0xcd}; //< Source Mac Address
-    uint8_t dhcp_mode = 1;                                 //0:static ;1:dhcp
-    uint8_t ip[4] = {192, 168, 1, 123};                    //< Source IP Address
-    uint8_t sn[4] = {255, 255, 255, 0};                    //< Subnet Mask
-    uint8_t gw[4] = {192, 168, 1, 1};                      //< Gateway IP Address
-    uint8_t dns[4] = {114, 114, 114, 114};                 //< DNS server IP Address
+    uint8_t mac[6];        //< Source Mac Address
+    uint8_t dhcp_mode = 1; //0:static ;1:dhcp
+    uint8_t ip[4];         //< Source IP Address
+    uint8_t sn[4];         //< Subnet Mask
+    uint8_t gw[4];         //< Gateway IP Address
+    uint8_t dns[4];        //< DNS server IP Address
 
     uint8_t txsize[MAX_SOCK_NUM] = {4, 2, 2, 2, 2, 2, 2, 0}; //socket 0,16K
     uint8_t rxsize[MAX_SOCK_NUM] = {4, 2, 2, 2, 2, 2, 2, 0}; //socket 0,16K
 
-    esp_read_mac(mac, 3);                                //      获取芯片内部默认出厂MAC，
+    esp_read_mac(mac, 3);                                //获取芯片内部默认出厂MAC，
     EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &dhcp_mode); //获取DHCP模式
-    if (dhcp_mode == 1)
+    if (dhcp_mode == 0)
     {
+        uint8_t i = 0;
         uint8_t netinfo_buff[16];
-        E2prom_page_Read(NETINFO_add, (uint8_t *)netinfo_buff, sizeof(netinfo_buff));
-        for (uint8_t i = 0; i < 16; i++)
+        E2prom_page_Read(NETINFO_add, netinfo_buff, 16);
+        while (i < 16)
         {
             if (i < 4)
             {
@@ -260,6 +266,8 @@ void W5500_Network_Init(void)
             {
                 dns[i - 12] = netinfo_buff[i];
             }
+            // printf("netinfo_buff[%d]:%d \n", i, netinfo_buff[i]);
+            i++;
         }
     }
 
@@ -289,6 +297,11 @@ void W5500_Network_Init(void)
 
 #ifdef RJ45_DEBUG
     ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO_READ);
+
+    memset(current_net_ip, 0, sizeof(current_net_ip));
+    sprintf(current_net_ip, "&IP=%d.%d.%d.%d", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
+    printf("%s \n", current_net_ip);
+
     printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO_READ.mac[0], gWIZNETINFO_READ.mac[1], gWIZNETINFO_READ.mac[2], gWIZNETINFO_READ.mac[3], gWIZNETINFO_READ.mac[4], gWIZNETINFO_READ.mac[5]);
     printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.ip[0], gWIZNETINFO_READ.ip[1], gWIZNETINFO_READ.ip[2], gWIZNETINFO_READ.ip[3]);
     printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.gw[0], gWIZNETINFO_READ.gw[1], gWIZNETINFO_READ.gw[2], gWIZNETINFO_READ.gw[3]);

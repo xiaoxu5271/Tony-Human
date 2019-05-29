@@ -20,6 +20,7 @@
 #include "sht30dis.h"
 #include "ota.h"
 #include "Led.h"
+#include "w5500_driver.h"
 
 //wifi_config_t wifi_config;
 
@@ -764,19 +765,94 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                 }
             }
         }
-        // else if (!strcmp((char const *)pSub->valuestring, "SetupHost")) //Command:SetupHost
-        // {
-        //         pSub = cJSON_GetObjectItem(pJson, "Host"); //"Host"
-        //         if (NULL != pSub)
-        //         {
+        else if (!strcmp((char const *)pSub->valuestring, "SetupEthernet")) //Command:SetupEthernet
+        {
+            char *InpString;
+            uint8_t set_net_buf[16];
 
-        //                 E2prom_Write(HOST_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring), 1); //save host
-        //         }
+            pSub = cJSON_GetObjectItem(pJson, "dhcp"); //"dhcp"
+            if (NULL != pSub)
+            {
+                EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, (uint8_t)pSub->valueint); //写入DHCP模式
+            }
 
-        //         cJSON_Delete(pJson); //delete pJson
+            pSub = cJSON_GetObjectItem(pJson, "ip"); //"ip"
+            if (NULL != pSub)
+            {
+                InpString = strtok(pSub->valuestring, ".");
+                set_net_buf[0] = (uint8_t)strtoul(InpString, 0, 10);
 
-        //         return SUCCESS;
-        // }
+                InpString = strtok(NULL, ".");
+                set_net_buf[1] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[2] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[3] = (uint8_t)strtoul(InpString, 0, 10);
+            }
+
+            pSub = cJSON_GetObjectItem(pJson, "sn"); //"sn"
+            if (NULL != pSub)
+            {
+                InpString = strtok(pSub->valuestring, ".");
+                set_net_buf[4] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[5] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[6] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[7] = (uint8_t)strtoul(InpString, 0, 10);
+            }
+
+            pSub = cJSON_GetObjectItem(pJson, "gw"); //"gw"
+            if (NULL != pSub)
+            {
+                InpString = strtok(pSub->valuestring, ".");
+                set_net_buf[8] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[9] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[10] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[11] = (uint8_t)strtoul(InpString, 0, 10);
+            }
+
+            pSub = cJSON_GetObjectItem(pJson, "dns"); //"dns"
+            if (NULL != pSub)
+            {
+                InpString = strtok(pSub->valuestring, ".");
+                set_net_buf[12] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[13] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[14] = (uint8_t)strtoul(InpString, 0, 10);
+
+                InpString = strtok(NULL, ".");
+                set_net_buf[15] = (uint8_t)strtoul(InpString, 0, 10);
+            }
+            E2prom_page_Write(NETINFO_add, set_net_buf, sizeof(set_net_buf));
+            // for (uint8_t i = 0; i < 16; i++)
+            // {
+            //     printf("set_net_buf[%d]:%d\n", i, set_net_buf[i]);
+            //     EE_byte_Write(ADDR_PAGE3, NETINFO_add + i, set_net_buf[i]);
+            // }
+
+            W5500_Network_Init();
+
+            // E2prom_page_Read(NETINFO_add, (uint8_t *)netinfo_buff, sizeof(netinfo_buff));
+            // printf("%02x \n", (unsigned int)netinfo_buff);
+            cJSON_Delete(pJson); //delete pJson
+            return 1;
+        }
         else if (!strcmp((char const *)pSub->valuestring, "SetupWifi")) //Command:SetupWifi
         {
             pSub = cJSON_GetObjectItem(pJson, "SSID"); //"SSID"
@@ -802,94 +878,6 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
 
             return 1;
         }
-        // else if (!strcmp((char const *)pSub->valuestring, "ReadProduct")) //Command:ReadProduct
-        // {
-
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 2;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "ReadWifi")) //Command:ReadWifi
-        // {
-
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 3;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "GetLastError")) //Command:GetLastError
-        // {
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 4;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "BreakOut")) //Command:BreakOut
-        // {
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 5;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "SetMetaData")) //Command:SetMetaData
-        // {
-        //         pSub = cJSON_GetObjectItem(pJson, "metadata"); //"metadata"
-        //         if (NULL != pSub)
-        //         {
-        //                 Parse_metadata(pSub->valuestring);
-        //         }
-
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return SUCCESS;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "ReadMetaData")) //Command:ReadMetaData
-        // {
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 6;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "ScanWifiList")) //Command:ScanWifiList
-        // {
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 7;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "CheckSensors")) //Command:CheckSensors
-        // {
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 8;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "CheckModule")) //Command:CheckModule
-        // {
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 11;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "ReadData")) //Command:ReadData
-        // {
-
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 9;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "ClearData")) //Command:ClearData
-        // {
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return 10;
-        // }
-        // else if (!strcmp((char const *)pSub->valuestring, "DeviceActivate")) //DeviceActivate
-        // {
-        //         pSub = cJSON_GetObjectItem(pJson, "ActivateData"); //"ActivateData"
-        //         if (NULL != pSub)
-        //         {
-
-        //                 ParseSetJSONData(pSub->valuestring);
-        //         }
-
-        //         cJSON_Delete(pJson); //delete pJson
-
-        //         return SUCCESS;
-        // }
     }
 
     cJSON_Delete(pJson); //delete pJson

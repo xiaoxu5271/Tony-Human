@@ -1,4 +1,7 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -166,7 +169,7 @@ static uint8_t mqtt()
     int ret;
     uint8_t dup, retained;
     uint16_t mssageid;
-    int qos, rc, payloadlen_in;
+    int qos, payloadlen_in;
     MQTTString topoc;
     uint8_t msg_rev_buf[1024];
     //topoc.cstring = "fdj/iot/control/12345";
@@ -206,12 +209,12 @@ static uint8_t mqtt()
                 if (ret == PUBLISH)
                 {
                     printf("Recved !\n");
-                    rc = MQTTDeserialize_publish(&dup, &qos, &retained, &mssageid, &topoc,
-                                                 &payload_in, &payloadlen_in, mqtt_buff, sizeof(mqtt_buff));
+                    MQTTDeserialize_publish(&dup, &qos, &retained, &mssageid, &topoc,
+                                            &payload_in, &payloadlen_in, mqtt_buff, sizeof(mqtt_buff));
 
                     strcpy((char *)msg_rev_buf, (const char *)payload_in);
-                    parse_objects_mqtt((char *)msg_rev_buf); //收到平台MQTT数据并解析
                     printf("message arrived %d: %s\n\r", payloadlen_in, (char *)msg_rev_buf);
+                    parse_objects_mqtt((char *)msg_rev_buf); //收到平台MQTT数据并解析
                 }
                 vTaskDelay(100 / portTICK_RATE_MS);
             }
@@ -220,7 +223,6 @@ static uint8_t mqtt()
         {
             ESP_LOGE(TAG, "MQTT> subscribe failed.\r\n");
         }
-        ESP_LOGI(TAG, "-----------test end---------------\r\n");
         return 0;
     }
     else
