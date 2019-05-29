@@ -189,11 +189,7 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data)
         }
 
         cjson_blu_data_parse_wifissid = cJSON_GetObjectItem(cjson_blu_data_parse, "wifiSSID");
-        if (cjson_blu_data_parse_wifissid == NULL)
-        {
-            return BLU_NO_WIFI_SSID;
-        }
-        else
+        if (cjson_blu_data_parse_wifissid != NULL)
         {
             bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
             strcpy(wifi_data.wifi_ssid, cjson_blu_data_parse_wifissid->valuestring);
@@ -201,12 +197,7 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data)
         }
 
         cjson_blu_data_parse_wifipwd = cJSON_GetObjectItem(cjson_blu_data_parse, "wifiPwd");
-        if (cjson_blu_data_parse_wifipwd == NULL)
-        {
-            return BLU_NO_WIFI_PWD;
-        }
-
-        else
+        if (cjson_blu_data_parse_wifipwd != NULL)
         {
             bzero(wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
             strcpy(wifi_data.wifi_pwd, cjson_blu_data_parse_wifipwd->valuestring);
@@ -283,7 +274,8 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data)
         }
     }
     //重新初始化WIFI
-    initialise_wifi(cjson_blu_data_parse_wifissid->valuestring, cjson_blu_data_parse_wifipwd->valuestring);
+    // initialise_wifi(cjson_blu_data_parse_wifissid->valuestring, cjson_blu_data_parse_wifipwd->valuestring);
+    initialise_wifi();
     cJSON_Delete(cjson_blu_data_parse);
     return BLU_RESULT_SUCCESS;
 }
@@ -559,7 +551,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
         if (json_data_string_parse != NULL)
         {
 
-            printf("MQTT-command_string  = %s\r\n", cJSON_Print(json_data_string_parse));
+            // printf("MQTT-command_string  = %s\r\n", cJSON_Print(json_data_string_parse));
 
             //收到OTA相关指令
             if ((json_data_action = cJSON_GetObjectItem(json_data_string_parse, "action")) != NULL &&
@@ -576,7 +568,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
                     if (strcmp(json_data_vesion->valuestring, FIRMWARE) != 0) //判断版本号
                     {
                         strcpy(mqtt_json_s.mqtt_ota_url, json_data_url->valuestring);
-                        E2prom_Ota_Write(0x00, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
+                        E2prom_page_Write(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
                         printf("OTA_URL=%s\r\n OTA_VERSION=%s\r\n", mqtt_json_s.mqtt_ota_url, json_data_vesion->valuestring);
                         ota_start(); //启动OTA
                     }
@@ -590,9 +582,14 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
                     printf("Action非ota \r\n");
                 }
             }
+            else if ((json_data_action = cJSON_GetObjectItem(json_data_string_parse, "command")) != NULL)
+            {
+                printf("command CMD!\r\n");
+                ParseTcpUartCmd(cJSON_Print(json_data_string_parse));
+            }
             else
             {
-                printf("非OTA命令\r\n");
+                printf("非许可命令\r\n");
             }
         }
     }
@@ -793,39 +790,14 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             pSub = cJSON_GetObjectItem(pJson, "password"); //"password"
             if (NULL != pSub)
             {
-
                 bzero(wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
                 strcpy(wifi_data.wifi_pwd, pSub->valuestring);
                 printf("WIFI_PWD = %s\r\n", pSub->valuestring);
             }
 
-            pSub = cJSON_GetObjectItem(pJson, "type"); //"type"
-            if (NULL != pSub)
-            {
-            }
-
-            pSub = cJSON_GetObjectItem(pJson, "backup_ip"); //"backup_ip"
-            if (NULL != pSub)
-            {
-            }
-
-            pSub = cJSON_GetObjectItem(pJson, "apn"); //"apn"
-            if (NULL != pSub)
-            {
-            }
-
-            pSub = cJSON_GetObjectItem(pJson, "user"); //"user"
-            if (NULL != pSub)
-            {
-            }
-
-            pSub = cJSON_GetObjectItem(pJson, "pwd"); //"pwd"
-            if (NULL != pSub)
-            {
-            }
-
             printf("{\"status\":0,\"code\": 0}");
-            initialise_wifi(wifi_data.wifi_ssid, wifi_data.wifi_pwd);
+            // initialise_wifi(wifi_data.wifi_ssid, wifi_data.wifi_pwd);
+            initialise_wifi();
             cJSON_Delete(pJson); //delete pJson
 
             return 1;

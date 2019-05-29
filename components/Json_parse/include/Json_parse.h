@@ -131,7 +131,7 @@ uint8_t protect_status; //保护状态，用于火灾和风速混合保护的切换
 /************metadata 参数***********/
 extern unsigned long fn_dp; //数据发送频率
 extern unsigned long fn_th; //温湿度频率
-extern uint8_t cg_data_led; //发送数据 LED状态
+extern uint8_t cg_data_led; //发送数据 LED状态 0关闭，1打开
 extern uint8_t net_mode;    //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
 /************************************/
 

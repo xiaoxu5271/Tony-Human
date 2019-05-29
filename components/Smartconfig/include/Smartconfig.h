@@ -5,7 +5,8 @@
 #include "freertos/task.h"
 
 void smartconfig_example_task(void *parm);
-void initialise_wifi(char *wifi_ssid, char *wifi_password);
+// void initialise_wifi(char *wifi_ssid, char *wifi_password);
+void initialise_wifi(void);
 void init_wifi(void);
 void wifi_init_softap(void);
 void wifi_init_apsta(void);

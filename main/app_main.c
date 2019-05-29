@@ -148,7 +148,7 @@ void app_main(void)
     // EE_byte_Write(ADDR_PAGE2, update_fail_num_add, 0); //存放OTA升级重试次数
     // char zero_data[256];
     // bzero(zero_data, sizeof(zero_data));
-    // E2prom_Ota_Write(0x00, (uint8_t *)zero_data, 256); //清空蓝牙
+    // E2prom_page_Write(0x00, (uint8_t *)zero_data, 256); //清空蓝牙
 
     if ((SerialNum[0] == 0xff) && (SerialNum[1] == 0xff)) //新的eeprom，先清零
     {
@@ -156,8 +156,8 @@ void app_main(void)
         char zero_data[256];
         bzero(zero_data, sizeof(zero_data));
         E2prom_Write(0x00, (uint8_t *)zero_data, 256);
-        E2prom_BluWrite(0x00, (uint8_t *)zero_data, 256);  //清空蓝牙
-        E2prom_Ota_Write(0x00, (uint8_t *)zero_data, 256); //清空蓝牙
+        E2prom_BluWrite(0x00, (uint8_t *)zero_data, 256);   //清空蓝牙
+        E2prom_page_Write(0x00, (uint8_t *)zero_data, 256); //清空蓝牙
 
         E2prom_Read(0x30, (uint8_t *)SerialNum, 16);
         printf("SerialNum=%s\n", SerialNum);

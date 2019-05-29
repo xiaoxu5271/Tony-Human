@@ -37,6 +37,7 @@
 #include "Smartconfig.h"
 #include "Mqtt.h"
 #include "Json_parse.h"
+#include "E2prom.h"
 
 #define TAG "W5500_driver"
 
@@ -59,6 +60,9 @@ uint8_t LAN_DNS_STATUS = 0;
 
 wiz_NetInfo gWIZNETINFO;
 wiz_NetInfo gWIZNETINFO_READ;
+
+wiz_PhyConf gWIZPHYCONF;
+wiz_PhyConf gWIZPHYCONF_READ;
 
 SemaphoreHandle_t xMutex_W5500_SPI;
 
@@ -135,11 +139,11 @@ void w5500_lib_init(void)
 *******************************************************************************/
 // void w5500_enter_sleep(void)
 // {
-//         uint8_t write_val = 0x7f;
-//         spi_write_data(0x002e, FDM1 | RWB_WRITE | COMMON_R, &write_val, 1);
+//     uint8_t write_val = 0x7f;
+//     spi_write_data(0x002e, FDM1 | RWB_WRITE | COMMON_R, &write_val, 1);
 
-//         write_val = 0xf7;
-//         spi_write_data(0x002e, FDM1 | RWB_WRITE | COMMON_R, &write_val, 1);
+//     write_val = 0xf7;
+//     spi_write_data(0x002e, FDM1 | RWB_WRITE | COMMON_R, &write_val, 1);
 // }
 
 /*******************************************************************************
@@ -232,7 +236,32 @@ void W5500_Network_Init(void)
     uint8_t txsize[MAX_SOCK_NUM] = {4, 2, 2, 2, 2, 2, 2, 0}; //socket 0,16K
     uint8_t rxsize[MAX_SOCK_NUM] = {4, 2, 2, 2, 2, 2, 2, 0}; //socket 0,16K
 
-    esp_read_mac(mac, 3); //      获取芯片内部默认出厂MAC，
+    esp_read_mac(mac, 3);                                //      获取芯片内部默认出厂MAC，
+    EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &dhcp_mode); //获取DHCP模式
+    if (dhcp_mode == 1)
+    {
+        uint8_t netinfo_buff[16];
+        E2prom_page_Read(NETINFO_add, (uint8_t *)netinfo_buff, sizeof(netinfo_buff));
+        for (uint8_t i = 0; i < 16; i++)
+        {
+            if (i < 4)
+            {
+                ip[i] = netinfo_buff[i];
+            }
+            else if (i >= 4 && i < 8)
+            {
+                sn[i - 4] = netinfo_buff[i];
+            }
+            else if (i >= 8 && i < 12)
+            {
+                gw[i - 8] = netinfo_buff[i];
+            }
+            else
+            {
+                dns[i - 12] = netinfo_buff[i];
+            }
+        }
+    }
 
     wizchip_init(txsize, rxsize);
 
@@ -251,15 +280,20 @@ void W5500_Network_Init(void)
         gWIZNETINFO.dhcp = NETINFO_STATIC; //< 1 - Static, 2 - DHCP
     }
 
+    gWIZPHYCONF.speed = PHY_SPEED_10;
+    ctlwizchip(CW_SET_PHYCONF, (void *)&gWIZPHYCONF); //设置连接速度，降低功耗、温度。  然而发现并没有什么卵用
+    ctlwizchip(CW_GET_PHYCONF, (void *)&gWIZPHYCONF_READ);
+    printf("spd: %d \n", gWIZPHYCONF_READ.speed);
+
     ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
 
 #ifdef RJ45_DEBUG
-    // ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO_READ);
-    // printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO_READ.mac[0], gWIZNETINFO_READ.mac[1], gWIZNETINFO_READ.mac[2], gWIZNETINFO_READ.mac[3], gWIZNETINFO_READ.mac[4], gWIZNETINFO_READ.mac[5]);
-    // printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.ip[0], gWIZNETINFO_READ.ip[1], gWIZNETINFO_READ.ip[2], gWIZNETINFO_READ.ip[3]);
-    // printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.gw[0], gWIZNETINFO_READ.gw[1], gWIZNETINFO_READ.gw[2], gWIZNETINFO_READ.gw[3]);
-    // printf("SUB: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.sn[0], gWIZNETINFO_READ.sn[1], gWIZNETINFO_READ.sn[2], gWIZNETINFO_READ.sn[3]);
-    // printf("DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
+    ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO_READ);
+    printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO_READ.mac[0], gWIZNETINFO_READ.mac[1], gWIZNETINFO_READ.mac[2], gWIZNETINFO_READ.mac[3], gWIZNETINFO_READ.mac[4], gWIZNETINFO_READ.mac[5]);
+    printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.ip[0], gWIZNETINFO_READ.ip[1], gWIZNETINFO_READ.ip[2], gWIZNETINFO_READ.ip[3]);
+    printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.gw[0], gWIZNETINFO_READ.gw[1], gWIZNETINFO_READ.gw[2], gWIZNETINFO_READ.gw[3]);
+    printf("SUB: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.sn[0], gWIZNETINFO_READ.sn[1], gWIZNETINFO_READ.sn[2], gWIZNETINFO_READ.sn[3]);
+    printf("DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
 #endif
 
     wiz_NetTimeout E_NetTimeout;
@@ -434,13 +468,14 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 /*****************RJ45_CHECK****************/
 void RJ45_Check_Task(void *arg)
 {
-    uint8_t need_reinit = 1;
+    // uint8_t need_reinit = 1;
     W5500_Network_Init();
     while (1)
     {
         switch (net_mode)
         {
         case NET_AUTO: //自动选择
+            start_user_wifi();
             //获取网络状态
             if (check_rj45_status() == ESP_OK)
             {
@@ -503,6 +538,7 @@ void RJ45_Check_Task(void *arg)
                     stop_wifi_mqtt();
                 }
             }
+
             break;
 
         case NET_LAN: //仅网线

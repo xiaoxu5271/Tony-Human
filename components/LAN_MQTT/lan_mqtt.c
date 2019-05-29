@@ -168,7 +168,7 @@ static uint8_t mqtt()
     uint16_t mssageid;
     int qos, rc, payloadlen_in;
     MQTTString topoc;
-    // uint8_t msgbuf[1024];
+    uint8_t msg_rev_buf[1024];
     //topoc.cstring = "fdj/iot/control/12345";
     if (mqtt_connect()) //连接服务器
     {
@@ -209,8 +209,9 @@ static uint8_t mqtt()
                     rc = MQTTDeserialize_publish(&dup, &qos, &retained, &mssageid, &topoc,
                                                  &payload_in, &payloadlen_in, mqtt_buff, sizeof(mqtt_buff));
 
-                    parse_objects_mqtt((char *)mqtt_buff); //收到平台MQTT数据并解析
-                    printf("message arrived %d: %s\n\r", payloadlen_in, payload_in);
+                    strcpy((char *)msg_rev_buf, (const char *)payload_in);
+                    parse_objects_mqtt((char *)msg_rev_buf); //收到平台MQTT数据并解析
+                    printf("message arrived %d: %s\n\r", payloadlen_in, (char *)msg_rev_buf);
                 }
                 vTaskDelay(100 / portTICK_RATE_MS);
             }

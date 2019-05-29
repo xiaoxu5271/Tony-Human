@@ -161,6 +161,9 @@ int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uin
 
 int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
+    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
+                        false, true, portMAX_DELAY); //等网络连接
+
     xSemaphoreTake(xMutex_Http_Send, portMAX_DELAY);
     int32_t ret;
     if (LAN_DNS_STATUS == 1)
@@ -238,9 +241,6 @@ void http_get_task(void *pvParameters)
         }
 
         vTaskDelay(1000 / portTICK_PERIOD_MS); //1s
-
-        // ESP_LOGI(TAG, "HTTP_任务挂起");
-        // vTaskSuspend(httpHandle);
     }
 }
 
@@ -278,15 +278,20 @@ void http_send_mes(uint8_t post_status)
     char build_po_url[256];
     char build_po_url_json[1024];
     char NET_NAME[35];
+    char NET_MODE[16];
     if (LAN_DNS_STATUS == 1)
     {
         bzero(NET_NAME, sizeof(NET_NAME));
-        strcpy(NET_NAME, "Wired Network");
+        strcpy(NET_NAME, "ethernet");
+        bzero(NET_MODE, sizeof(NET_MODE));
+        strcpy(NET_MODE, "&net");
     }
     else
     {
         bzero(NET_NAME, sizeof(NET_NAME));
         strcpy(NET_NAME, wifi_data.wifi_ssid);
+        bzero(NET_MODE, sizeof(NET_MODE));
+        strcpy(NET_MODE, http.POST_URL_SSID);
     }
 
     creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
@@ -298,12 +303,12 @@ void http_send_mes(uint8_t post_status)
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, http.POST_URL_SSID, NET_NAME,
+        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, NET_MODE, NET_NAME,
                 http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
     else
     {
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_SSID, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
+        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, NET_MODE, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
                 http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
 
