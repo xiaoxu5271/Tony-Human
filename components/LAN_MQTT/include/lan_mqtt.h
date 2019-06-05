@@ -12,6 +12,7 @@
 #define MQTT_USER mqtt_usr          //µÇÂ½ÓÃ»§Ãû
 #define MQTT_PASS mqtt_pwd          //µÇÂ½ÃÜÂë
 #define MQTT_Topic mqtt_topic
+#define KEEPLIVE_TIME 50
 
 #else
 #define MQTT_SOCKET 2

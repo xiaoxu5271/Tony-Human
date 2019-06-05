@@ -548,6 +548,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
         strncpy(mqtt_json_s.mqtt_command_id, json_data_command_id_parse->valuestring, strlen(json_data_command_id_parse->valuestring));
         strncpy(mqtt_json_s.mqtt_string, json_data_string_parse->valuestring, strlen(json_data_string_parse->valuestring));
 
+        post_status = POST_NORMAL;
         json_data_string_parse = cJSON_Parse(json_data_string_parse->valuestring); //将command_string再次构建成json格式，以便二次解析
         if (json_data_string_parse != NULL)
         {
@@ -559,10 +560,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
                 (json_data_vesion = cJSON_GetObjectItem(json_data_string_parse, "version")) != NULL &&
                 (json_data_url = cJSON_GetObjectItem(json_data_string_parse, "url")) != NULL)
             {
-
-                http_send_mes(POST_NORMAL); //回传commond_id 通知平台完成指令
                 printf("OTA命令进入\r\n");
-
                 //如果命令是OTA
                 if (strcmp(json_data_action->valuestring, "ota") == 0)
                 {
@@ -607,7 +605,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
     return 1;
 }
 
-void create_http_json(uint8_t post_status, creat_json *pCreat_json)
+void create_http_json(creat_json *pCreat_json)
 {
     printf("INTO CREATE_HTTP_JSON\r\n");
     //creat_json *pCreat_json = malloc(sizeof(creat_json));

@@ -135,7 +135,7 @@ void app_main(void)
     //   strcpy(SerialNum,"AAA0003HUM1");
     //   strcpy(ProductId,"28343913545840b3b9b42c568e78e243");
 
-    xTaskCreate(Uart0_Task, "Uart0_Task", 4096, NULL, 10, NULL);
+    xTaskCreate(Uart0_Task, "Uart0_Task", 4096, NULL, 9, NULL);
 
     /*step1 判断是否有序列号和product id****/
     E2prom_Read(0x30, (uint8_t *)SerialNum, 16);
@@ -200,8 +200,8 @@ void app_main(void)
         printf("timer periodic create err code:%d\n", err);
     }
 
-    xTaskCreate(Human_Task, "Human_Task", 8192, NULL, 5, &Human_Handle);
-    xTaskCreate(Sht30_Task, "Sht30_Task", 8192, NULL, 5, &Sht30_Handle);
+    xTaskCreate(Human_Task, "Human_Task", 8192, NULL, 4, &Human_Handle);
+    xTaskCreate(Sht30_Task, "Sht30_Task", 8192, NULL, 3, &Sht30_Handle);
 
     initialise_http();
     initialise_mqtt();

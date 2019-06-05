@@ -37,7 +37,7 @@ void Humanapp(void)
     //需要把数据发送到平台
     if (need_send == 1)
     {
-        http_send_mes(POST_NORMAL);
+        http_send_mes();
         need_send = 0;
     }
 }

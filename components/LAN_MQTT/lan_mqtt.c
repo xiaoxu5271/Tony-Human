@@ -10,20 +10,16 @@
 #include "esp_event_loop.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+// #include "platform.h"
 
 #include "lan_mqtt.h"
 #include "w5500_socket.h"
-//#include "MQTTConnect.h"
+// #include "MQTTConnect.h"
 #include "MQTTPacket.h"
 #include "w5500_driver.h"
 #include "Json_parse.h"
 
 #define TAG "LAN_MQTT"
-/*
-	brief: include DNS,connect mqtt,subscribe，publish，and receive server data.
-	parameter: pvParameter
-	return : NONE
-*/
 
 MQTTPacket_connectData user_MQTTPacket_ConnectData;
 uint8_t mqtt_buff[2048]; //空间不够，可能会导致接收数据时返回 -1
@@ -143,10 +139,11 @@ static uint8_t mqtt_subscribe(char *Topic)
 	参数：空
 	返回：1：发送成功，0：发送失败
 */
-static uint8_t mqtt_ping()
+static int8_t mqtt_ping()
 {
     int rc;
     int32_t ret;
+    uint32_t count = 0;
 
     rc = MQTTSerialize_pingreq(mqtt_buff, sizeof(mqtt_buff));
     ret = lan_send(MQTT_SOCKET, mqtt_buff, rc);
@@ -154,24 +151,54 @@ static uint8_t mqtt_ping()
     if (rc != ret)
     {
         ESP_LOGE(TAG, "MQTT> ping send error.\r\n");
-        return 0;
+        return -1;
     }
+
+    while (getSn_RX_RSR(MQTT_SOCKET) == 0)
+    {
+        count++;
+        if (count > 100)
+        {
+            count = 0;
+            ESP_LOGE(TAG, "MQTT> ping recv error.\r\n");
+            return -2;
+        }
+        vTaskDelay(10 / portTICK_RATE_MS);
+    }
+
+    if (MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata) != PINGRESP)
+    {
+        ESP_LOGE(TAG, "MQTT> ping recv not PINGRESP.\r\n");
+        return -3;
+    }
+
     return 1;
 }
+
+// void  lan_mqtt_process_receive()
+// {
+
+// }
+
 /*mqtt运行任务，当tcp成功建立链接时，恢复该任务，否则是挂起状态
 当LINK断开时，挂起该任务
 该任务建立在TCP成功连接的基础上：连接mqtt服务器->订阅相关主题->
 返回：正常情况阻塞任务，异常返回错误类型
 */
-static uint8_t mqtt()
+static int8_t mqtt()
 {
     uint8_t *payload_in;
     int ret;
     uint8_t dup, retained;
     uint16_t mssageid;
-    int qos, payloadlen_in;
+    int qos,
+        payloadlen_in;
     MQTTString topoc;
     uint8_t msg_rev_buf[1024];
+    uint32_t HighWaterMark;
+    uint32_t ping_timeout = 0;
+    uint32_t recv_timeout = 0;
+    // uint8_t no_mqtt_msg_exchange = 0;
     //topoc.cstring = "fdj/iot/control/12345";
     if (mqtt_connect()) //连接服务器
     {
@@ -183,40 +210,70 @@ static uint8_t mqtt()
             ESP_LOGI(TAG, "MQTT> subscribe success.\r\n");
             while (1) //开始接收数据，阻塞任务
             {
+                // HighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+                // printf("MQTT-TASK runing\n");
+                // no_mqtt_msg_exchange = 0;
+
                 if (LAN_DNS_STATUS == 0)
                 {
-                    ESP_LOGE(TAG, "有线网断开，退出MQTT任务.\r\n");
+                    ESP_LOGE(TAG, "Lan Disconnect.\r\n");
                     return 0;
                 }
 
-                memset(mqtt_buff, 0, sizeof(mqtt_buff));
-                if (!mqtt_ping()) //发送心跳包
+                //延时阻塞接收数据
+                while ((ret = getSn_RX_RSR(MQTT_SOCKET)) == 0)
                 {
-                    ESP_LOGE(TAG, "MQTT> ping error.\r\n");
-                    return 0;
-                }
-                memset(mqtt_buff, 0, sizeof(mqtt_buff));
-                ret = MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata);
-                if (ret == -1) //收到数值大于变量值
-                {
-                    printf("收到数值大于数组空间，read return : %d\n", ret);
-                }
-                if (ret != PINGRESP) //不是心跳返回
-                {
-                    printf("read return : %d\n", ret);
+                    recv_timeout++;
+                    if (recv_timeout > 100)
+                    {
+                        recv_timeout = 0;
+                        break;
+                    }
+                    vTaskDelay(10 / portTICK_RATE_MS);
                 }
 
-                if (ret == PUBLISH)
+                //判断是否收到数据
+                if (ret > 0)
                 {
-                    printf("Recved !\n");
-                    MQTTDeserialize_publish(&dup, &qos, &retained, &mssageid, &topoc,
-                                            &payload_in, &payloadlen_in, mqtt_buff, sizeof(mqtt_buff));
+                    printf("getSn_RX_RSR = %d \n", ret);
 
-                    strcpy((char *)msg_rev_buf, (const char *)payload_in);
-                    printf("message arrived %d: %s\n\r", payloadlen_in, (char *)msg_rev_buf);
-                    parse_objects_mqtt((char *)msg_rev_buf); //收到平台MQTT数据并解析
+                    memset(mqtt_buff, 0, sizeof(mqtt_buff));
+                    ret = MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata);
+                    if (ret == PUBLISH)
+                    {
+                        printf("Recved !\n");
+                        MQTTDeserialize_publish(&dup, &qos, &retained, &mssageid, &topoc,
+                                                &payload_in, &payloadlen_in, mqtt_buff, sizeof(mqtt_buff));
+
+                        strcpy((char *)msg_rev_buf, (const char *)payload_in);
+                        printf("message arrived %d: %s\n\r", payloadlen_in, (char *)msg_rev_buf);
+                        parse_objects_mqtt((char *)msg_rev_buf); //收到平台MQTT数据并解析
+
+                        HighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+                        printf("MQTT-TASK HighWaterMark=%d \n", HighWaterMark);
+
+                        //心跳计时清零
+                        ping_timeout = 0;
+                    }
+                    else if (ret == -1)
+                    {
+                        printf("MQTTPacket_read ERR : %d\n", ret);
+                        return -1;
+                    }
                 }
-                vTaskDelay(100 / portTICK_RATE_MS);
+                //定时发送心跳包，单位S
+                if (ping_timeout > KEEPLIVE_TIME)
+                {
+                    ping_timeout = 0;
+                    //发送心跳包
+                    if ((ret = mqtt_ping()) < 0)
+                    {
+                        ESP_LOGE(TAG, "MQTT> ping error code:%d.\r\n", ret);
+                        return 0;
+                    }
+                }
+                ping_timeout++;
+                // vTaskDelay(100 / portTICK_RATE_MS);
             }
         }
         else
@@ -239,18 +296,17 @@ void lan_mqtt_task(void *pvParameter)
     int32_t rc;
     while (1)
     {
-
         switch (getSn_SR(MQTT_SOCKET))
         {
         case SOCK_CLOSED:
-            ESP_LOGD(TAG, "MQTT> SOCK_CLOSE.\r\n");
+            ESP_LOGI(TAG, "MQTT> SOCK_CLOSE.\r\n");
             if (LAN_DNS_STATUS == 0)
             {
                 lan_mqtt_status = 0;
                 ESP_LOGI(TAG, "vTaskDelete LAN_MQTT!\r\n");
                 vTaskDelete(NULL); //网线断开，删除任务
             }
-            if ((ret = lan_socket(MQTT_SOCKET, Sn_MR_TCP, 3000, 0)) != MQTT_SOCKET)
+            if ((ret = lan_socket(MQTT_SOCKET, Sn_MR_TCP, 4000, 0)) != MQTT_SOCKET)
             {
                 ESP_LOGE(TAG, "MQTT> socket open failed : %d.\r\n", ret);
                 break;
@@ -267,10 +323,10 @@ void lan_mqtt_task(void *pvParameter)
             }
             break;
         case SOCK_CLOSE_WAIT:
-            ESP_LOGD(TAG, "MQTT> SOCK_CLOSE_WAIT.\r\n");
+            ESP_LOGI(TAG, "MQTT> SOCK_CLOSE_WAIT.\r\n");
             break;
         case SOCK_INIT:
-            ESP_LOGD(TAG, "MQTT> socket state SOCK_INIT.\r\n");
+            ESP_LOGI(TAG, "MQTT> socket state SOCK_INIT.\r\n");
             if ((ret = (uint32_t)lan_connect(MQTT_SOCKET, dns_host_ip, MQTT_PORT)) != SOCK_OK)
             {
                 ESP_LOGE(TAG, "MQTT> socket connect faile : %d.\r\n", ret);
@@ -291,7 +347,7 @@ void start_lan_mqtt(void)
 {
     printf("start_lan_mqtt!\n");
     lan_mqtt_status = 1;
-    xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 2, NULL); //开启 LAN_MQTT
+    xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 10, NULL); //开启 LAN_MQTT
 }
 
 void stop_lan_mqtt(void)

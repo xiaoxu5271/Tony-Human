@@ -30,6 +30,7 @@ extern uint8_t data_read[34];
 static char *TAG = "HTTP";
 uint32_t HTTP_STATUS = HTTP_KEY_GET;
 uint8_t six_time_count = 4;
+uint8_t post_status = POST_NOCOMMAND;
 
 struct HTTP_STA
 {
@@ -206,20 +207,12 @@ esp_timer_create_args_t http_suspend = {
 
 void http_get_task(void *pvParameters)
 {
-
     char recv_buf[1024];
 
     char build_heart_url[256];
 
     sprintf(build_heart_url, "%s%s%s%s%s%s%s", http.GET, http.HEART_BEAT, ApiKey,
             http.HTTP_VERSION10, http.HOST, http.USER_AHENT, http.ENTER);
-
-    //http_send_mes(POST_ALLDOWN);
-    /***打开定时器10s开启一次***/
-    // printf("HTTP定时器打开！！！");
-    // esp_timer_create(&http_suspend, &http_timer_suspend_p);
-    // esp_timer_start_periodic(http_timer_suspend_p, 1000 * 1000 * 10);
-    /***打开定时器×**/
 
     while (1)
     {
@@ -229,7 +222,7 @@ void http_get_task(void *pvParameters)
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                             false, true, portMAX_DELAY);
 
-        ESP_LOGD("heap_size", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
+        // ESP_LOGI("heap_size", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
 
         if (fn_dp > 0)
         {
@@ -240,7 +233,7 @@ void http_get_task(void *pvParameters)
                 if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
                 {
                     parse_objects_heart(strchr(recv_buf, '{'));
-                    http_send_mes(POST_NOCOMMAND);
+                    http_send_mes();
                 }
                 else
                 {
@@ -272,7 +265,7 @@ int32_t http_activate(void)
 }
 
 uint8_t Last_Led_Status;
-void http_send_mes(uint8_t post_status)
+void http_send_mes(void)
 {
     int ret = 0;
 
@@ -308,17 +301,22 @@ void http_send_mes(uint8_t post_status)
 
     //ESP_LOGI("wifi", "1free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
     //创建POST的json格式
-    create_http_json(post_status, pCreat_json1);
+    create_http_json(pCreat_json1);
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
         sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, current_net_ip, NET_MODE, NET_NAME,
                 http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
+        // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, http.POST_URL_SSID, NET_NAME,
+        //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
     else
     {
+        post_status = POST_NOCOMMAND;
         sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, current_net_ip, NET_MODE, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
                 http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
+        // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_SSID, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
+        //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
 
     sprintf(build_po_url_json, "%s%s", build_po_url, pCreat_json1->creat_json_b);
@@ -352,5 +350,5 @@ void initialise_http(void)
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
-    xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 10, &httpHandle);
+    xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 6, &httpHandle);
 }

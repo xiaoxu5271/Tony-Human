@@ -30,7 +30,7 @@
 #define VERSIONR_ID 0x04
 
 #define MAX_SOCK_NUM 8
-#define SOCK_DHCP 0
+#define SOCK_DHCP 3
 #define SOCK_TCPS 0
 
 #define HTTP_HOST_PORT 80

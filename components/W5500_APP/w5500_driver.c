@@ -405,11 +405,11 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
     {
         // printf("while ing !!!\n");
         uint8_t temp;
-        switch (temp = getSn_SR(SOCK_DHCP))
+        switch (temp = getSn_SR(SOCK_TCPS))
         {
         case SOCK_INIT:
             // printf("SOCK_INIT!!!\n");
-            con_ret = lan_connect(SOCK_DHCP, dns_host_ip, server_port);
+            con_ret = lan_connect(SOCK_TCPS, dns_host_ip, server_port);
             if (con_ret <= 0)
             {
                 printf("INIT FAIL CODE : %d\n", con_ret);
@@ -418,17 +418,17 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
             break;
 
         case SOCK_ESTABLISHED:
-            if (getSn_IR(SOCK_DHCP) & Sn_IR_CON)
+            if (getSn_IR(SOCK_TCPS) & Sn_IR_CON)
             {
                 // printf("SOCK_ESTABLISHED!!!\n");
-                setSn_IR(SOCK_DHCP, Sn_IR_CON);
+                setSn_IR(SOCK_TCPS, Sn_IR_CON);
             }
             // printf("send_buff   : %s, size :%d \n", (char *)send_buff, send_size);
-            lan_send(SOCK_DHCP, (uint8_t *)send_buff, send_size);
+            lan_send(SOCK_TCPS, (uint8_t *)send_buff, send_size);
 
             vTaskDelay(100 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
 
-            size = getSn_RX_RSR(SOCK_DHCP);
+            size = getSn_RX_RSR(SOCK_TCPS);
             // printf("recv_size = %d\n", size);
             if (size > 0)
             {
@@ -437,7 +437,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
                     size = ETHERNET_DATA_BUF_SIZE;
                 }
                 bzero((char *)recv_buff, recv_size); //写入之前清0
-                rec_ret = lan_recv(SOCK_DHCP, (uint8_t *)recv_buff, size);
+                rec_ret = lan_recv(SOCK_TCPS, (uint8_t *)recv_buff, size);
                 if (rec_ret < 0)
                 {
                     printf("w5500 recv failed! %d\n", rec_ret);
@@ -450,7 +450,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
                 }
             }
 
-            lan_close(SOCK_DHCP);
+            lan_close(SOCK_TCPS);
             break;
 
         case SOCK_CLOSE_WAIT:
@@ -460,7 +460,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 
         case SOCK_CLOSED:
             // printf("Closed\r\n");
-            lan_socket(SOCK_DHCP, Sn_MR_TCP, socker_port, 0x00);
+            lan_socket(SOCK_TCPS, Sn_MR_TCP, socker_port, 0x00);
             if (rec_ret > 0) //需要等到接收到数据才退出函数
             {
                 // printf("rec_ret: %d\r\n", rec_ret);
@@ -471,7 +471,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 
         default:
             printf("send get %2x\n", temp);
-            lan_close(SOCK_DHCP); //网线断开重联后会返回 0X22，自动进入UDP模式，所以需要关闭连接。
+            lan_close(SOCK_TCPS); //网线断开重联后会返回 0X22，自动进入UDP模式，所以需要关闭连接。
             break;
         }
         vTaskDelay(100 / portTICK_RATE_MS);
@@ -641,6 +641,8 @@ void RJ45_Check_Task(void *arg)
 /*******************有线网初始化*******************/
 int8_t w5500_user_int(void)
 {
+    xMutex_W5500_SPI = xSemaphoreCreateMutex(); //创建W5500 SPI 发送互斥信号
+
     w5500_spi_init();
     lan_mqtt_init();
 
@@ -654,11 +656,9 @@ int8_t w5500_user_int(void)
     io_conf.pin_bit_mask = (1 << PIN_NUM_W5500_INT);
     gpio_config(&io_conf);
 
-    xMutex_W5500_SPI = xSemaphoreCreateMutex(); //创建W5500 SPI 发送互斥信号
-
     w5500_reset();
     w5500_lib_init();
-    xTaskCreate(RJ45_Check_Task, "RJ45_Check_Task", 8192, NULL, 1, NULL); //创建任务，不断检查RJ45连接状态
+    xTaskCreate(RJ45_Check_Task, "RJ45_Check_Task", 4096, NULL, 7, NULL); //创建任务，不断检查RJ45连接状态
 
     return SUCCESS;
 }

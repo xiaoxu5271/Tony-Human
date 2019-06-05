@@ -1,5 +1,20 @@
 # Peter-Human
 
+任务名                 优先级 
+vTask_view_Work	        5         	    
+Uart0_Task          	9
+Human_Task          	4
+Sht30_Task      	    3
+Led_Task       	        2
+lan_mqtt_task  	        10
+RJ45_Check_Task	        7	
+http_get_task  	        6
+user_key_cd_task	    8
+
+
+
+
+
 2019-05-24 18:42:05 优化网络切换，根据解析DNS的情况来切换网络。 优化上传WIFI状态。
 
 2019-05-24 18:42:22 增加metadata 更新设置，更新温湿度采集频率，数据上传频率
@@ -11,3 +26,5 @@
 2019-05-29 11:08:59 增加MQTT设置WIFI，修复 tcpuart 重置wifi误清零的BUG。
 
 2019-05-29 18:47:15 增加MQTT配置有线网，可选DHCP模式，增加url上传当前有线网ip，当使用WIFI时，不上传
+
+2019-06-05 18:42:36 修改lan MQTT 接收方式，增加容错机制，断开后自动重连。  修改解析DNS的socket 与 lan发送的socket 不同。

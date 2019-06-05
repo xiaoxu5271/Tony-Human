@@ -123,7 +123,7 @@ struct
 
 int read_bluetooth(void);
 //creat_json *create_http_json(uint8_t post_status);
-void create_http_json(uint8_t post_status, creat_json *pCreat_json);
+void create_http_json(creat_json *pCreat_json);
 
 uint8_t work_status;    //当前工作状态
 uint8_t protect_status; //保护状态，用于火灾和风速混合保护的切换

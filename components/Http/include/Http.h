@@ -30,9 +30,10 @@
 
 void initialise_http(void);
 
-void http_send_mes(uint8_t post_status);
+void http_send_mes(void);
 int32_t http_activate(void);
 
+extern uint8_t post_status;
 uint8_t human_status;
 TaskHandle_t httpHandle;
 esp_timer_handle_t http_timer_suspend_p;
