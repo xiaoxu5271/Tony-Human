@@ -51,7 +51,8 @@
 
 uint32_t socker_port = 3000; //本地端口 不可变
 uint8_t ethernet_buf[ETHERNET_DATA_BUF_SIZE];
-uint8_t dns_host_ip[4];
+uint8_t http_dns_host_ip[4];
+uint8_t ota_dns_host_ip[4];
 char current_net_ip[20]; //当前内网IP，用于上传
 uint8_t server_port = 80;
 uint8_t standby_dns[4] = {8, 8, 8, 8};
@@ -196,13 +197,12 @@ void my_ip_conflict(void)
 }
 
 /****************解析DNS*****************/
-int8_t lan_dns_resolve(void)
+int8_t lan_dns_resolve(uint8_t *web_url, uint8_t *dns_host_ip)
 {
-    //   osi_at24c08_ReadData(HOST_ADDR,(uint8_t*)WEB_SERVER,sizeof(WEB_SERVER),1);  //read the host name
 
     DNS_init(SOCK_DHCP, ethernet_buf);
 
-    if (DNS_run(gWIZNETINFO.dns, (uint8_t *)WEB_SERVER, dns_host_ip) > 0)
+    if (DNS_run(gWIZNETINFO.dns, web_url, dns_host_ip) > 0)
     {
 #ifdef RJ45_DEBUG
         printf("host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
@@ -210,7 +210,7 @@ int8_t lan_dns_resolve(void)
 
         return SUCCESS;
     }
-    else if (DNS_run(standby_dns, (uint8_t *)HOST_NAME, dns_host_ip) > 0)
+    else if (DNS_run(standby_dns, web_url, dns_host_ip) > 0)
     {
 #ifdef RJ45_DEBUG
         printf("s_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
@@ -393,7 +393,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 {
     int32_t rec_ret = 0, con_ret = 0;
     uint16_t size = 0;
-    if (lan_dns_resolve() == FAILURE)
+    if (lan_dns_resolve((uint8_t *)WEB_SERVER, http_dns_host_ip) == FAILURE)
     {
         LAN_DNS_STATUS = 0;
         printf("IW5500_DNS_FAIL\n");
@@ -409,7 +409,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
         {
         case SOCK_INIT:
             // printf("SOCK_INIT!!!\n");
-            con_ret = lan_connect(SOCK_TCPS, dns_host_ip, server_port);
+            con_ret = lan_connect(SOCK_TCPS, http_dns_host_ip, server_port);
             if (con_ret <= 0)
             {
                 printf("INIT FAIL CODE : %d\n", con_ret);
@@ -477,6 +477,104 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
         vTaskDelay(100 / portTICK_RATE_MS);
     }
 }
+/*****************OTA***********************/
+
+void lan_ota_task(void *arg)
+{
+    printf("lan ota task start \n");
+    char ota_url[1024] = "POST http://www.relianyun.com/otaftp/esp32_project.bin  HTTP/1.1 \r\nAccept:image/gif,image/x-xbitmap,image/jpeg,image/pjpeg,*/*\r\n ";
+    char ota_sever[128] = "www.relianyun.com";
+    int32_t rec_ret = 0, con_ret = 0;
+    int16_t size = 0;
+    char recv_buff[2048];
+    lan_dns_resolve((uint8_t *)ota_sever, ota_dns_host_ip);
+
+    while (1)
+    {
+        printf("while ing !!!\n");
+        uint8_t temp;
+        switch (temp = getSn_SR(SOCK_OTA))
+        {
+        case SOCK_INIT:
+            printf("SOCK_INIT!!!\n");
+            con_ret = lan_connect(SOCK_OTA, ota_dns_host_ip, 80);
+            if (con_ret <= 0)
+            {
+                printf("INIT FAIL CODE : %d\n", con_ret);
+                vTaskDelete(NULL);
+                // return con_ret;
+            }
+            break;
+
+        case SOCK_ESTABLISHED:
+            if (getSn_IR(SOCK_OTA) & Sn_IR_CON)
+            {
+                printf("SOCK_ESTABLISHED!!!\n");
+                setSn_IR(SOCK_OTA, Sn_IR_CON);
+            }
+            printf("send_buff: %s \n", ota_url);
+            lan_send(SOCK_OTA, (uint8_t *)ota_url, sizeof(ota_url));
+
+            vTaskDelay(100 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
+
+            size = getSn_RX_RSR(SOCK_OTA);
+            printf("recv_size = %d\n", size);
+            if (size > 0)
+            {
+                if (size > ETHERNET_DATA_BUF_SIZE)
+                {
+                    size = ETHERNET_DATA_BUF_SIZE;
+                }
+                bzero((char *)recv_buff, sizeof(recv_buff)); //写入之前清0
+                rec_ret = lan_recv(SOCK_OTA, (uint8_t *)recv_buff, size);
+                if (rec_ret < 0)
+                {
+                    printf("w5500 recv failed! %d\n", rec_ret);
+                    vTaskDelete(NULL);
+                    // return rec_ret;
+                    //break;
+                }
+                else
+                {
+                    printf("LAN_OTAlen : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
+                }
+            }
+
+            lan_close(SOCK_OTA);
+            break;
+
+        case SOCK_CLOSE_WAIT:
+            printf("SOCK_CLOSE_WAIT!!!\n");
+
+            break;
+
+        case SOCK_CLOSED:
+            printf("Closed\r\n");
+            lan_socket(SOCK_OTA, Sn_MR_TCP, socker_port, 0x00);
+            if (rec_ret > 0) //需要等到接收到数据才退出函数
+            {
+                // printf("rec_ret: %d\r\n", rec_ret);
+                // return rec_ret;
+                vTaskDelete(NULL);
+            }
+
+            break;
+
+        default:
+            printf("send get %2x\n", temp);
+            lan_close(SOCK_OTA); //网线断开重联后会返回 0X22，自动进入UDP模式，所以需要关闭连接。
+            break;
+        }
+        vTaskDelay(100 / portTICK_RATE_MS);
+    }
+    vTaskDelete(NULL);
+}
+
+int32_t lan_ota(void)
+{
+    xTaskCreate(lan_ota_task, "lan_ota_task", 8192, NULL, 5, NULL); //
+    return 1;
+}
 
 /*****************RJ45_CHECK****************/
 void RJ45_Check_Task(void *arg)
@@ -497,7 +595,7 @@ void RJ45_Check_Task(void *arg)
                 {
                     if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
                     {
-                        if (lan_dns_resolve() == SUCCESS) //解析DNS
+                        if (lan_dns_resolve((uint8_t *)WEB_SERVER, http_dns_host_ip) == SUCCESS) //解析DNS
                         {
                             LAN_DNS_STATUS = 1;
                         }
@@ -562,7 +660,7 @@ void RJ45_Check_Task(void *arg)
                 {
                     if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
                     {
-                        if (lan_dns_resolve() == SUCCESS) //解析DNS
+                        if (lan_dns_resolve((uint8_t *)WEB_SERVER, http_dns_host_ip) == SUCCESS) //解析DNS
                         {
                             LAN_DNS_STATUS = 1;
                         }

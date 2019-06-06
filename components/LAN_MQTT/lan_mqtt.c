@@ -154,6 +154,7 @@ static int8_t mqtt_ping()
         return -1;
     }
 
+    //阻塞等待接收数据 1s超时
     while (getSn_RX_RSR(MQTT_SOCKET) == 0)
     {
         count++;
@@ -327,7 +328,7 @@ void lan_mqtt_task(void *pvParameter)
             break;
         case SOCK_INIT:
             ESP_LOGI(TAG, "MQTT> socket state SOCK_INIT.\r\n");
-            if ((ret = (uint32_t)lan_connect(MQTT_SOCKET, dns_host_ip, MQTT_PORT)) != SOCK_OK)
+            if ((ret = (uint32_t)lan_connect(MQTT_SOCKET, http_dns_host_ip, MQTT_PORT)) != SOCK_OK)
             {
                 ESP_LOGE(TAG, "MQTT> socket connect faile : %d.\r\n", ret);
                 break;

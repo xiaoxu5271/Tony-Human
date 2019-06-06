@@ -14,6 +14,7 @@
 #include "tcp_bsp.h"
 #include "Smartconfig.h"
 #include "Mqtt.h"
+#include "w5500_driver.h"
 
 uint8_t Task_key_num = 0;
 
@@ -41,7 +42,7 @@ void short_pressed_cb(uint8_t key_num, uint8_t *short_pressed_counts)
         {
         case 1:
             ESP_LOGI("short_pressed_cb", "first press!!!\n");
-
+            lan_ota();
             break;
         case 2:
             ESP_LOGI("short_pressed_cb", "double press!!!\n");
@@ -103,7 +104,7 @@ void user_key_cd_task(void *arg)
             wifi_init_softap();
             break;
 
-        case 2:
+        case 3:
             // Task_key_num = 0;
             // stop_user_mqtt();
             break;

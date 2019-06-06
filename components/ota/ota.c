@@ -19,6 +19,7 @@
 #include "sht30dis.h"
 #include "Mqtt.h"
 #include "E2prom.h"
+#include "w5500_driver.h"
 
 #include "ota.h"
 

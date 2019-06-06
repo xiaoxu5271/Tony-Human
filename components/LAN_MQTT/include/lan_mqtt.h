@@ -5,7 +5,7 @@
 #include "Bluetooth.h"
 
 #if 1
-#define MQTT_SOCKET 2
+
 #define MQTT_PORT 1883
 #define MQTT_CLIEND_ID BleName      //ID
 #define MQTT_DOMAIN "api.ubibot.cn" //MQTT·şÎñÆ÷ÓòÃû
