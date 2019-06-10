@@ -12,7 +12,7 @@
 #ifndef __W5500_DRIVER_H__
 #define __W5500_DRIVER_H__
 
-#define RETRY_TIME_OUT 3
+#define RETRY_TIME_OUT 10
 
 /* Operation mode bits */
 #define VDM 0x00
@@ -36,7 +36,7 @@
 #define MQTT_SOCKET 1
 
 #define HTTP_HOST_PORT 80
-#define ETHERNET_DATA_BUF_SIZE 2048
+#define ETHERNET_DATA_BUF_SIZE 4096
 
 #define ACTIVE_DEVICE_MODE 1
 #define PIN_NUM_W5500_REST 25
@@ -60,6 +60,7 @@ void W5500_Network_Init(void);
 int8_t lan_dns_resolve(uint8_t *web_url, uint8_t *dns_host_ip);
 int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size);
 int32_t lan_ota(void);
+int8_t W5500_DHCP_Init(void);
 
 #endif
 /*******************************************************************************

@@ -238,15 +238,29 @@ void W5500_Network_Init(void)
     uint8_t gw[4];         //< Gateway IP Address
     uint8_t dns[4];        //< DNS server IP Address
 
-    uint8_t txsize[MAX_SOCK_NUM] = {4, 2, 2, 2, 2, 2, 2, 0}; //socket 0,16K
-    uint8_t rxsize[MAX_SOCK_NUM] = {4, 2, 2, 2, 2, 2, 2, 0}; //socket 0,16K
+    uint8_t txsize[MAX_SOCK_NUM] = {4, 4, 4, 4, 0, 0, 0, 0}; //socket 0,16K
+    uint8_t rxsize[MAX_SOCK_NUM] = {4, 4, 4, 4, 0, 0, 0, 0}; //socket 0,16K
 
-    esp_read_mac(mac, 3);                                //获取芯片内部默认出厂MAC，
+    esp_read_mac(mac, 3); //获取芯片内部默认出厂MAC，
+    memcpy(gWIZNETINFO.mac, mac, 6);
+
+    wizchip_init(txsize, rxsize); //设置接收发送缓存空间
+
+    wiz_NetTimeout E_NetTimeout;
+    E_NetTimeout.retry_cnt = 50;    //< retry count
+    E_NetTimeout.time_100us = 1000; //< time unit 100us
+    wizchip_settimeout(&E_NetTimeout);
+
+    // gWIZPHYCONF.speed = PHY_SPEED_10;
+    // ctlwizchip(CW_SET_PHYCONF, (void *)&gWIZPHYCONF); //设置连接速度，降低功耗、温度。  然而发现并没有什么卵用
+    // ctlwizchip(CW_GET_PHYCONF, (void *)&gWIZPHYCONF_READ);
+
     EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &dhcp_mode); //获取DHCP模式
     if (dhcp_mode == 0)
     {
         uint8_t i = 0;
         uint8_t netinfo_buff[16];
+
         E2prom_page_Read(NETINFO_add, netinfo_buff, 16);
         while (i < 16)
         {
@@ -269,31 +283,22 @@ void W5500_Network_Init(void)
             // printf("netinfo_buff[%d]:%d \n", i, netinfo_buff[i]);
             i++;
         }
+
+        memcpy(gWIZNETINFO.ip, ip, 4);
+        memcpy(gWIZNETINFO.sn, sn, 4);
+        memcpy(gWIZNETINFO.gw, gw, 4);
+        memcpy(gWIZNETINFO.dns, dns, 4);
+
+        gWIZNETINFO.dhcp = NETINFO_STATIC; //< 1 - Static, 2 - DHCP
+        ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
     }
 
-    wizchip_init(txsize, rxsize);
-
-    memcpy(gWIZNETINFO.mac, mac, 6);
-    memcpy(gWIZNETINFO.ip, ip, 4);
-    memcpy(gWIZNETINFO.sn, sn, 4);
-    memcpy(gWIZNETINFO.gw, gw, 4);
-    memcpy(gWIZNETINFO.dns, dns, 4);
-
-    if (dhcp_mode)
+    else if (dhcp_mode == 1)
     {
         gWIZNETINFO.dhcp = NETINFO_DHCP; //< 1 - Static, 2 - DHCP
+        ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
+        W5500_DHCP_Init();
     }
-    else
-    {
-        gWIZNETINFO.dhcp = NETINFO_STATIC; //< 1 - Static, 2 - DHCP
-    }
-
-    gWIZPHYCONF.speed = PHY_SPEED_10;
-    ctlwizchip(CW_SET_PHYCONF, (void *)&gWIZPHYCONF); //设置连接速度，降低功耗、温度。  然而发现并没有什么卵用
-    ctlwizchip(CW_GET_PHYCONF, (void *)&gWIZPHYCONF_READ);
-    printf("spd: %d \n", gWIZPHYCONF_READ.speed);
-
-    ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
 
 #ifdef RJ45_DEBUG
     ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO_READ);
@@ -308,11 +313,6 @@ void W5500_Network_Init(void)
     printf("SUB: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.sn[0], gWIZNETINFO_READ.sn[1], gWIZNETINFO_READ.sn[2], gWIZNETINFO_READ.sn[3]);
     printf("DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
 #endif
-
-    wiz_NetTimeout E_NetTimeout;
-    E_NetTimeout.retry_cnt = 50;    //< retry count
-    E_NetTimeout.time_100us = 1000; //< time unit 100us
-    wizchip_settimeout(&E_NetTimeout);
 
     printf("Network_init success!!!\n");
 }
@@ -365,6 +365,7 @@ int8_t W5500_DHCP_Init(void)
 
                 if (dhcp_retry++ > RETRY_TIME_OUT)
                 {
+                    dhcp_retry = 0;
                     return FAILURE;
                     DHCP_stop(); // if restart, recall DHCP_init()
                 }
@@ -382,7 +383,7 @@ int8_t W5500_DHCP_Init(void)
             default:
                 break;
             }
-            vTaskDelay(100 / portTICK_RATE_MS);
+            vTaskDelay(200 / portTICK_RATE_MS);
         }
     }
 
@@ -446,7 +447,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
                 }
                 else
                 {
-                    // printf(" len : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
+                    printf(" len : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
                 }
             }
 
@@ -482,10 +483,19 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 void lan_ota_task(void *arg)
 {
     printf("lan ota task start \n");
-    char ota_url[1024] = "POST http://www.relianyun.com/otaftp/esp32_project.bin  HTTP/1.1 \r\nAccept:image/gif,image/x-xbitmap,image/jpeg,image/pjpeg,*/*\r\n ";
+    char ota_url[1024];
+
+    snprintf(ota_url, sizeof(ota_url), "POST http://www.relianyun.com/otaftp/esp32_project.bin HTTP/1.1\r\n"
+                                       "Host:www.relianyun.com\r\n"
+                                       "Accept:image/gif,image/x-xbitmap,image/jpeg,image/pjpeg,*/*\r\n"
+                                       "Pragma:no-cache\r\n"
+                                       "Accept-Encoding: gzip,deflate\r\n"
+                                       "Connection:keep-alive\r\n"
+                                       "\r\n");
+
     char ota_sever[128] = "www.relianyun.com";
     int32_t rec_ret = 0, con_ret = 0;
-    int16_t size = 0;
+    int32_t size = 0;
     char recv_buff[2048];
     lan_dns_resolve((uint8_t *)ota_sever, ota_dns_host_ip);
 
@@ -515,7 +525,7 @@ void lan_ota_task(void *arg)
             printf("send_buff: %s \n", ota_url);
             lan_send(SOCK_OTA, (uint8_t *)ota_url, sizeof(ota_url));
 
-            vTaskDelay(100 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
+            vTaskDelay(500 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
 
             size = getSn_RX_RSR(SOCK_OTA);
             printf("recv_size = %d\n", size);
@@ -553,7 +563,7 @@ void lan_ota_task(void *arg)
             lan_socket(SOCK_OTA, Sn_MR_TCP, socker_port, 0x00);
             if (rec_ret > 0) //需要等到接收到数据才退出函数
             {
-                // printf("rec_ret: %d\r\n", rec_ret);
+                printf("lan ota task del\n");
                 // return rec_ret;
                 vTaskDelete(NULL);
             }

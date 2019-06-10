@@ -376,7 +376,7 @@ int8_t parseDNSMSG(struct dhdr *pdhdr, uint8_t *pbuf, uint8_t *ip_from_dns)
     for (i = 0; i < pdhdr->qdcount; i++)
     {
         cp = dns_question(msg, cp);
-#ifdef _DNS_DEUBG_
+#ifdef _DNS_DEBUG_
         printf("MAX_DOMAIN_NAME is too small, it should be redfine in dns.h");
 #endif
         if (!cp)
@@ -387,7 +387,7 @@ int8_t parseDNSMSG(struct dhdr *pdhdr, uint8_t *pbuf, uint8_t *ip_from_dns)
     for (i = 0; i < pdhdr->ancount; i++)
     {
         cp = dns_answer(msg, cp, ip_from_dns);
-#ifdef _DNS_DEUBG_
+#ifdef _DNS_DEBUG_
         printf("MAX_DOMAIN_NAME is too small, it should be redfine in dns.h");
 #endif
         if (!cp)
@@ -447,8 +447,13 @@ int16_t dns_makequery(uint16_t op, char *name, uint8_t *buf, uint16_t len)
     dlen = strlen(dname);
     for (;;)
     {
+
         /* Look for next dot */
         cp1 = strchr(dname, '.');
+
+#ifdef _DNS_DEBUG_
+        printf("dns_makequery  FOR ING  len:%d \n", len);
+#endif
 
         if (cp1 != NULL)
             len = cp1 - dname; /* More to come */
@@ -473,6 +478,10 @@ int16_t dns_makequery(uint16_t op, char *name, uint8_t *buf, uint16_t len)
 
     cp = put16(cp, 0x0001); /* type */
     cp = put16(cp, 0x0001); /* class */
+
+#ifdef _DNS_DEBUG_
+    printf("dns_makequery  out \n");
+#endif
 
     return ((int16_t)((uint32_t)(cp) - (uint32_t)(buf)));
 }
@@ -533,6 +542,9 @@ int8_t DNS_run(uint8_t *dns_ip, uint8_t *name, uint8_t *ip_from_dns)
 
     len = dns_makequery(0, (char *)name, pDNSMSG, MAX_DNS_BUF_SIZE);
     lan_sendto(DNS_SOCKET, pDNSMSG, len, dns_ip, IPPORT_DOMAIN);
+#ifdef _DNS_DEBUG_
+    printf("lan_sendto ok \n");
+#endif
 
     while (1)
     {
@@ -547,8 +559,13 @@ int8_t DNS_run(uint8_t *dns_ip, uint8_t *name, uint8_t *ip_from_dns)
             ret = parseDNSMSG(&dhp, pDNSMSG, ip_from_dns);
             break;
         }
+
         // Check Timeout
         ret_check_timeout = check_DNS_timeout();
+        DNS_time_handler();
+#ifdef _DNS_DEBUG_
+        printf("ret_check_timeout = %d \n", ret_check_timeout);
+#endif
         if (ret_check_timeout < 0)
         {
 

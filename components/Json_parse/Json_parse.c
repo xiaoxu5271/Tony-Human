@@ -772,7 +772,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             if (NULL != pSub)
             {
                 EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, (uint8_t)pSub->valueint); //写入DHCP模式
-            }
+                        }
 
             pSub = cJSON_GetObjectItem(pJson, "ip"); //"ip"
             if (NULL != pSub)
