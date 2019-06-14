@@ -27,7 +27,7 @@
 #include "w5500_driver.h"
 
 #include "w5500_socket.h"
-
+#include "w5500.h"
 #include "w5500_spi.h"
 #include "w5500_dhcp.h"
 #include "w5500_dns.h"
@@ -52,10 +52,10 @@
 uint32_t socker_port = 3000; //本地端口 不可变
 uint8_t ethernet_buf[ETHERNET_DATA_BUF_SIZE];
 uint8_t http_dns_host_ip[4];
-uint8_t ota_dns_host_ip[4];
+
 char current_net_ip[20]; //当前内网IP，用于上传
 uint8_t server_port = 80;
-uint8_t standby_dns[4] = {8, 8, 8, 8};
+uint8_t standby_dns[4] = {114, 114, 114, 114};
 uint8_t RJ45_STATUS;
 uint8_t LAN_DNS_STATUS = 0;
 // uint8_t Ethernet_Timeout = 0; //ethernet http application time out
@@ -197,10 +197,11 @@ void my_ip_conflict(void)
 }
 
 /****************解析DNS*****************/
-int8_t lan_dns_resolve(uint8_t *web_url, uint8_t *dns_host_ip)
+int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip)
 {
 
-    DNS_init(SOCK_DHCP, ethernet_buf);
+    DNS_init(sock, ethernet_buf);
+    printf("url : %s\n", web_url);
 
     if (DNS_run(gWIZNETINFO.dns, web_url, dns_host_ip) > 0)
     {
@@ -238,8 +239,8 @@ void W5500_Network_Init(void)
     uint8_t gw[4];         //< Gateway IP Address
     uint8_t dns[4];        //< DNS server IP Address
 
-    uint8_t txsize[MAX_SOCK_NUM] = {4, 4, 4, 4, 0, 0, 0, 0}; //socket 0,16K
-    uint8_t rxsize[MAX_SOCK_NUM] = {4, 4, 4, 4, 0, 0, 0, 0}; //socket 0,16K
+    uint8_t txsize[MAX_SOCK_NUM] = {4, 4, 4, 2, 2, 0, 0, 0}; //socket 0,16K
+    uint8_t rxsize[MAX_SOCK_NUM] = {4, 4, 4, 2, 2, 0, 0, 0}; //socket 0,16K
 
     esp_read_mac(mac, 3); //获取芯片内部默认出厂MAC，
     memcpy(gWIZNETINFO.mac, mac, 6);
@@ -261,6 +262,7 @@ void W5500_Network_Init(void)
         uint8_t i = 0;
         uint8_t netinfo_buff[16];
 
+        printf("dhcp mode --- 0 Static\n");
         E2prom_page_Read(NETINFO_add, netinfo_buff, 16);
         while (i < 16)
         {
@@ -295,6 +297,7 @@ void W5500_Network_Init(void)
 
     else if (dhcp_mode == 1)
     {
+        printf("dhcp mode --- 1 DHCP\n");
         gWIZNETINFO.dhcp = NETINFO_DHCP; //< 1 - Static, 2 - DHCP
         ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
         W5500_DHCP_Init();
@@ -394,7 +397,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 {
     int32_t rec_ret = 0, con_ret = 0;
     uint16_t size = 0;
-    if (lan_dns_resolve((uint8_t *)WEB_SERVER, http_dns_host_ip) == FAILURE)
+    if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == FAILURE)
     {
         LAN_DNS_STATUS = 0;
         printf("IW5500_DNS_FAIL\n");
@@ -478,113 +481,6 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
         vTaskDelay(100 / portTICK_RATE_MS);
     }
 }
-/*****************OTA***********************/
-
-void lan_ota_task(void *arg)
-{
-    printf("lan ota task start \n");
-    char ota_url[1024];
-
-    snprintf(ota_url, sizeof(ota_url), "POST http://www.relianyun.com/otaftp/esp32_project.bin HTTP/1.1\r\n"
-                                       "Host:www.relianyun.com\r\n"
-                                       "Accept:image/gif,image/x-xbitmap,image/jpeg,image/pjpeg,*/*\r\n"
-                                       "Pragma:no-cache\r\n"
-                                       "Accept-Encoding: gzip,deflate\r\n"
-                                       "Connection:keep-alive\r\n"
-                                       "\r\n");
-
-    char ota_sever[128] = "www.relianyun.com";
-    int32_t rec_ret = 0, con_ret = 0;
-    int32_t size = 0;
-    char recv_buff[2048];
-    lan_dns_resolve((uint8_t *)ota_sever, ota_dns_host_ip);
-
-    while (1)
-    {
-        printf("while ing !!!\n");
-        uint8_t temp;
-        switch (temp = getSn_SR(SOCK_OTA))
-        {
-        case SOCK_INIT:
-            printf("SOCK_INIT!!!\n");
-            con_ret = lan_connect(SOCK_OTA, ota_dns_host_ip, 80);
-            if (con_ret <= 0)
-            {
-                printf("INIT FAIL CODE : %d\n", con_ret);
-                vTaskDelete(NULL);
-                // return con_ret;
-            }
-            break;
-
-        case SOCK_ESTABLISHED:
-            if (getSn_IR(SOCK_OTA) & Sn_IR_CON)
-            {
-                printf("SOCK_ESTABLISHED!!!\n");
-                setSn_IR(SOCK_OTA, Sn_IR_CON);
-            }
-            printf("send_buff: %s \n", ota_url);
-            lan_send(SOCK_OTA, (uint8_t *)ota_url, sizeof(ota_url));
-
-            vTaskDelay(500 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
-
-            size = getSn_RX_RSR(SOCK_OTA);
-            printf("recv_size = %d\n", size);
-            if (size > 0)
-            {
-                if (size > ETHERNET_DATA_BUF_SIZE)
-                {
-                    size = ETHERNET_DATA_BUF_SIZE;
-                }
-                bzero((char *)recv_buff, sizeof(recv_buff)); //写入之前清0
-                rec_ret = lan_recv(SOCK_OTA, (uint8_t *)recv_buff, size);
-                if (rec_ret < 0)
-                {
-                    printf("w5500 recv failed! %d\n", rec_ret);
-                    vTaskDelete(NULL);
-                    // return rec_ret;
-                    //break;
-                }
-                else
-                {
-                    printf("LAN_OTAlen : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
-                }
-            }
-
-            lan_close(SOCK_OTA);
-            break;
-
-        case SOCK_CLOSE_WAIT:
-            printf("SOCK_CLOSE_WAIT!!!\n");
-
-            break;
-
-        case SOCK_CLOSED:
-            printf("Closed\r\n");
-            lan_socket(SOCK_OTA, Sn_MR_TCP, socker_port, 0x00);
-            if (rec_ret > 0) //需要等到接收到数据才退出函数
-            {
-                printf("lan ota task del\n");
-                // return rec_ret;
-                vTaskDelete(NULL);
-            }
-
-            break;
-
-        default:
-            printf("send get %2x\n", temp);
-            lan_close(SOCK_OTA); //网线断开重联后会返回 0X22，自动进入UDP模式，所以需要关闭连接。
-            break;
-        }
-        vTaskDelay(100 / portTICK_RATE_MS);
-    }
-    vTaskDelete(NULL);
-}
-
-int32_t lan_ota(void)
-{
-    xTaskCreate(lan_ota_task, "lan_ota_task", 8192, NULL, 5, NULL); //
-    return 1;
-}
 
 /*****************RJ45_CHECK****************/
 void RJ45_Check_Task(void *arg)
@@ -605,7 +501,7 @@ void RJ45_Check_Task(void *arg)
                 {
                     if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
                     {
-                        if (lan_dns_resolve((uint8_t *)WEB_SERVER, http_dns_host_ip) == SUCCESS) //解析DNS
+                        if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == SUCCESS) //解析DNS
                         {
                             LAN_DNS_STATUS = 1;
                         }
@@ -670,7 +566,7 @@ void RJ45_Check_Task(void *arg)
                 {
                     if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
                     {
-                        if (lan_dns_resolve((uint8_t *)WEB_SERVER, http_dns_host_ip) == SUCCESS) //解析DNS
+                        if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == SUCCESS) //解析DNS
                         {
                             LAN_DNS_STATUS = 1;
                         }
@@ -766,6 +662,12 @@ int8_t w5500_user_int(void)
 
     w5500_reset();
     w5500_lib_init();
+    if ((IINCHIP_READ(VERSIONR)) != VERSIONR_ID)
+    {
+        printf("w5500 read err!\r\n\r\n");
+        return -1;
+    }
+
     xTaskCreate(RJ45_Check_Task, "RJ45_Check_Task", 4096, NULL, 7, NULL); //创建任务，不断检查RJ45连接状态
 
     return SUCCESS;

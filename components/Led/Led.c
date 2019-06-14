@@ -7,9 +7,9 @@
 
 #if 1
 
-#define GPIO_LED_B 17
-#define GPIO_LED_G 21
-#define GPIO_LED_R 22
+#define GPIO_LED_R 17
+#define GPIO_LED_B 21
+#define GPIO_LED_G 22
 
 #else
 

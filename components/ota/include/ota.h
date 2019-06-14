@@ -6,5 +6,6 @@
 uint8_t need_update;
 uint8_t update_fail_num;
 extern void ota_start(void);
+extern int32_t lan_ota(void);
 
 #endif

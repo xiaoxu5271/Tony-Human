@@ -15,6 +15,7 @@
 #include "Smartconfig.h"
 #include "Mqtt.h"
 #include "w5500_driver.h"
+#include "ota.h"
 
 uint8_t Task_key_num = 0;
 
@@ -42,7 +43,7 @@ void short_pressed_cb(uint8_t key_num, uint8_t *short_pressed_counts)
         {
         case 1:
             ESP_LOGI("short_pressed_cb", "first press!!!\n");
-            lan_ota();
+            Task_key_num = 1;
             break;
         case 2:
             ESP_LOGI("short_pressed_cb", "double press!!!\n");
@@ -84,7 +85,7 @@ void long_pressed_cb(uint8_t key_num, uint8_t *long_pressed_counts)
     case BOARD_BUTTON:
         ESP_LOGI("long_pressed_cb", "long press!!!\n");
 
-        Task_key_num = 1;
+        Task_key_num = 5;
 
         break;
     default:
@@ -100,13 +101,13 @@ void user_key_cd_task(void *arg)
         {
         case 1:
             Task_key_num = 0;
-            printf("AP START....\r\n");
-            wifi_init_softap();
+            lan_ota();
             break;
 
-        case 3:
-            // Task_key_num = 0;
-            // stop_user_mqtt();
+        case 5:
+            Task_key_num = 0;
+            printf("AP START....\r\n");
+            wifi_init_softap();
             break;
 
         default:
@@ -125,6 +126,8 @@ static void vTask_view_Work(void *pvParameters)
         if (Task_key_num == 2)
         {
             Task_key_num = 0;
+
+            printf("free Heap:%d\n", esp_get_free_heap_size());
             /* K1键按下 打印任务执行情况 */
 
             printf("=======================================================\r\n");

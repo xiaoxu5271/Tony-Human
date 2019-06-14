@@ -27,8 +27,8 @@
 =========================== 
 */
 #define BOARD_BUTTON_COUNT 1
-#define BOARD_BUTTON GPIO_NUM_12
-#define BOARD_BUTTON_NUM GPIO_ID_PIN(GPIO_NUM_12)
+#define BOARD_BUTTON GPIO_NUM_35
+#define BOARD_BUTTON_NUM GPIO_ID_PIN(GPIO_NUM_35)
 #define DECOUNE_TIMER 10 * 1000            ///< 10mS
 #define SHORT_PRESS_DELAY_CHECK 150 * 1000 ///< 150ms
 #define LONG_PRESSED_TIMER 5000 * 1000     ///< 5000mS
@@ -46,10 +46,10 @@
 /* 全局枚举声明 */
 enum
 {
-        BUTTON_PRESSED_AT_STARTUP = 0x00,
-        BUTTON_PRESSED_SHORT = 0x01,
-        BUTTON_PRESSED_LONG = 0x02,
-        BUTTON_IDLE = 0x03,
+    BUTTON_PRESSED_AT_STARTUP = 0x00,
+    BUTTON_PRESSED_SHORT = 0x01,
+    BUTTON_PRESSED_LONG = 0x02,
+    BUTTON_IDLE = 0x03,
 };
 
 /* 定义了一个别名为user_key_function_callback以及user_key_handler_t的函数指针 */
@@ -59,27 +59,27 @@ typedef void (*user_key_decounce_handler_t)(uint8_t pin_no, uint8_t key_action);
 /* 定义一个配置按键参数的结构体 */
 typedef struct key_config
 {
-        uint8_t key_number;           ///< 按键对应的GPIO口
-        uint8_t active_state;         ///< 指定按键按下是高电平有效,还是低电平有效
-        uint8_t short_pressed_counts; ///< 保存按键短按的次数,用于多击的判断
-        uint32_t long_pressed_time;   ///< 按键长按时间,单位us
+    uint8_t key_number;           ///< 按键对应的GPIO口
+    uint8_t active_state;         ///< 指定按键按下是高电平有效,还是低电平有效
+    uint8_t short_pressed_counts; ///< 保存按键短按的次数,用于多击的判断
+    uint32_t long_pressed_time;   ///< 按键长按时间,单位us
 } key_config_t;
 
 /* 定义一个按键相关参数的结构体 */
 typedef struct key_param
 {
-        uint32_t decounce_time;                            ///< 按键消抖的时间,单位us
-        user_key_function_callback_t long_press_callback;  ///< 长按的回调函数
-        user_key_function_callback_t short_press_callback; ///< 短按的回调函数,包括单击/双击/多击等处理
-                                                           // struct key_param *next;                                              ///< 保留用于未来,使用链表创建多个按键的单击,双击以及多击ETS_GPIO_INTR_DISABLE
+    uint32_t decounce_time;                            ///< 按键消抖的时间,单位us
+    user_key_function_callback_t long_press_callback;  ///< 长按的回调函数
+    user_key_function_callback_t short_press_callback; ///< 短按的回调函数,包括单击/双击/多击等处理
+                                                       // struct key_param *next;                                              ///< 保留用于未来,使用链表创建多个按键的单击,双击以及多击ETS_GPIO_INTR_DISABLE
 } key_param_t;
 
 /* 定义一个按键计时相关参数的结构体 */
 typedef struct key_time_params
 {
-        esp_timer_handle_t short_press_time_handle;  ///< 用于计时按键按下并释放之后多少ms内,没有再次按下按键则说明整个按键动作完成
-        esp_timer_handle_t key_decounce_time_handle; ///< 用于按键消抖的计时
-        esp_timer_handle_t long_press_time_handle;   ///< 用于按键长时的计时
+    esp_timer_handle_t short_press_time_handle;  ///< 用于计时按键按下并释放之后多少ms内,没有再次按下按键则说明整个按键动作完成
+    esp_timer_handle_t key_decounce_time_handle; ///< 用于按键消抖的计时
+    esp_timer_handle_t long_press_time_handle;   ///< 用于按键长时的计时
 } key_time_params_t;
 
 /*

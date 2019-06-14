@@ -34,6 +34,7 @@
 #define SOCK_TCPS 0
 #define SOCK_OTA 2
 #define MQTT_SOCKET 1
+#define SOCK_DNS 4
 
 #define HTTP_HOST_PORT 80
 #define ETHERNET_DATA_BUF_SIZE 4096
@@ -57,9 +58,8 @@ extern char current_net_ip[20]; //当前内网IP，用于上传
 //extern short Ethernet_http_application(uint8_t mode);
 int8_t w5500_user_int(void);
 void W5500_Network_Init(void);
-int8_t lan_dns_resolve(uint8_t *web_url, uint8_t *dns_host_ip);
+int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip);
 int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size);
-int32_t lan_ota(void);
 int8_t W5500_DHCP_Init(void);
 
 #endif

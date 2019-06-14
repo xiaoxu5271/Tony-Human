@@ -265,6 +265,10 @@ int32_t http_activate(void)
 }
 
 uint8_t Last_Led_Status;
+
+
+
+
 void http_send_mes(void)
 {
     int ret = 0;
