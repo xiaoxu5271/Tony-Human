@@ -549,6 +549,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
         strncpy(mqtt_json_s.mqtt_string, json_data_string_parse->valuestring, strlen(json_data_string_parse->valuestring));
 
         post_status = POST_NORMAL;
+        http_send_mes();
         json_data_string_parse = cJSON_Parse(json_data_string_parse->valuestring); //将command_string再次构建成json格式，以便二次解析
         if (json_data_string_parse != NULL)
         {
@@ -772,7 +773,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             if (NULL != pSub)
             {
                 EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, (uint8_t)pSub->valueint); //写入DHCP模式
-                        }
+            }
 
             pSub = cJSON_GetObjectItem(pJson, "ip"); //"ip"
             if (NULL != pSub)

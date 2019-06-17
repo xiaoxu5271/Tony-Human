@@ -55,7 +55,7 @@ uint8_t http_dns_host_ip[4];
 
 char current_net_ip[20]; //当前内网IP，用于上传
 uint8_t server_port = 80;
-uint8_t standby_dns[4] = {114, 114, 114, 114};
+uint8_t standby_dns[4] = {8, 8, 8, 8};
 uint8_t RJ45_STATUS;
 uint8_t LAN_DNS_STATUS = 0;
 // uint8_t Ethernet_Timeout = 0; //ethernet http application time out
@@ -223,7 +223,6 @@ int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip)
 #ifdef RJ45_DEBUG
     printf("n_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
 #endif
-
     return FAILURE;
 }
 
@@ -241,6 +240,8 @@ void W5500_Network_Init(void)
 
     uint8_t txsize[MAX_SOCK_NUM] = {4, 4, 4, 2, 2, 0, 0, 0}; //socket 0,16K
     uint8_t rxsize[MAX_SOCK_NUM] = {4, 4, 4, 2, 2, 0, 0, 0}; //socket 0,16K
+
+    w5500_reset();
 
     esp_read_mac(mac, 3); //获取芯片内部默认出厂MAC，
     memcpy(gWIZNETINFO.mac, mac, 6);
@@ -450,7 +451,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
                 }
                 else
                 {
-                    printf(" len : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
+                    // printf(" len : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
                 }
             }
 
@@ -659,9 +660,8 @@ int8_t w5500_user_int(void)
     gpio_config(&io_conf);
     io_conf.pin_bit_mask = (1 << PIN_NUM_W5500_INT);
     gpio_config(&io_conf);
-
-    w5500_reset();
     w5500_lib_init();
+    w5500_reset();
     if ((IINCHIP_READ(VERSIONR)) != VERSIONR_ID)
     {
         printf("w5500 read err!\r\n\r\n");

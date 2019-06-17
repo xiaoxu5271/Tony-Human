@@ -36,3 +36,5 @@ user_key_cd_task	    8
 2019-06-14 18:50:32 增加 有线网OTA 功能，请求数据，需要用GET ，Connection:close 不可以设置成永久连接 该参数需要关闭。本版本OTA地址是                     写死的，暂未加入接口。
 
 2019-06-17 13:37:48 有线网OTA 增加MQTT请求。
+
+2019-06-17 18:34:08 修改W5500域名解析BUG ，#define DNS_WAIT_TIME 1000 ///< Wait response time. unit 1s. 设置过小会导致域名解析不成功

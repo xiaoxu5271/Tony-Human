@@ -15,7 +15,7 @@
 #define TAG "User_Wifi" //打印的tag
 
 #define TCP_SERVER_ADRESS "192.168.169.212" //作为client，要连接TCP服务器地址
-#define TCP_PORT 12345                      //统一的端口号，包括TCP客户端或者服务端
+#define TCP_PORT 5001                       //统一的端口号，包括TCP客户端或者服务端
 
 extern int g_total_data;
 extern bool g_rxtx_need_restart;

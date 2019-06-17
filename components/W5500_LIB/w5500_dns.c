@@ -561,8 +561,8 @@ int8_t DNS_run(uint8_t *dns_ip, uint8_t *name, uint8_t *ip_from_dns)
         }
 
         // Check Timeout
-        ret_check_timeout = check_DNS_timeout();
         DNS_time_handler();
+        ret_check_timeout = check_DNS_timeout();
 #ifdef _DNS_DEBUG_
         printf("ret_check_timeout = %d \n", ret_check_timeout);
 #endif

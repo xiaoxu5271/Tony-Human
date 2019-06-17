@@ -69,10 +69,10 @@ extern "C"
  * @todo SHOULD BE defined it equal as or greater than your Domain name lenght + null character(1)
  * @note SHOULD BE careful to stack overflow because it is allocated 1.5 times as MAX_DOMAIN_NAME in stack.
  */
-#define MAX_DOMAIN_NAME 16 // for example "www.google.com"
+#define MAX_DOMAIN_NAME 20 // for example "www.google.com"
 
-#define MAX_DNS_RETRY 2 ///< Requery Count
-#define DNS_WAIT_TIME 3 ///< Wait response time. unit 1s.
+#define MAX_DNS_RETRY 5    ///< Requery Count
+#define DNS_WAIT_TIME 1000 ///< Wait response time. unit 1s. 设置过小会导致域名解析不成功
 
 #define IPPORT_DOMAIN 53 ///< DNS server port number
 
