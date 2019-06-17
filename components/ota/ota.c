@@ -75,7 +75,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-void ota_task(void *arg)
+void wifi_ota_task(void *arg)
 {
     ESP_LOGI(TAG, "Starting OTA...");
     esp_timer_stop(http_timer_suspend_p);
@@ -149,11 +149,6 @@ void ota_task(void *arg)
     vTaskDelete(NULL); //删除自身任务
 }
 
-void ota_start(void) //建立OTA升级任务，目的是为了让此函数被调用后尽快执行完毕
-{
-    xTaskCreate(ota_task, "ota_task", 8192, NULL, 2, ota_handle);
-}
-
 /*****************OTA***********************/
 // get mid str 把src中 s1 到 s2之间的数据拷贝（包括s1不包括S2）到 sub中
 int8_t mid(char *src, char *s1, char *s2, char *sub)
@@ -194,7 +189,6 @@ static bool read_past_http_header(char text[], int total_len, esp_ota_handle_t u
     printf("\r\n%s\r\n", text);
     /* 获取镜像大小*/
     char sub[20];
-    //获取字符串长度
     if (mid((char *)text, "Content-Length: ", "\r\n", sub) != 1)
     {
         ESP_LOGE(TAG, "URL or SERVER ERROR!!!");
@@ -239,23 +233,35 @@ void lan_ota_task(void *arg)
 {
 
     printf("lan ota task start \n");
-    char ota_url[1024];
-
-    snprintf(ota_url, sizeof(ota_url), "GET https://console.ubibot.cn/temp/HUM1-V0.1.0.bin HTTP/1.1\r\n" //"POST http://www.relianyun.com/otaftp/esp32_project.bin HTTP/1.1\r\n"
-                                       "Host:console.ubibot.cn\r\n"
-                                       "Accept:image/gif,image/x-xbitmap,image/jpeg,image/pjpeg,*/*\r\n"
-                                       "Pragma:no-cache\r\n"
-                                       "Accept-Encoding: gzip,deflate\r\n"
-                                       "Connection:close\r\n" //keep-alive 打开会导致升级失败，数据包下载中途卡住
-                                       "\r\n"                 //不可缺少 否则会导致接收不到正确数据
-
-    );
-
-    char ota_sever[128] = "console.ubibot.cn";
 
     int16_t con_ret;
     int32_t size;
     int32_t buff_len;
+    uint16_t no_recv_time = 0;
+    char ota_url[1024] = {0};
+    char ota_sever[128] = {0};
+
+    E2prom_page_Read(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
+    if (mid(mqtt_json_s.mqtt_ota_url, "://", "/", ota_sever) != 1)
+    {
+        printf("ota url err!!!\n");
+        vTaskDelete(NULL);
+    }
+
+    snprintf(ota_url, sizeof(ota_url), "GET %s HTTP/1.1\r\n" //"POST http://www.relianyun.com/otaftp/esp32_project.bin HTTP/1.1\r\n"
+                                       "Host:%s\r\n"
+                                       "Accept:image/gif,image/x-xbitmap,image/jpeg,image/pjpeg,*/*\r\n"
+                                       "Pragma:no-cache\r\n"
+                                       "Accept-Encoding: gzip,deflate\r\n"
+                                       "Connection:close\r\n" //keep-alive 打开会导致升级失败，数据包下载中途卡住
+                                       "\r\n",                //不可缺少 否则会导致接收不到正确数据
+             mqtt_json_s.mqtt_ota_url,
+             ota_sever
+
+    );
+
+    printf("ota_url=%s", ota_url);
+
     lan_dns_resolve(SOCK_OTA, (uint8_t *)ota_sever, ota_dns_host_ip);
 
     esp_err_t err;
@@ -377,6 +383,19 @@ void lan_ota_task(void *arg)
                         ESP_LOGE(TAG, "Unexpected recv result");
                     }
                 }
+                else
+                {
+                    no_recv_time++;
+                    //OTA超时2S未收到数据
+                    if (no_recv_time > 200)
+                    {
+                        ESP_LOGE(TAG, "OTA IMAGE RECV TIMEOUT!");
+                        no_recv_time = 0;
+                        lan_close(SOCK_OTA);
+                        break;
+                    }
+                }
+
                 vTaskDelay(10 / portTICK_RATE_MS);
             }
             lan_close(SOCK_OTA);
@@ -395,8 +414,19 @@ void lan_ota_task(void *arg)
                 ESP_LOGE(TAG, "esp_ota_set_boot_partition failed! err=0x%x", err);
                 vTaskDelete(NULL);
             }
-            ESP_LOGI(TAG, "Prepare to restart system!!!!!\r\n\r\n\r\n");
-            vTaskDelay(1000 / portTICK_RATE_MS);
+            ESP_LOGI(TAG, "Update Successed\r\n ");
+            if (need_update != 0)
+            {
+                need_update = 0;
+                EE_byte_Write(ADDR_PAGE2, need_update_add, need_update); //存放OTA升级需求参数
+            }
+            if (update_fail_num != 0)
+            {
+                update_fail_num = 0;
+                EE_byte_Write(ADDR_PAGE2, update_fail_num_add, update_fail_num); //存放OTA升级重试次数
+            }
+
+            vTaskDelay(1000 / portTICK_RATE_MS); //延时
             esp_restart();
 
             break;
@@ -409,9 +439,10 @@ void lan_ota_task(void *arg)
         case SOCK_CLOSED:
             printf("Closed\r\n");
             lan_socket(SOCK_OTA, Sn_MR_TCP, 8000, 0x00);
-            // return rec_ret;
-            // vTaskDelete(NULL);
-
+            if (LAN_DNS_STATUS != 1)
+            {
+                vTaskDelete(NULL);
+            }
             break;
 
         default:
@@ -424,8 +455,14 @@ void lan_ota_task(void *arg)
     vTaskDelete(NULL);
 }
 
-int32_t lan_ota(void)
+void ota_start(void) //建立OTA升级任务，目的是为了让此函数被调用后尽快执行完毕
 {
-    xTaskCreate(lan_ota_task, "lan_ota_task", 8192, NULL, 1, NULL); //
-    return 1;
+    if (LAN_DNS_STATUS == 1)
+    {
+        xTaskCreate(lan_ota_task, "lan_ota_task", 8192, NULL, 1, NULL); //
+    }
+    else
+    {
+        xTaskCreate(wifi_ota_task, "wifi_ota_task", 8192, NULL, 2, ota_handle);
+    }
 }

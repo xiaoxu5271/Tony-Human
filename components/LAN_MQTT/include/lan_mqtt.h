@@ -11,8 +11,8 @@
 #define MQTT_DOMAIN "api.ubibot.cn" //MQTT服务器域名
 #define MQTT_USER mqtt_usr          //登陆用户名
 #define MQTT_PASS mqtt_pwd          //登陆密码
-#define MQTT_Topic mqtt_topic
-#define KEEPLIVE_TIME 50
+#define MQTT_Topic mqtt_topic       //订阅主题
+#define KEEPLIVE_TIME 10            //发送心跳间隔
 
 #else
 #define MQTT_SOCKET 2
