@@ -21,6 +21,7 @@
 #include "ota.h"
 #include "Led.h"
 #include "w5500_driver.h"
+#include "tcp_bsp.h"
 
 //wifi_config_t wifi_config;
 
@@ -313,7 +314,6 @@ esp_err_t parse_objects_http_active(char *http_json_data)
     }
     else
     {
-
         json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "result");
         if (!(strcmp(json_data_parse_value->valuestring, "success")))
         {
@@ -642,20 +642,19 @@ void create_http_json(creat_json *pCreat_json)
     cJSON_AddItemToObject(item, "created_at", cJSON_CreateString(http_json_c.http_time));
     cJSON_AddItemToArray(fe_body, next);
     cJSON_AddItemToObject(next, "created_at", cJSON_CreateString(http_json_c.http_time));
-    cJSON_AddItemToObject(next, "field1", cJSON_CreateString(mqtt_json_s.mqtt_tem)); //温度
-    cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_hum)); //湿度
+    cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_tem)); //温度
+    cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_hum)); //湿度
     //cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_mode));        //模式
     if (human_status == NOHUMAN)
     {
-        cJSON_AddItemToObject(next, "field3", cJSON_CreateString("0"));
+        cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
     }
     else if (human_status == HAVEHUMAN)
-
     {
-        cJSON_AddItemToObject(next, "field3", cJSON_CreateString("1"));
+        cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
     }
 
-    cJSON_AddItemToObject(next, "field5", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
+    cJSON_AddItemToObject(next, "field4", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
 
     char *cjson_printunformat;
     // cjson_printunformat = cJSON_PrintUnformatted(root); //将整个 json 转换成字符串 ，没有格式
@@ -675,6 +674,8 @@ void create_http_json(creat_json *pCreat_json)
 
 esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
 {
+    char send_buf[128] = {0};
+    sprintf(send_buf, "{\"status\":0,\"code\": 0}");
     if (NULL == pcCmdBuffer) //null
     {
         return ESP_FAIL;
@@ -755,6 +756,12 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                     E2prom_BluWrite(0x00, (uint8_t *)zerobuf, 256); //清空蓝牙
                     printf("SetupProduct Successed !");
                     printf("{\"status\":0,\"code\": 0}");
+
+                    if (start_AP == 1)
+                    {
+                        printf("%s\n", send_buf);
+                        tcp_send_buff(send_buf, sizeof(send_buf));
+                    }
                     vTaskDelay(3000 / portTICK_RATE_MS);
                     cJSON_Delete(pJson);
                     fflush(stdout); //使stdout清空，就会立刻输出所有在缓冲区的内容。
@@ -870,7 +877,6 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                 printf("WIFI_PWD = %s\r\n", pSub->valuestring);
             }
 
-            printf("{\"status\":0,\"code\": 0}");
             // initialise_wifi(wifi_data.wifi_ssid, wifi_data.wifi_pwd);
             initialise_wifi();
             cJSON_Delete(pJson); //delete pJson

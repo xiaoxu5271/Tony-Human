@@ -23,8 +23,8 @@
 #include "esp_bt_defs.h"
 #include "esp_bt_main.h"
 
-#define BLEOK    0x01
-#define BLEERR   0x00
+#define BLEOK 0x01
+#define BLEERR 0x00
 
 char ble_dev_pwd[16];
 

@@ -29,6 +29,14 @@
             ]
         },
         {
+            "label": "monitor",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "monitor"
+            ]
+        },
+        {
             "label": "openocd",
             "type": "shell",
             "isBackground": true,

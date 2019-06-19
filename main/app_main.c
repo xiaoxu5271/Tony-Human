@@ -41,7 +41,6 @@ void timer_periodic_cb(void *arg) //200ms中断一次
 {
     static uint64_t timer_count = 0;
     static uint64_t nohuman_timer_count = 0;
-
     timer_count++;
     nohuman_timer_count++;
 

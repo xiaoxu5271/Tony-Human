@@ -67,10 +67,18 @@ TaskHandle_t tx_rx_task = NULL;
 *               Ver0.0.1:
                     hx-zsj, 2018/08/06, 初始化版本\n 
 */
+
+void tcp_send_buff(char *send_buff, uint16_t buff_len)
+{
+    send(connect_socket, send_buff, buff_len, 0);
+}
+
 void recv_data(void *pvParameters)
 {
     int len = 0;         //长度
     char databuff[1024]; //缓存
+    // char *send_buf = "{\"status\":0,\"code\": 0}";
+
     while (1)
     {
         //清空缓存
@@ -85,12 +93,14 @@ void recv_data(void *pvParameters)
             ESP_LOGI(TAG, "recvData: %s", databuff);
             if (ParseTcpUartCmd(databuff) == ESP_OK) //数据解析成功
             {
+                // send(connect_socket, send_buf, strlen(send_buf), 0);
                 close_socket(); //删除任务前，需要断开连接
                 vTaskDelete(my_tcp_connect_Handle);
                 vTaskDelete(tx_rx_task);
             }
             //接收数据回发
             send(connect_socket, databuff, strlen(databuff), 0);
+
             //sendto(connect_socket, databuff , sizeof(databuff), 0, (struct sockaddr *) &remote_addr,sizeof(remote_addr));
         }
         else
@@ -220,7 +230,7 @@ esp_err_t create_tcp_client()
 void my_tcp_connect(void)
 {
     //等待WIFI连接信号量，死等
-    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
+    xEventGroupWaitBits(tcp_event_group, AP_STACONNECTED_BIT, false, true, portMAX_DELAY);
     ESP_LOGI(TAG, "start tcp connected");
 
     //延时3S准备建立server
@@ -349,8 +359,8 @@ void my_tcp_connect_task(void *pvParameters)
     {
         g_rxtx_need_restart = false;
         //等待WIFI连接信号量，死等
-        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                            false, true, portMAX_DELAY);
+        xEventGroupWaitBits(tcp_event_group, AP_STACONNECTED_BIT, false, true, portMAX_DELAY);
+
         ESP_LOGI(TAG, "start tcp connected");
 
         TaskHandle_t tx_rx_task = NULL;

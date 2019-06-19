@@ -21,9 +21,11 @@
 #include "tcp_bsp.h"
 #include "w5500_driver.h"
 #include "Json_parse.h"
+#include "Bluetooth.h"
 
 TaskHandle_t my_tcp_connect_Handle;
 EventGroupHandle_t wifi_event_group;
+EventGroupHandle_t tcp_event_group;
 
 wifi_config_t s_staconf;
 
@@ -75,6 +77,11 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
                 break;
             }
         }
+        else
+        {
+            xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+        }
+
         break;
 
     case SYSTEM_EVENT_AP_STACONNECTED: //AP模式-有STA连接成功
@@ -82,7 +89,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         ESP_LOGI(TAG, "station:" MACSTR " join,AID=%d\n",
                  MAC2STR(event->event_info.sta_connected.mac),
                  event->event_info.sta_connected.aid);
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+        xEventGroupSetBits(tcp_event_group, AP_STACONNECTED_BIT);
         break;
 
     case SYSTEM_EVENT_AP_STADISCONNECTED: //AP模式-有STA断线
@@ -91,7 +98,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
                  event->event_info.sta_disconnected.aid);
 
         g_rxtx_need_restart = true;
-        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+        xEventGroupClearBits(tcp_event_group, AP_STACONNECTED_BIT);
         break;
 
     default:
@@ -187,12 +194,13 @@ void init_wifi(void) //
 //TaskHandle_t my_tcp_connect_Handle = NULL;
 void wifi_init_softap(void)
 {
+    tcp_event_group = xEventGroupCreate();
     start_AP = 1;
     Led_Status = LED_STA_AP;
     ESP_ERROR_CHECK(esp_wifi_stop());
     wifi_config_t wifi_config = {
         .ap = {
-            .ssid = SOFT_AP_SSID,
+            .ssid = SOFT_AP_SSID, // SOFT_AP_SSID,
             .password = SOFT_AP_PAS,
             .ssid_len = 0,
             .max_connection = SOFT_AP_MAX_CONNECT,

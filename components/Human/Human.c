@@ -33,13 +33,6 @@ void Humanapp(void)
         havehuman_count++;
         ESP_LOGD(TAG, "havehuman_count=%d\n", havehuman_count);
     }
-
-    //需要把数据发送到平台
-    if (need_send == 1)
-    {
-        http_send_mes();
-        need_send = 0;
-    }
 }
 
 void Human_Task(void *arg)

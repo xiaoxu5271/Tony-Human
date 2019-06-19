@@ -22,6 +22,7 @@ extern bool g_rxtx_need_restart;
 
 void my_tcp_connect(void);
 void my_tcp_connect_task(void *pvParameters);
+void tcp_send_buff(char *send_buff, uint16_t buff_len);
 
 //create a tcp server socket. return ESP_OK:success ESP_FAIL:error
 esp_err_t create_tcp_server(bool isCreatServer);

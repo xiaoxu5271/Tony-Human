@@ -223,6 +223,13 @@ void http_get_task(void *pvParameters)
                             false, true, portMAX_DELAY);
 
         // ESP_LOGI("heap_size", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
+        //需要把数据发送到平台
+        if (need_send == 1)
+        {
+            http_send_mes();
+            need_send = 0;
+            six_time_count = 0;
+        }
 
         if (fn_dp > 0)
         {
@@ -255,19 +262,28 @@ int32_t http_activate(void)
     sprintf(build_http, "%s%s%s%s%s%s%s", http.GET, http.WEB_URL1, ProductId, http.WEB_URL2, SerialNum, http.WEB_URL3, http.ENTER);
     //http.HTTP_VERSION10, http.HOST, http.USER_AHENT, http.ENTER);
 
-    printf("build_http=%s\n", build_http);
+    ESP_LOGI(TAG, "build_http=%s\n", build_http);
 
     if (http_send_buff(build_http, 256, recv_buf, 1024) < 0)
     {
         return -1;
     }
-    return parse_objects_http_active(strchr(recv_buf, '{'));
+    else
+    {
+        if (parse_objects_http_active(strchr(recv_buf, '{')))
+        {
+            return 1;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+
+    // return parse_objects_http_active(strchr(recv_buf, '{'));
 }
 
 uint8_t Last_Led_Status;
-
-
-
 
 void http_send_mes(void)
 {
