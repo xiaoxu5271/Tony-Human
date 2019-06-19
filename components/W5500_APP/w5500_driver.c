@@ -459,6 +459,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
             break;
 
         case SOCK_CLOSE_WAIT:
+            lan_close(SOCK_TCPS);
             printf("SOCK_CLOSE_WAIT!!!\n");
 
             break;

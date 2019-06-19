@@ -307,7 +307,7 @@ void lan_mqtt_task(void *pvParameter)
                 ESP_LOGI(TAG, "vTaskDelete LAN_MQTT!\r\n");
                 vTaskDelete(NULL); //网线断开，删除任务
             }
-            if ((ret = lan_socket(MQTT_SOCKET, Sn_MR_TCP, 4000, 0)) != MQTT_SOCKET)
+            else if ((ret = lan_socket(MQTT_SOCKET, Sn_MR_TCP, 4000, 0)) != MQTT_SOCKET)
             {
                 ESP_LOGE(TAG, "MQTT> socket open failed : %d.\r\n", ret);
                 break;
@@ -320,10 +320,10 @@ void lan_mqtt_task(void *pvParameter)
             if (rc == 0)
             {
                 ESP_LOGE(TAG, "MQTT> ERROR.reopen socket.\r\n");
-                lan_close(MQTT_SOCKET);
             }
             break;
         case SOCK_CLOSE_WAIT:
+            lan_close(MQTT_SOCKET);
             ESP_LOGI(TAG, "MQTT> SOCK_CLOSE_WAIT.\r\n");
             break;
         case SOCK_INIT:
