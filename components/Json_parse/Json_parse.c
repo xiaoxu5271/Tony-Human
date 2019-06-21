@@ -565,10 +565,10 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
                 //如果命令是OTA
                 if (strcmp(json_data_action->valuestring, "ota") == 0)
                 {
-                    if (strcmp(json_data_vesion->valuestring, FIRMWARE) != 0) //判断版本号
+                    if (strcmp(json_data_vesion->valuestring, FIRMWARE) != 0) //与当前 版本号 对比
                     {
                         strcpy(mqtt_json_s.mqtt_ota_url, json_data_url->valuestring);
-                        E2prom_page_Write(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
+                        // E2prom_page_Write(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
                         printf("OTA_URL=%s\r\n OTA_VERSION=%s\r\n", mqtt_json_s.mqtt_ota_url, json_data_vesion->valuestring);
                         ota_start(); //启动OTA
                     }

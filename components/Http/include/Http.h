@@ -5,7 +5,7 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 
-#define FIRMWARE "HUM1-V0.1.21"
+#define FIRMWARE "HUM1-V0.1.3"
 
 #define POST_NORMAL 0X00
 #define POST_HEIGHT_ADD 0X01

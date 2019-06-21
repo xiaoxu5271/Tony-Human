@@ -11,7 +11,8 @@ RJ45_Check_Task	        7
 http_get_task  	        6
 user_key_cd_task	    8
 
-
+注意：
+1，OTAs升级需要，menuconfig 中修改 HTTP CLIENT --->  Enable https  打开
 
 
 
@@ -42,3 +43,5 @@ user_key_cd_task	    8
 2019-06-19 15:28:21 1，修改ap模式下与STA模式下等待信号量 为不同。 1，修改有人时上传数据方式。3，修改激活不成功也返回成功的BUG
 
 2019-06-19 16:40:58 修复有线网进入 SOCK_CLOSE_WAIT 中不退出BUG
+
+2019-06-21 16:47:52 修改wifi OTA 方式，屏蔽OTA失败重试部分。

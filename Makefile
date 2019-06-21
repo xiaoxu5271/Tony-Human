@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := esp32_project
+PROJECT_NAME := HUM1
 
 include $(IDF_PATH)/make/project.mk
 

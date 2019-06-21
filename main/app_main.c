@@ -205,16 +205,16 @@ void app_main(void)
     initialise_http();
     initialise_mqtt();
 
-    EE_byte_Read(ADDR_PAGE2, need_update_add, &need_update);
-    EE_byte_Read(ADDR_PAGE2, update_fail_num_add, &update_fail_num);
-    printf(" nead_update: %d       update_fail_num: %d\n", need_update, update_fail_num);
-    if (need_update == 1)
-    {
-        printf("需要升级，已失败次数 %d \n", update_fail_num);
-        ota_start();
-    }
-    else
-    {
-        printf("无需升级\n");
-    }
+    // EE_byte_Read(ADDR_PAGE2, need_update_add, &need_update);
+    // EE_byte_Read(ADDR_PAGE2, update_fail_num_add, &update_fail_num);
+    // printf(" nead_update: %d       update_fail_num: %d\n", need_update, update_fail_num);
+    // if (need_update == 1)
+    // {
+    //     printf("需要升级，已失败次数 %d \n", update_fail_num);
+    //     ota_start();
+    // }
+    // else
+    // {
+    //     printf("无需升级\n");
+    // }
 }

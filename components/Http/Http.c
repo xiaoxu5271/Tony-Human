@@ -25,7 +25,7 @@
 
 SemaphoreHandle_t xMutex_Http_Send;
 
-extern uint8_t data_read[34];
+// extern uint8_t data_read[34];
 
 static char *TAG = "HTTP";
 uint32_t HTTP_STATUS = HTTP_KEY_GET;
