@@ -14,6 +14,4 @@ TaskHandle_t Human_Handle;
 int havehuman_count;
 int nohuman_count;
 
-int need_send;
-
 #endif

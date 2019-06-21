@@ -31,6 +31,7 @@ static char *TAG = "HTTP";
 uint32_t HTTP_STATUS = HTTP_KEY_GET;
 uint8_t six_time_count = 4;
 uint8_t post_status = POST_NOCOMMAND;
+uint8_t need_send = 1;
 
 struct HTTP_STA
 {
