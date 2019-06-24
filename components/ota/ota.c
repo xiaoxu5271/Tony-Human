@@ -325,7 +325,7 @@ void lan_ota_task(void *arg)
     char ota_url[1024] = {0};
     char ota_sever[128] = {0};
 
-    E2prom_page_Read(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
+    // E2prom_page_Read(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
     if (mid(mqtt_json_s.mqtt_ota_url, "://", "/", ota_sever) != 1)
     {
         printf("ota url err!!!\n");
