@@ -51,6 +51,7 @@
 
 extern uint8_t RJ45_STATUS;
 extern uint8_t LAN_DNS_STATUS;
+extern uint8_t user_dhcp_mode;
 extern uint8_t http_dns_host_ip[4];
 extern char current_net_ip[20]; //当前内网IP，用于上传
 

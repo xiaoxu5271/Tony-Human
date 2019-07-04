@@ -51,3 +51,5 @@ user_key_cd_task	    8
 2019-06-24 14:15:21 测试中发现lan MQTT 中 lan_connet 会出现卡死现象，修改该函数，在函数中的while()中加入 循环打印、延时
 
 2019-06-24 14:26:05 修复LAN OTA 从EEROM 读取ota url bug 
+
+2019-07-04 14:18:16 修复 新设备 新EEPROM，导致DHCP模式选择出现错误， 改为不从 EEPROM 中读取，上电默认为1，开启DHCP。

@@ -58,6 +58,9 @@ uint8_t server_port = 80;
 uint8_t standby_dns[4] = {8, 8, 8, 8};
 uint8_t RJ45_STATUS;
 uint8_t LAN_DNS_STATUS = 0;
+
+uint8_t user_dhcp_mode = 1; //0:static ;1:dhcp
+
 // uint8_t Ethernet_Timeout = 0; //ethernet http application time out
 
 wiz_NetInfo gWIZNETINFO;
@@ -231,12 +234,12 @@ int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip)
 *******************************************************************************/
 void W5500_Network_Init(void)
 {
-    uint8_t mac[6];        //< Source Mac Address
-    uint8_t dhcp_mode = 1; //0:static ;1:dhcp
-    uint8_t ip[4];         //< Source IP Address
-    uint8_t sn[4];         //< Subnet Mask
-    uint8_t gw[4];         //< Gateway IP Address
-    uint8_t dns[4];        //< DNS server IP Address
+    uint8_t mac[6]; //< Source Mac Address
+    // uint8_t dhcp_mode = 1; //0:static ;1:dhcp
+    uint8_t ip[4];  //< Source IP Address
+    uint8_t sn[4];  //< Subnet Mask
+    uint8_t gw[4];  //< Gateway IP Address
+    uint8_t dns[4]; //< DNS server IP Address
 
     uint8_t txsize[MAX_SOCK_NUM] = {4, 4, 4, 2, 2, 0, 0, 0}; //socket 0,16K
     uint8_t rxsize[MAX_SOCK_NUM] = {4, 4, 4, 2, 2, 0, 0, 0}; //socket 0,16K
@@ -257,8 +260,8 @@ void W5500_Network_Init(void)
     // ctlwizchip(CW_SET_PHYCONF, (void *)&gWIZPHYCONF); //设置连接速度，降低功耗、温度。  然而发现并没有什么卵用
     // ctlwizchip(CW_GET_PHYCONF, (void *)&gWIZPHYCONF_READ);
 
-    EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &dhcp_mode); //获取DHCP模式
-    if (dhcp_mode == 0)
+    // EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &user_dhcp_mode); //获取DHCP模式
+    if (user_dhcp_mode == 0)
     {
         uint8_t i = 0;
         uint8_t netinfo_buff[16];
@@ -296,7 +299,7 @@ void W5500_Network_Init(void)
         ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
     }
 
-    else if (dhcp_mode == 1)
+    else if (user_dhcp_mode == 1)
     {
         printf("dhcp mode --- 1 DHCP\n");
         gWIZNETINFO.dhcp = NETINFO_DHCP; //< 1 - Static, 2 - DHCP

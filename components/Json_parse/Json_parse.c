@@ -778,7 +778,8 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             pSub = cJSON_GetObjectItem(pJson, "dhcp"); //"dhcp"
             if (NULL != pSub)
             {
-                EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, (uint8_t)pSub->valueint); //写入DHCP模式
+                // EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, (uint8_t)pSub->valueint); //写入DHCP模式
+                user_dhcp_mode = (uint8_t)pSub->valueint;
             }
 
             pSub = cJSON_GetObjectItem(pJson, "ip"); //"ip"
