@@ -38,7 +38,6 @@
 #include "cJSON.h"
 #include "Json_parse.h"
 
-
 #include "esp_smartconfig.h"
 //#include "gatts_profile.h"
 #include "E2prom.h"
@@ -57,7 +56,6 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 #define GATTS_CHAR_UUID_TEST_B 0xEE01
 #define GATTS_DESCR_UUID_TEST_B 0x2222
 #define GATTS_NUM_HANDLE_TEST_B 4
-
 
 #define TEST_MANUFACTURER_DATA_LEN 17
 
@@ -219,8 +217,8 @@ static prepare_type_env_t b_prepare_write_env;
 void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param);
 void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param);
 
-char buf[512]; // do not free from heap!
-char BleRespond[64]="{\"result\":\"error\"}"; // 蓝牙回复
+char buf[512];                                  // do not free from heap!
+char BleRespond[64] = "{\"result\":\"error\"}"; // 蓝牙回复
 
 void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
@@ -374,7 +372,12 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         gl_profile_tab[PROFILE_A_APP_ID].service_id.id.uuid.len = ESP_UUID_LEN_16;
         gl_profile_tab[PROFILE_A_APP_ID].service_id.id.uuid.uuid.uuid16 = GATTS_SERVICE_UUID_TEST_A;
 
-        sprintf(BleName,"%s%s","HUM-",SerialNum);
+        char BleName_N[10];
+        bzero(BleName_N, sizeof(BleName_N));
+        bzero(BleName, sizeof(BleName));
+        strncpy(BleName_N, SerialNum, 5);
+        snprintf(BleName, sizeof(BleName), "%s%s", "Ubibot-MS1-", BleName_N);
+
         esp_err_t set_dev_name_ret = esp_ble_gap_set_device_name(BleName);
         if (set_dev_name_ret)
         {
@@ -437,19 +440,19 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
 
             bzero(buf, sizeof(buf));
             memcpy(buf, param->write.value, param->write.len);
-            if(parse_objects_bluetooth(buf)==BLU_PWD_REFUSE)//解析蓝牙且密码错误
+            if (parse_objects_bluetooth(buf) == BLU_PWD_REFUSE) //解析蓝牙且密码错误
             {
-                bzero(BleRespond,sizeof(BleRespond));
-                strcpy(BleRespond,"{\"result\":\"error\"}");
+                bzero(BleRespond, sizeof(BleRespond));
+                strcpy(BleRespond, "{\"result\":\"error\"}");
             }
-            else//解析蓝牙正确且按新参数配置，存储eeprom
+            else //解析蓝牙正确且按新参数配置，存储eeprom
             {
-                bzero(BleRespond,sizeof(BleRespond));
-                strcpy(BleRespond,"{\"result\":\"success\"}");
-                uint8_t zerobuf[256]="\0";
+                bzero(BleRespond, sizeof(BleRespond));
+                strcpy(BleRespond, "{\"result\":\"success\"}");
+                uint8_t zerobuf[256] = "\0";
                 E2prom_BluWrite(0x00, (uint8_t *)zerobuf, 256);
                 E2prom_BluWrite(0x00, (uint8_t *)buf, param->write.len);
-                Ble_mes_status=BLEOK;
+                Ble_mes_status = BLEOK;
             }
 
             if (gl_profile_tab[PROFILE_A_APP_ID].descr_handle == param->write.handle && param->write.len == 2)
@@ -644,7 +647,7 @@ static void gatts_profile_b_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
             memcpy(buf, param->write.value, param->write.len);
             parse_objects_bluetooth(buf);
             if (gl_profile_tab[PROFILE_B_APP_ID].descr_handle == param->write.handle && param->write.len == 2)
-            {          
+            {
                 uint16_t descr_value = param->write.value[1] << 8 | param->write.value[0];
                 if (descr_value == 0x0001)
                 {

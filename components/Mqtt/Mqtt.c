@@ -26,8 +26,8 @@
 #include "lan_mqtt.h"
 #include "w5500_driver.h"
 
-char mqtt_pwd[41];
-char mqtt_usr[17];
+char mqtt_pwd[45];
+char mqtt_usr[24];
 char mqtt_topic[100];
 
 uint8_t wifi_mqtt_status = 0;
