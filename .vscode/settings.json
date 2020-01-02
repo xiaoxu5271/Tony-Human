@@ -1,3 +1,11 @@
 {
-        "C_Cpp.errorSquiggles": "Disabled"
+        "C_Cpp.errorSquiggles": "Disabled",
+        "files.associations": {
+                "smartconfig.h": "c",
+                "e2prom.h": "c",
+                "esp_event_loop.h": "c",
+                "esp_log.h": "c",
+                "esp_event.h": "c",
+                "esp_event_legacy.h": "c"
+        }
 }

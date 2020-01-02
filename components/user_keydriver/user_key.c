@@ -185,21 +185,21 @@ static void gpio_intr_task_thread(void *arg)
         {
             key_mask = 1ULL << key_num;
             /* 判断引起中断的GPIO口是不是已经发生过电平转移,如果发生了则不处理 */
-            if (!(gs_key_transition & key_mask))
+            // if (!(gs_key_transition & key_mask))
+            // {
+            switch (gpio_get_level(key_num))
             {
-                switch (gpio_get_level(key_num))
-                {
-                case 0:
-                    gs_key_state &= ~(key_mask);
-                    break;
-                case 1:
-                    gs_key_state |= (key_mask);
-                    break;
-                }
-                gs_key_transition |= key_mask;
-                /* 开启消抖计时定时器 */
-                esp_timer_start_once(gs_m_key_time_params.key_decounce_time_handle, gs_m_key_param.decounce_time);
+            case 0:
+                gs_key_state &= ~(key_mask);
+                break;
+            case 1:
+                gs_key_state |= (key_mask);
+                break;
             }
+            gs_key_transition |= key_mask;
+            /* 开启消抖计时定时器 */
+            esp_timer_start_once(gs_m_key_time_params.key_decounce_time_handle, gs_m_key_param.decounce_time);
+            // }
         }
     }
 }

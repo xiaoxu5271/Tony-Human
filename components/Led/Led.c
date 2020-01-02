@@ -61,6 +61,13 @@ static void Led_Task(void *arg)
             vTaskDelay(300 / portTICK_RATE_MS);
             break;
 
+        case LED_STA_ACTIVE_ERR:
+            Led_B_On();
+            vTaskDelay(300 / portTICK_RATE_MS);
+            Led_Off();
+            vTaskDelay(300 / portTICK_RATE_MS);
+            break;
+
         case LED_STA_SEND:
             Led_Off();
             vTaskDelay(100 / portTICK_RATE_MS);

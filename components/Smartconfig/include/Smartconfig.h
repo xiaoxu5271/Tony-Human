@@ -18,6 +18,9 @@ void stop_user_wifi(void);
 extern uint8_t wifi_connect_sta; //wifi连接状态
 extern uint8_t wifi_work_sta;    //wifi开启状态
 extern uint8_t start_AP;
+extern uint16_t Wifi_ErrCode; //
+
+extern uint8_t bl_flag; //蓝牙配网模式
 
 static const int CONNECTED_BIT = BIT0;
 static const int AP_STACONNECTED_BIT = BIT0;

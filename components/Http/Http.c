@@ -23,13 +23,13 @@
 #include "w5500_driver.h"
 #include "Http.h"
 
-SemaphoreHandle_t xMutex_Http_Send;
+SemaphoreHandle_t xMutex_Http_Send = NULL;
+SemaphoreHandle_t Binary_Http_Send = NULL;
 
 // extern uint8_t data_read[34];
 
 static char *TAG = "HTTP";
 uint32_t HTTP_STATUS = HTTP_KEY_GET;
-uint8_t six_time_count = 4;
 uint8_t post_status = POST_NOCOMMAND;
 uint8_t need_send = 1;
 
@@ -87,8 +87,17 @@ http =
 
 };
 
+static char build_heart_url[256];
+
 TaskHandle_t httpHandle = NULL;
 esp_timer_handle_t http_timer_suspend_p = NULL;
+
+void timer_heart_cb(void *arg);
+esp_timer_handle_t timer_heart_handle = 0; //定时器句柄
+esp_timer_create_args_t timer_heart_arg = {
+    .callback = &timer_heart_cb,
+    .arg = NULL,
+    .name = "Heart_Timer"};
 
 int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
@@ -172,17 +181,17 @@ int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uin
 
 int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
+    // xSemaphoreTake(xMutex_Http_Send, portMAX_DELAY);
     xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                         false, true, portMAX_DELAY); //等网络连接
 
-    xSemaphoreTake(xMutex_Http_Send, portMAX_DELAY);
     int32_t ret;
     if (LAN_DNS_STATUS == 1)
     {
         printf("lan send!!!\n");
         ret = lan_http_send(send_buff, send_size, recv_buff, recv_size);
         // printf("lan_http_send return :%d\n", ret);
-        xSemaphoreGive(xMutex_Http_Send);
+        // xSemaphoreGive(xMutex_Http_Send);
         return ret;
     }
 
@@ -190,7 +199,7 @@ int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uin
     {
         printf("wifi send!!!\n");
         ret = wifi_http_send(send_buff, send_size, recv_buff, recv_size);
-        xSemaphoreGive(xMutex_Http_Send);
+        // xSemaphoreGive(xMutex_Http_Send);
         return ret;
     }
 }
@@ -209,49 +218,46 @@ esp_timer_create_args_t http_suspend = {
 void http_get_task(void *pvParameters)
 {
     char recv_buf[1024];
-
-    char build_heart_url[256];
-
-    sprintf(build_heart_url, "%s%s%s%s%s%s%s", http.GET, http.HEART_BEAT, ApiKey,
-            http.HTTP_VERSION10, http.HOST, http.USER_AHENT, http.ENTER);
+    http_send_buff(build_heart_url, 256, recv_buf, 1024);
 
     while (1)
     {
-        /* Wait for the callback to set the CONNECTED_BIT in the
-		   event group.a
-		*/
+        //需要把数据发送到平台
+        xSemaphoreTake(Binary_Http_Send, (fn_dp * 1000) / portTICK_PERIOD_MS);
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                             false, true, portMAX_DELAY);
-
-        // ESP_LOGI("heap_size", "Free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
-        //需要把数据发送到平台
-        if (need_send == 1)
-        {
-            http_send_mes();
-            need_send = 0;
-            six_time_count = 0;
-        }
-
-        if (fn_dp > 0)
-        {
-            if (six_time_count++ >= fn_dp)
-            {
-                six_time_count = 0;
-
-                if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
-                {
-                    parse_objects_heart(strchr(recv_buf, '{'));
-                    http_send_mes();
-                }
-                else
-                {
-                    printf("hart recv 0!\r\n");
-                }
-            }
-        }
-
-        vTaskDelay(1000 / portTICK_PERIOD_MS); //1s
+        http_send_mes();
     }
+}
+
+void send_heart(void)
+{
+    char recv_buf[1024] = {0};
+    if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
+    {
+        ESP_LOGI(TAG, "hart recv:%s", recv_buf);
+        if (parse_objects_heart(strchr(recv_buf, '{')))
+        {
+            //successed
+            Led_Status = LED_STA_WORK;
+        }
+        else
+        {
+            Led_Status = LED_STA_ACTIVE_ERR;
+        }
+    }
+    else
+    {
+        printf("hart recv 0!\r\n");
+    }
+}
+
+//定时发送心跳包
+void timer_heart_cb(void *arg)
+{
+    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
+                        false, true, portMAX_DELAY); //等网络连接
+    send_heart();
 }
 
 //激活流程
@@ -267,21 +273,23 @@ int32_t http_activate(void)
 
     if (http_send_buff(build_http, 256, recv_buf, 1024) < 0)
     {
-        return -1;
+        Led_Status = LED_STA_ACTIVE_ERR;
+        return 101;
     }
     else
     {
+        ESP_LOGI(TAG, "active recv:%s", recv_buf);
         if (parse_objects_http_active(strchr(recv_buf, '{')))
         {
+            Led_Status = LED_STA_WORK;
             return 1;
         }
         else
         {
-            return -1;
+            Led_Status = LED_STA_ACTIVE_ERR;
+            return 102;
         }
     }
-
-    // return parse_objects_http_active(strchr(recv_buf, '{'));
 }
 
 uint8_t Last_Led_Status;
@@ -353,6 +361,7 @@ void http_send_mes(void)
     if (http_send_buff(build_po_url_json, 1024, recv_buf, 1024) > 0)
     {
         // printf("解析返回数据！\n");
+        ESP_LOGI(TAG, "mes recv:%s", recv_buf);
         parse_objects_http_respond(strchr(recv_buf, '{'));
     }
     else
@@ -364,11 +373,24 @@ void http_send_mes(void)
 void initialise_http(void)
 {
     xMutex_Http_Send = xSemaphoreCreateMutex(); //创建HTTP发送互斥信号
+    Binary_Http_Send = xSemaphoreCreateBinary();
 
-    while (http_activate() < 0) //激活
+    while (http_activate() != 1) //激活
     {
-        printf("激活失败，重试\n");
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        ESP_LOGE(TAG, "activate fail\n");
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+
+    //心跳包 ,激活成功后获取
+    sprintf(build_heart_url, "%s%s%s%s%s%s%s", http.GET, http.HEART_BEAT, ApiKey,
+            http.HTTP_VERSION10, http.HOST, http.USER_AHENT, http.ENTER);
+    printf("build_heart_url:%s", build_heart_url);
+    send_heart();
+    esp_err_t err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
+    err = esp_timer_start_periodic(timer_heart_handle, 60 * 1000000); //创建定时器，单位us，定时60s
+    if (err != ESP_OK)
+    {
+        printf("timer heart create err code:%d\n", err);
     }
 
     xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 6, &httpHandle);

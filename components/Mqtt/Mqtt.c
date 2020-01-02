@@ -98,7 +98,7 @@ void initialise_mqtt(void)
 
     const esp_mqtt_client_config_t mqtt_cfg =
         {
-            .uri = "mqtt://api.ubibot.cn",
+            .uri = "mqtt://mqtt.ubibot.cn",
             .event_handle = mqtt_event_handler,
             //.username = "c_id=225",
             .username = mqtt_usr,

@@ -544,11 +544,17 @@ void RJ45_Check_Task(void *arg)
                         start_wifi_mqtt();
                     }
                 }
+                else //断网断开ＭＱＴＴ
+                {
+                    if (wifi_mqtt_status == 1 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
+                    {
+                        stop_wifi_mqtt();
+                    }
+                }
             }
             else
             {
                 ESP_LOGD(TAG, "有线网络已连接！\n");
-                Led_Status = LED_STA_WORK;                           //联网工作
                 xEventGroupSetBits(wifi_event_group, CONNECTED_BIT); //联网标志
 
                 if (lan_mqtt_status == 0)
@@ -606,7 +612,6 @@ void RJ45_Check_Task(void *arg)
             else
             {
                 ESP_LOGD(TAG, "有线网络已连接！\n");
-                Led_Status = LED_STA_WORK;                           //联网工作
                 xEventGroupSetBits(wifi_event_group, CONNECTED_BIT); //联网标志
 
                 if (lan_mqtt_status == 0)
@@ -635,6 +640,13 @@ void RJ45_Check_Task(void *arg)
                 if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
                 {
                     start_wifi_mqtt();
+                }
+            }
+            else //断网断开ＭＱＴＴ
+            {
+                if (wifi_mqtt_status == 1 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
+                {
+                    stop_wifi_mqtt();
                 }
             }
             break;

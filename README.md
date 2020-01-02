@@ -53,3 +53,5 @@ user_key_cd_task	    8
 2019-06-24 14:26:05 修复LAN OTA 从EEROM 读取ota url bug 
 
 2019-07-04 14:18:16 修复 新设备 新EEPROM，导致DHCP模式选择出现错误， 改为不从 EEPROM 中读取，上电默认为1，开启DHCP。
+
+2020-01-02 18:15:36 修改蓝牙配网bug,目前存在一个问题，当把正常连接的wifi配置成错误的时候，系统会卡在奇怪的地方，目前解决办法在wifi even handle 中重启设备

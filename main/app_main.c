@@ -137,10 +137,10 @@ void app_main(void)
     xTaskCreate(Uart0_Task, "Uart0_Task", 4096, NULL, 9, NULL);
 
     /*step1 判断是否有序列号和product id****/
-    E2prom_Read(0x30, (uint8_t *)SerialNum, 16);
+    E2prom_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SerialNum_len);
     printf("SerialNum=%s\n", SerialNum);
 
-    E2prom_Read(0x40, (uint8_t *)ProductId, 32);
+    E2prom_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, ProductId_len);
     printf("ProductId=%s\n", ProductId);
 
     // EE_byte_Write(ADDR_PAGE2, need_update_add, 0);     //存放OTA升级需求参数
@@ -182,7 +182,7 @@ void app_main(void)
     strncpy(ble_dev_pwd, SerialNum + 3, 4);
     printf("ble_dev_pwd=%s\n", ble_dev_pwd);
 
-    ble_app_start();
+    ble_app_init();
     init_wifi();
     w5500_user_int();
 

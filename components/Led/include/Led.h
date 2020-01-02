@@ -14,12 +14,13 @@ extern void Led_Init(void);
 
 uint8_t Led_Status;
 
-#define LED_STA_INIT 0x00 //初始化
-#define LED_STA_AP 0x01   //配网
-#define LED_STA_WIFIERR 0x02
-#define LED_STA_NOSER 0x03 //无序列号
-#define LED_STA_WORK 0x08  //正常工作
-#define LED_STA_SEND 0X09  //
+#define LED_STA_INIT 0x00       //初始化
+#define LED_STA_AP 0x01         //配网
+#define LED_STA_WIFIERR 0x02    //网络错误
+#define LED_STA_NOSER 0x03      //无序列号
+#define LED_STA_WORK 0x08       //正常工作
+#define LED_STA_SEND 0X09       //发送数据
+#define LED_STA_ACTIVE_ERR 0X10 //激活失败
 
 void Led_R_On(void);
 void Led_G_On(void);

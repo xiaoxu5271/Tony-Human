@@ -13,27 +13,23 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer);
 
 esp_err_t creat_object(void);
 
-#define WORK_INIT 0X00       //³õÊ¼»¯
-#define WORK_AUTO 0x01       //Æ½Ì¨×Ô¶¯Ä£Ê½
-#define WORK_HAND 0x02       //ÍøÒ³°æÊÖ¶¯Ä£Ê½
-#define WORK_HANDTOAUTO 0x03 //ÓÃÓÚ×Ô¶¯»Ø¸´Ê±Ö´ĞĞÒ»´Î×Ô¶¯¿ØÖÆÖ¸Áî
-#define WORK_LOCAL 0x04      //±¾µØ¼ÆËã¿ØÖÆÄ£Ê½
-#define WORK_WAITLOCAL 0x05  //±¾µØ¼ÆËãµÈ´ıÄ£Ê½£¨ÓÃÓÚ×´Ì¬»ú¿ÕÏĞ×´Ì¬£©
-#define WORK_WALLKEY 0X06    //±¾µØÇ½±Ú¿ª¹Ø¿ØÖÆÄ£Ê½
-#define WORK_PROTECT 0X07    //·çËÙºÍ½áËª±£»¤
-#define WORK_FIREINIT 0X08   //¿ª»ú¾Í»ğÔÖ
-#define WORK_FIRE 0x09       //»ğÔÖ±£»¤×´Ì¬
+#define WORK_INIT 0X00       //åˆå§‹åŒ–
+#define WORK_AUTO 0x01       //å¹³å°è‡ªåŠ¨æ¨¡å¼
+#define WORK_HAND 0x02       //ç½‘é¡µç‰ˆæ‰‹åŠ¨æ¨¡å¼
+#define WORK_HANDTOAUTO 0x03 //ç”¨äºè‡ªåŠ¨å›å¤æ—¶æ‰§è¡Œä¸€æ¬¡è‡ªåŠ¨æ§åˆ¶æŒ‡ä»¤
+#define WORK_LOCAL 0x04      //æœ¬åœ°è®¡ç®—æ§åˆ¶æ¨¡å¼
+#define WORK_WAITLOCAL 0x05  //æœ¬åœ°è®¡ç®—ç­‰å¾…æ¨¡å¼ï¼ˆç”¨äºçŠ¶æ€æœºç©ºé—²çŠ¶æ€ï¼‰
+#define WORK_WALLKEY 0X06    //æœ¬åœ°å¢™å£å¼€å…³æ§åˆ¶æ¨¡å¼
+#define WORK_PROTECT 0X07    //é£é€Ÿå’Œç»“éœœä¿æŠ¤
+#define WORK_FIREINIT 0X08   //å¼€æœºå°±ç«ç¾
+#define WORK_FIRE 0x09       //ç«ç¾ä¿æŠ¤çŠ¶æ€
 
-#define NET_AUTO 0 //ÉÏÍøÄ£Ê½ ×Ô¶¯
-#define NET_LAN 1  //ÉÏÍøÄ£Ê½ ÍøÏß
-#define NET_WIFI 2 //ÉÏÍøÄ£Ê½ wifi
+#define NET_AUTO 0 //ä¸Šç½‘æ¨¡å¼ è‡ªåŠ¨
+#define NET_LAN 1  //ä¸Šç½‘æ¨¡å¼ ç½‘çº¿
+#define NET_WIFI 2 //ä¸Šç½‘æ¨¡å¼ wifi
 
-#define PROTECT_ON 0X01  //µ±Ç°ÓĞ·çËÙµÈÆ½Ì¨±£»¤×´Ì¬
-#define PROTECT_OFF 0X00 //µ±Ç°ÎŞ·çËÙµÈÆ½Ì¨±£»¤×´Ì¬
-
-#define MAX_AUTO_CTL_TIME (5 * 60) //5min
-//#define MAX_WALLKEY_TIME    (4*60*60)  //4h
-#define MAX_WALLKEY_TIME (5 * 60) //5min
+#define ProductId_len 32
+#define SerialNum_len 16
 
 struct
 {
@@ -43,8 +39,8 @@ struct
     char mqtt_height_char[8];
     char mqtt_mode[8];
 
-    int8_t mqtt_angle_adj;  //ÓÃÓÚÊÖ¶¯¿ØÖÆ½âÎö¸Ä±ä½Ç¶ÈÈ¡Öµ-1/+1
-    int8_t mqtt_height_adj; //ÓÃÓÚÊÖ¶¯¿ØÖÆ½âÎö¸Ä±ä¸ß¶ÈÈ¡Öµ-1/+1
+    int8_t mqtt_angle_adj;  //ç”¨äºæ‰‹åŠ¨æ§åˆ¶è§£ææ”¹å˜è§’åº¦å–å€¼-1/+1
+    int8_t mqtt_height_adj; //ç”¨äºæ‰‹åŠ¨æ§åˆ¶è§£ææ”¹å˜é«˜åº¦å–å€¼-1/+1
 
     int mqtt_last;
 
@@ -60,9 +56,9 @@ struct
     char mqtt_command_id[32];
     char mqtt_string[256];
     char mqtt_Rssi[8];
-    char mqtt_tem[8];       //ÎÂ¶È
-    char mqtt_hum[8];       //Êª¶È
-    char mqtt_ota_url[128]; //OTAÉı¼¶µØÖ·
+    char mqtt_tem[8];       //æ¸©åº¦
+    char mqtt_hum[8];       //æ¹¿åº¦
+    char mqtt_ota_url[128]; //OTAå‡çº§åœ°å€
 
 } mqtt_json_s;
 
@@ -125,16 +121,15 @@ int read_bluetooth(void);
 //creat_json *create_http_json(uint8_t post_status);
 void create_http_json(creat_json *pCreat_json);
 
-uint8_t work_status;    //µ±Ç°¹¤×÷×´Ì¬
-uint8_t protect_status; //±£»¤×´Ì¬£¬ÓÃÓÚ»ğÔÖºÍ·çËÙ»ìºÏ±£»¤µÄÇĞ»»
+uint8_t work_status; //å½“å‰å·¥ä½œçŠ¶æ€
 
-/************metadata ²ÎÊı***********/
-extern unsigned long fn_dp; //Êı¾İ·¢ËÍÆµÂÊ
-extern unsigned long fn_th; //ÎÂÊª¶ÈÆµÂÊ
-extern uint8_t cg_data_led; //·¢ËÍÊı¾İ LED×´Ì¬ 0¹Ø±Õ£¬1´ò¿ª
-extern uint8_t net_mode;    //ÉÏÍøÄ£Ê½Ñ¡Ôñ 0£º×Ô¶¯Ä£Ê½ 1£ºlanÄ£Ê½ 2£ºwifiÄ£Ê½
+/************metadata å‚æ•°***********/
+extern unsigned long fn_dp; //æ•°æ®å‘é€é¢‘ç‡
+extern unsigned long fn_th; //æ¸©æ¹¿åº¦é¢‘ç‡
+extern uint8_t cg_data_led; //å‘é€æ•°æ® LEDçŠ¶æ€ 0å…³é—­ï¼Œ1æ‰“å¼€
+extern uint8_t net_mode;    //ä¸Šç½‘æ¨¡å¼é€‰æ‹© 0ï¼šè‡ªåŠ¨æ¨¡å¼ 1ï¼šlanæ¨¡å¼ 2ï¼šwifiæ¨¡å¼
 /************************************/
 
-int auto_ctl_count; //×Ô¶¯¿ØÖÆÖ¸Áî¼ÆÊı£¬ÊÕµ½Æ½Ì¨µÄ×Ô¶¯¿ØÖÆÖ¸Áîºó¸Ã±äÁ¿ÇåÁã£¬ÔÚ¶¨Ê±Æ÷ÖĞÃ¿1s+1£¬¼Óµ½180S£¨3min£©ºó£¬½øÈë±¾µØ¼ÆËã
+int auto_ctl_count; //è‡ªåŠ¨æ§åˆ¶æŒ‡ä»¤è®¡æ•°ï¼Œæ”¶åˆ°å¹³å°çš„è‡ªåŠ¨æ§åˆ¶æŒ‡ä»¤åè¯¥å˜é‡æ¸…é›¶ï¼Œåœ¨å®šæ—¶å™¨ä¸­æ¯1s+1ï¼ŒåŠ åˆ°180Sï¼ˆ3minï¼‰åï¼Œè¿›å…¥æœ¬åœ°è®¡ç®—
 
 #endif

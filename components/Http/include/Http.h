@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "freertos/semphr.h"
 
 #define FIRMWARE "HUM1-V0.1.4"
 
@@ -27,6 +28,9 @@
 
 #define WEB_SERVER "api.ubibot.cn"
 #define WEB_PORT 80
+
+//需要发送的二值信号量
+extern SemaphoreHandle_t Binary_Http_Send;
 
 void initialise_http(void);
 

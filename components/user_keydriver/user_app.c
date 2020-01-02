@@ -16,6 +16,7 @@
 #include "Mqtt.h"
 #include "w5500_driver.h"
 #include "ota.h"
+#include "Bluetooth.h"
 
 uint8_t Task_key_num = 0;
 
@@ -107,7 +108,8 @@ void user_key_cd_task(void *arg)
         case 5:
             Task_key_num = 0;
             printf("AP START....\r\n");
-            wifi_init_softap();
+            ble_app_start();
+            // wifi_init_softap();
             break;
 
         default:
