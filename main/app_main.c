@@ -143,6 +143,8 @@ void app_main(void)
     E2prom_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, ProductId_len);
     printf("ProductId=%s\n", ProductId);
 
+    printf("FIRMWARE=%s\n", FIRMWARE);
+
     // EE_byte_Write(ADDR_PAGE2, need_update_add, 0);     //存放OTA升级需求参数
     // EE_byte_Write(ADDR_PAGE2, update_fail_num_add, 0); //存放OTA升级重试次数
     // char zero_data[256];

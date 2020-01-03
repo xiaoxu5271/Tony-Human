@@ -21,6 +21,7 @@
 #include "lwip/dns.h"
 #include "freertos/event_groups.h"
 #include "w5500_driver.h"
+#include "my_base64.h"
 #include "Http.h"
 
 SemaphoreHandle_t xMutex_Http_Send = NULL;
@@ -42,6 +43,7 @@ struct HTTP_STA
     char POST_URL1[64];
     char POST_URL_METADATA[16];
     char POST_URL_FIRMWARE[16];
+    char POST_URL_MAC[16];
     char POST_URL_SSID[16];
     char POST_URL_COMMAND_ID[16];
     char IP[10];
@@ -69,7 +71,8 @@ http =
         "http://api.ubibot.cn/update.json?api_key=",
         "&metadata=true",
         "&firmware=",
-        "&ssid=",
+        "&mac=",
+        "&ssid_base64=",
         "&command_id=",
         "&IP=",
 
@@ -219,6 +222,7 @@ void http_get_task(void *pvParameters)
 {
     char recv_buf[1024];
     http_send_buff(build_heart_url, 256, recv_buf, 1024);
+    xSemaphoreGive(Binary_Http_Send); //先发送一次
 
     while (1)
     {
@@ -304,25 +308,34 @@ void http_send_mes(void)
     }
     Led_Status = LED_STA_SEND;
 
-    char recv_buf[1024];
-    char build_po_url[512];
-    char build_po_url_json[1024];
-    char NET_NAME[35];
-    char NET_MODE[16];
+    char recv_buf[1024] = {0};
+    char build_po_url[512] = {0};
+    char build_po_url_json[1024] = {0};
+    char NET_INFO[64] = {0};
+    char NET_NAME[48] = {0};
+    char NET_MAC[30] = {0};
     if (LAN_DNS_STATUS == 1)
     {
-        bzero(NET_NAME, sizeof(NET_NAME));
-        strcpy(NET_NAME, "ethernet");
-        bzero(NET_MODE, sizeof(NET_MODE));
-        strcpy(NET_MODE, "&net=");
+        sprintf(NET_INFO, "&net=ethernet");
     }
     else
     {
+        wifi_ap_record_t wifidata;
+        if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+        {
+            sprintf(NET_MAC,
+                    "%02x:%02x:%02x:%02x:%02x:%02x",
+                    wifidata.bssid[0],
+                    wifidata.bssid[1],
+                    wifidata.bssid[2],
+                    wifidata.bssid[3],
+                    wifidata.bssid[4],
+                    wifidata.bssid[5]);
+        }
         bzero(current_net_ip, sizeof(current_net_ip)); //有线网断开，不上传有线网IP
         bzero(NET_NAME, sizeof(NET_NAME));
-        strcpy(NET_NAME, wifi_data.wifi_ssid);
-        bzero(NET_MODE, sizeof(NET_MODE));
-        strcpy(NET_MODE, http.POST_URL_SSID);
+        base64_encode(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid), NET_NAME, sizeof(NET_NAME));
+        sprintf(NET_INFO, "&ssid_base64=%s", NET_NAME);
     }
 
     creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
@@ -334,16 +347,44 @@ void http_send_mes(void)
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, current_net_ip, NET_MODE, NET_NAME,
-                http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
+        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s",
+                http.POST,
+                http.POST_URL1,
+                ApiKey,
+                http.POST_URL_METADATA,
+                http.POST_URL_FIRMWARE,
+                FIRMWARE,
+                current_net_ip,
+                NET_INFO,
+                http.HTTP_VERSION11,
+                http.HOST,
+                http.USER_AHENT,
+                http.CONTENT_LENGTH,
+                pCreat_json1->creat_json_c,
+                http.ENTER);
         // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, http.POST_URL_SSID, NET_NAME,
         //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
     else
     {
         post_status = POST_NOCOMMAND;
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, current_net_ip, NET_MODE, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
-                http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
+        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s",
+                http.POST,
+                http.POST_URL1,
+                ApiKey,
+                http.POST_URL_METADATA,
+                http.POST_URL_FIRMWARE,
+                FIRMWARE,
+                current_net_ip,
+                NET_INFO,
+                http.POST_URL_COMMAND_ID,
+                mqtt_json_s.mqtt_command_id,
+                http.HTTP_VERSION11,
+                http.HOST,
+                http.USER_AHENT,
+                http.CONTENT_LENGTH,
+                pCreat_json1->creat_json_c,
+                http.ENTER);
         // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_SSID, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
         //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
