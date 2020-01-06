@@ -27,76 +27,6 @@
 #include "user_app.h"
 #include "ota.h"
 
-void timer_periodic_cb(void *arg);
-
-esp_timer_handle_t timer_periodic_handle = 0; //定时器句柄
-
-esp_timer_create_args_t timer_periodic_arg = {
-    .callback =
-        &timer_periodic_cb,
-    .arg = NULL,
-    .name = "PeriodicTimer"};
-
-void timer_periodic_cb(void *arg) //200ms中断一次
-{
-    static uint64_t timer_count = 0;
-    static uint64_t nohuman_timer_count = 0;
-    timer_count++;
-    nohuman_timer_count++;
-
-    if (human_status == HAVEHUMAN) //有人时，1s内右2个1则转为有人
-    {
-        if (timer_count >= 10) //2s
-        {
-            timer_count = 0;
-            if (havehuman_count >= 4)
-            {
-                human_status = HAVEHUMAN;
-                printf("human_status1=%d\n", human_status);
-
-                //need_send=1;
-
-                havehuman_count = 0;
-                nohuman_timer_count = 0;
-            }
-            else
-            {
-                havehuman_count = 0;
-            }
-        }
-    }
-
-    if (human_status == NOHUMAN) //无人时，2s内右6个1则转为有人
-    {
-        if (timer_count >= 10) //2s
-        {
-            timer_count = 0;
-            if (havehuman_count >= 6)
-            {
-                if (human_status == NOHUMAN) //如当前是无人，立即上传有人
-                {
-                    need_send = 1;
-                }
-                human_status = HAVEHUMAN;
-                printf("human_status2=%d\n", human_status);
-                havehuman_count = 0;
-                nohuman_timer_count = 0;
-            }
-            else
-            {
-                havehuman_count = 0;
-            }
-        }
-    }
-
-    if (nohuman_timer_count >= 4500) //900s 15min
-    {
-        human_status = NOHUMAN;
-        nohuman_timer_count = 0;
-        printf("human_status=%d\n", human_status);
-    }
-}
-
 static void Uart0_Task(void *arg)
 {
     while (1)
@@ -192,14 +122,6 @@ void app_main(void)
                         false, true, portMAX_DELAY); //等待网络连接、
 
     vTaskDelay(5000 / portTICK_RATE_MS); //延时5s，开机滤掉抖动状态
-    human_status = NOHUMAN;
-    /*******************************timer 1s init**********************************************/
-    esp_err_t err = esp_timer_create(&timer_periodic_arg, &timer_periodic_handle);
-    err = esp_timer_start_periodic(timer_periodic_handle, 200000); //创建定时器，单位us，定时200ms
-    if (err != ESP_OK)
-    {
-        printf("timer periodic create err code:%d\n", err);
-    }
 
     xTaskCreate(Human_Task, "Human_Task", 8192, NULL, 4, &Human_Handle);
     xTaskCreate(Sht30_Task, "Sht30_Task", 8192, NULL, 3, &Sht30_Handle);

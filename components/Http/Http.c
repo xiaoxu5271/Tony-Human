@@ -32,7 +32,6 @@ SemaphoreHandle_t Binary_Http_Send = NULL;
 static char *TAG = "HTTP";
 uint32_t HTTP_STATUS = HTTP_KEY_GET;
 uint8_t post_status = POST_NOCOMMAND;
-uint8_t need_send = 1;
 
 struct HTTP_STA
 {
@@ -312,31 +311,30 @@ void http_send_mes(void)
     char build_po_url[512] = {0};
     char build_po_url_json[1024] = {0};
     char NET_INFO[64] = {0};
-    char NET_NAME[48] = {0};
-    char NET_MAC[30] = {0};
+    // char NET_NAME[48] = {0};
+    // char NET_MAC[30] = {0};
     if (LAN_DNS_STATUS == 1)
     {
         sprintf(NET_INFO, "&net=ethernet");
     }
-    else
-    {
-        wifi_ap_record_t wifidata;
-        if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
-        {
-            sprintf(NET_MAC,
-                    "%02x:%02x:%02x:%02x:%02x:%02x",
-                    wifidata.bssid[0],
-                    wifidata.bssid[1],
-                    wifidata.bssid[2],
-                    wifidata.bssid[3],
-                    wifidata.bssid[4],
-                    wifidata.bssid[5]);
-        }
-        bzero(current_net_ip, sizeof(current_net_ip)); //有线网断开，不上传有线网IP
-        bzero(NET_NAME, sizeof(NET_NAME));
-        base64_encode(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid), NET_NAME, sizeof(NET_NAME));
-        sprintf(NET_INFO, "&ssid_base64=%s", NET_NAME);
-    }
+    // else
+    // {
+    //     wifi_ap_record_t wifidata;
+    //     if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+    //     {
+    //         sprintf(NET_MAC,
+    //                 "%02x:%02x:%02x:%02x:%02x:%02x",
+    //                 wifidata.bssid[0],
+    //                 wifidata.bssid[1],
+    //                 wifidata.bssid[2],
+    //                 wifidata.bssid[3],
+    //                 wifidata.bssid[4],
+    //                 wifidata.bssid[5]);
+    //     }
+    //     bzero(current_net_ip, sizeof(current_net_ip)); //有线网断开，不上传有线网IP
+    //     base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), NET_NAME, sizeof(NET_NAME));
+    //     sprintf(NET_INFO, "&ssid_base64=%s", NET_NAME);
+    // }
 
     creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
     //pCreat_json1->creat_json_b=malloc(1024);

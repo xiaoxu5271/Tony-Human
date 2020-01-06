@@ -22,6 +22,7 @@
 #include "Led.h"
 #include "w5500_driver.h"
 #include "tcp_bsp.h"
+#include "my_base64.h"
 
 //wifi_config_t wifi_config;
 
@@ -518,9 +519,11 @@ void create_http_json(creat_json *pCreat_json)
     printf("INTO CREATE_HTTP_JSON\r\n");
     //creat_json *pCreat_json = malloc(sizeof(creat_json));
     cJSON *root = cJSON_CreateObject();
-    cJSON *item = cJSON_CreateObject();
+    // cJSON *item = cJSON_CreateObject();
     cJSON *next = cJSON_CreateObject();
     cJSON *fe_body = cJSON_CreateArray();
+    char mac_buff[64] = {0};
+    char ssid64_buff[64] = {0};
     //char status_creat_json_c[256];
 
     //printf("Server_Timer_SEND() %s", (char *)Server_Timer_SEND());
@@ -528,10 +531,27 @@ void create_http_json(creat_json *pCreat_json)
     // printf("this http_json_c.http_time[20]  %s\r\n", http_json_c.http_time);
     strncpy(http_json_c.http_time, Server_Timer_SEND(), 24);
     wifi_ap_record_t wifidata;
-    if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+
+    if (LAN_DNS_STATUS != 1)
     {
-        itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
+        if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+        {
+            itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
+        }
+        sprintf(mac_buff,
+                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                wifidata.bssid[0],
+                wifidata.bssid[1],
+                wifidata.bssid[2],
+                wifidata.bssid[3],
+                wifidata.bssid[4],
+                wifidata.bssid[5]);
+        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
+
+        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
+        cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
     }
+
     if (tem == 0 || hum == 0) //规避错误值
     {
         memset(mqtt_json_s.mqtt_tem, 0, sizeof(mqtt_json_s.mqtt_tem));
@@ -545,12 +565,12 @@ void create_http_json(creat_json *pCreat_json)
 
     //printf("status_creat_json %s\r\n", status_creat_json);
     cJSON_AddItemToObject(root, "feeds", fe_body);
-    cJSON_AddItemToArray(fe_body, item);
-    cJSON_AddItemToObject(item, "created_at", cJSON_CreateString(http_json_c.http_time));
+    // cJSON_AddItemToArray(fe_body, item);
+    // cJSON_AddItemToObject(item, "created_at", cJSON_CreateString(http_json_c.http_time));
     cJSON_AddItemToArray(fe_body, next);
     cJSON_AddItemToObject(next, "created_at", cJSON_CreateString(http_json_c.http_time));
-    cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_tem)); //温度
-    cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_hum)); //湿度
+    // cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_tem)); //温度
+    // cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_hum)); //湿度
     //cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_mode));        //模式
     if (human_status == NOHUMAN)
     {
@@ -560,8 +580,7 @@ void create_http_json(creat_json *pCreat_json)
     {
         cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
     }
-
-    cJSON_AddItemToObject(next, "field4", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
+    cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
 
     char *cjson_printunformat;
     // cjson_printunformat = cJSON_PrintUnformatted(root); //将整个 json 转换成字符串 ，没有格式
