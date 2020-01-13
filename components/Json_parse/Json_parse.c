@@ -731,7 +731,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                 set_net_buf[3] = (uint8_t)strtoul(InpString, 0, 10);
             }
 
-            pSub = cJSON_GetObjectItem(pJson, "sn"); //"sn"
+            pSub = cJSON_GetObjectItem(pJson, "mask"); //"sn"
             if (NULL != pSub)
             {
                 InpString = strtok(pSub->valuestring, ".");
