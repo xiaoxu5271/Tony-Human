@@ -110,7 +110,7 @@ void initialise_mqtt(void)
     client = esp_mqtt_client_init(&mqtt_cfg);
 
     xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                        false, true, portMAX_DELAY);
+                        false, true, -1);
 
     if (LAN_DNS_STATUS == 1)
     {

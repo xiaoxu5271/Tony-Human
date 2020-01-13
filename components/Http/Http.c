@@ -26,6 +26,7 @@
 
 SemaphoreHandle_t xMutex_Http_Send = NULL;
 SemaphoreHandle_t Binary_Http_Send = NULL;
+SemaphoreHandle_t Binary_Heart_Send = NULL;
 
 // extern uint8_t data_read[34];
 
@@ -183,9 +184,9 @@ int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uin
 
 int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
-    // xSemaphoreTake(xMutex_Http_Send, portMAX_DELAY);
-    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                        false, true, portMAX_DELAY); //等网络连接
+    xSemaphoreTake(xMutex_Http_Send, -1);
+    // xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
+    //                     false, true, -1); //等网络连接
 
     int32_t ret;
     if (LAN_DNS_STATUS == 1)
@@ -193,7 +194,7 @@ int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uin
         printf("lan send!!!\n");
         ret = lan_http_send(send_buff, send_size, recv_buff, recv_size);
         // printf("lan_http_send return :%d\n", ret);
-        // xSemaphoreGive(xMutex_Http_Send);
+        xSemaphoreGive(xMutex_Http_Send);
         return ret;
     }
 
@@ -201,21 +202,10 @@ int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uin
     {
         printf("wifi send!!!\n");
         ret = wifi_http_send(send_buff, send_size, recv_buff, recv_size);
-        // xSemaphoreGive(xMutex_Http_Send);
+        xSemaphoreGive(xMutex_Http_Send);
         return ret;
     }
 }
-
-void http_suspends(void *arg)
-{
-    // ESP_LOGI(TAG, "HTTP_任务恢复");
-    xTaskResumeFromISR(httpHandle);
-}
-
-esp_timer_create_args_t http_suspend = {
-    .callback = &http_suspends,
-    .arg = NULL,
-    .name = "http_suspend"};
 
 void http_get_task(void *pvParameters)
 {
@@ -226,41 +216,48 @@ void http_get_task(void *pvParameters)
     while (1)
     {
         //需要把数据发送到平台
-        xSemaphoreTake(Binary_Http_Send, (fn_dp * 1000) / portTICK_PERIOD_MS);
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                            false, true, portMAX_DELAY);
+                            false, true, -1);
+        printf("NET OK!\n");
+        xSemaphoreTake(Binary_Http_Send, (fn_dp * 1000) / portTICK_PERIOD_MS);
+        printf("Http send !\n");
         http_send_mes();
     }
 }
 
-void send_heart(void)
+void send_heart_task(void *arg)
 {
     char recv_buf[1024] = {0};
-    if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
+
+    while (1)
     {
-        ESP_LOGI(TAG, "hart recv:%s", recv_buf);
-        if (parse_objects_heart(strchr(recv_buf, '{')))
+        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, -1); //等网络连接
+        xSemaphoreTake(Binary_Heart_Send, -1);
+        printf("Heart send !\n");
+        if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
         {
-            //successed
-            Led_Status = LED_STA_WORK;
+            ESP_LOGI(TAG, "hart recv:%s", recv_buf);
+            if (parse_objects_heart(strchr(recv_buf, '{')))
+            {
+                //successed
+                Led_Status = LED_STA_WORK;
+            }
+            else
+            {
+                Led_Status = LED_STA_ACTIVE_ERR;
+            }
         }
         else
         {
-            Led_Status = LED_STA_ACTIVE_ERR;
+            printf("hart recv 0!\r\n");
         }
-    }
-    else
-    {
-        printf("hart recv 0!\r\n");
     }
 }
 
 //定时发送心跳包
 void timer_heart_cb(void *arg)
 {
-    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                        false, true, portMAX_DELAY); //等网络连接
-    send_heart();
+    xSemaphoreGive(Binary_Heart_Send);
 }
 
 //激活流程
@@ -317,24 +314,6 @@ void http_send_mes(void)
     {
         sprintf(NET_INFO, "&net=ethernet");
     }
-    // else
-    // {
-    //     wifi_ap_record_t wifidata;
-    //     if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
-    //     {
-    //         sprintf(NET_MAC,
-    //                 "%02x:%02x:%02x:%02x:%02x:%02x",
-    //                 wifidata.bssid[0],
-    //                 wifidata.bssid[1],
-    //                 wifidata.bssid[2],
-    //                 wifidata.bssid[3],
-    //                 wifidata.bssid[4],
-    //                 wifidata.bssid[5]);
-    //     }
-    //     bzero(current_net_ip, sizeof(current_net_ip)); //有线网断开，不上传有线网IP
-    //     base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), NET_NAME, sizeof(NET_NAME));
-    //     sprintf(NET_INFO, "&ssid_base64=%s", NET_NAME);
-    // }
 
     creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
     //pCreat_json1->creat_json_b=malloc(1024);
@@ -411,8 +390,9 @@ void http_send_mes(void)
 
 void initialise_http(void)
 {
-    xMutex_Http_Send = xSemaphoreCreateMutex(); //创建HTTP发送互斥信号
-    Binary_Http_Send = xSemaphoreCreateBinary();
+    xMutex_Http_Send = xSemaphoreCreateMutex();   //创建HTTP发送互斥信号
+    Binary_Http_Send = xSemaphoreCreateBinary();  //http
+    Binary_Heart_Send = xSemaphoreCreateBinary(); //心跳包
 
     while (http_activate() != 1) //激活
     {
@@ -424,7 +404,8 @@ void initialise_http(void)
     sprintf(build_heart_url, "%s%s%s%s%s%s%s", http.GET, http.HEART_BEAT, ApiKey,
             http.HTTP_VERSION10, http.HOST, http.USER_AHENT, http.ENTER);
     printf("build_heart_url:%s", build_heart_url);
-    send_heart();
+    xSemaphoreGive(Binary_Heart_Send);
+
     esp_err_t err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
     err = esp_timer_start_periodic(timer_heart_handle, 60 * 1000000); //创建定时器，单位us，定时60s
     if (err != ESP_OK)
@@ -433,4 +414,5 @@ void initialise_http(void)
     }
 
     xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 6, &httpHandle);
+    xTaskCreate(&send_heart_task, "send_heart_task", 8192, NULL, 5, NULL);
 }

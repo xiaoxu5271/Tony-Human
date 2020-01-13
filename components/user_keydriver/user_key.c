@@ -181,7 +181,7 @@ static void gpio_intr_task_thread(void *arg)
     for (;;)
     {
         /* 不断从队列中查询是否有消息 */
-        if (xQueueReceive(gpio_evt_queue, &key_num, portMAX_DELAY))
+        if (xQueueReceive(gpio_evt_queue, &key_num, -1))
         {
             key_mask = 1ULL << key_num;
             /* 判断引起中断的GPIO口是不是已经发生过电平转移,如果发生了则不处理 */

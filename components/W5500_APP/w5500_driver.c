@@ -58,6 +58,7 @@ uint8_t server_port = 80;
 uint8_t standby_dns[4] = {8, 8, 8, 8};
 uint8_t RJ45_STATUS;
 uint8_t LAN_DNS_STATUS = 0;
+uint16_t LAN_ERR_CODE = 0;
 
 uint8_t user_dhcp_mode = 1; //0:static ;1:dhcp
 
@@ -87,7 +88,7 @@ void w5500_reset(void)
 *******************************************************************************/
 void spi_cris_en(void)
 {
-    xSemaphoreTake(xMutex_W5500_SPI, portMAX_DELAY); //SPI Semaphore Take
+    xSemaphoreTake(xMutex_W5500_SPI, -1); //SPI Semaphore Take
 }
 
 /*******************************************************************************
@@ -260,7 +261,7 @@ void W5500_Network_Init(void)
     // ctlwizchip(CW_SET_PHYCONF, (void *)&gWIZPHYCONF); //设置连接速度，降低功耗、温度。  然而发现并没有什么卵用
     // ctlwizchip(CW_GET_PHYCONF, (void *)&gWIZPHYCONF_READ);
 
-    // EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &user_dhcp_mode); //获取DHCP模式
+    EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &user_dhcp_mode); //获取DHCP模式
     if (user_dhcp_mode == 0)
     {
         uint8_t i = 0;
@@ -268,6 +269,11 @@ void W5500_Network_Init(void)
 
         printf("dhcp mode --- 0 Static\n");
         E2prom_page_Read(NETINFO_add, netinfo_buff, 16);
+        for (uint8_t j = 0; j < 17; j++)
+        {
+            printf("netinfo_buff[%d]:%d\n", j, netinfo_buff[j]);
+        }
+
         while (i < 16)
         {
             if (i < 4)
@@ -276,7 +282,7 @@ void W5500_Network_Init(void)
             }
             else if (i >= 4 && i < 8)
             {
-                sn[i - 4] = netinfo_buff[i];
+                sn[i - 4] = 255;
             }
             else if (i >= 8 && i < 12)
             {
@@ -506,14 +512,7 @@ void RJ45_Check_Task(void *arg)
                 {
                     if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
                     {
-                        if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == SUCCESS) //解析DNS
-                        {
-                            LAN_DNS_STATUS = 1;
-                        }
-                        else
-                        {
-                            LAN_DNS_STATUS = 0;
-                        }
+                        LAN_DNS_STATUS = 1;
                     }
                     else
                     {
@@ -531,7 +530,7 @@ void RJ45_Check_Task(void *arg)
             //针对网络状态
             if (LAN_DNS_STATUS == 0)
             {
-                ESP_LOGD(TAG, "有线网络连接断开！\n");
+                ESP_LOGI(TAG, "有线网络连接断开！\n");
                 if (lan_mqtt_status == 1)
                 {
                     stop_lan_mqtt();
@@ -577,17 +576,12 @@ void RJ45_Check_Task(void *arg)
                 {
                     if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
                     {
-                        if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == SUCCESS) //解析DNS
-                        {
-                            LAN_DNS_STATUS = 1;
-                        }
-                        else
-                        {
-                            LAN_DNS_STATUS = 0;
-                        }
+                        LAN_ERR_CODE = 0;
+                        LAN_DNS_STATUS = 1;
                     }
                     else
                     {
+                        LAN_ERR_CODE = LAN_NO_IP;
                         LAN_DNS_STATUS = 0;
                         // vTaskDelay(5000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
                     }
@@ -595,6 +589,7 @@ void RJ45_Check_Task(void *arg)
             }
             else
             {
+                LAN_ERR_CODE = LAN_NO_RJ45;
                 RJ45_STATUS = RJ45_DISCONNECT;
                 LAN_DNS_STATUS = 0;
             }

@@ -98,7 +98,11 @@ void app_main(void)
 
         EE_byte_Write(ADDR_PAGE2, need_update_add, 0);     //存放OTA升级需求参数
         EE_byte_Write(ADDR_PAGE2, update_fail_num_add, 0); //存放OTA升级重试次数
+        EE_byte_Write(ADDR_PAGE2, net_mode_add, NET_AUTO); //写入net_mode
+        EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, 1);       //写入DHCP模式，默认开启
     }
+    EE_byte_Read(ADDR_PAGE2, net_mode_add, &net_mode); //读取网络模式
+    printf("net mode is %d!\n", net_mode);
 
     if ((strlen(SerialNum) == 0) || (strlen(ProductId) == 0)) //未获取到序列号或productid，未烧写序列号
     {
@@ -119,12 +123,7 @@ void app_main(void)
     w5500_user_int();
 
     xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
-                        false, true, portMAX_DELAY); //等待网络连接、
-
-    vTaskDelay(5000 / portTICK_RATE_MS); //延时5s，开机滤掉抖动状态
-
-    xTaskCreate(Human_Task, "Human_Task", 8192, NULL, 4, &Human_Handle);
-    xTaskCreate(Sht30_Task, "Sht30_Task", 8192, NULL, 3, &Sht30_Handle);
+                        false, true, -1); //等待网络连接
 
     initialise_http();
     initialise_mqtt();

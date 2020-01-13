@@ -109,14 +109,13 @@ static short Parse_metadata(char *ptrptr)
     pSubSubSub = cJSON_GetObjectItem(pJsonJson, "net_mode"); //"net_mode"
     if (NULL != pSubSubSub)
     {
-
         if ((uint8_t)pSubSubSub->valueint != net_mode)
         {
             net_mode = (uint8_t)pSubSubSub->valueint;
+            EE_byte_Write(ADDR_PAGE2, net_mode_add, net_mode); //写入net_mode
             printf("net_mode = %d\n", net_mode);
         }
     }
-
     cJSON_Delete(pJsonJson);
     return 1;
 }
@@ -149,7 +148,7 @@ int32_t parse_objects_bluetooth(char *blu_json_data)
     // cJSON *cjson_blu_data_parse_ob = NULL;
     //cJSON *cjson_blu_data_parse_devicepwd = NULL;
 
-    printf("start_ble_parse_json\r\n");
+    printf("start_ble_parse_json：\r\n%s\n", blu_json_data);
     if (blu_json_data[0] != '{')
     {
         printf("blu_json_data Json Formatting error\n");
@@ -172,14 +171,21 @@ int32_t parse_objects_bluetooth(char *blu_json_data)
     }
     cJSON_Delete(cjson_blu_data_parse);
 
-    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, 20000 / portTICK_RATE_MS); //10S后仍然未连接上WIFI
-    if (wifi_connect_sta == connect_Y)
+    if (xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, 20000 / portTICK_RATE_MS))
     {
         return http_activate();
     }
     else
     {
-        return BLU_WIFI_ERR;
+        if (net_mode == NET_WIFI)
+        {
+            return Wifi_ErrCode;
+        }
+
+        else
+        {
+            return LAN_ERR_CODE;
+        }
     }
 }
 
@@ -552,16 +558,16 @@ void create_http_json(creat_json *pCreat_json)
         cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
     }
 
-    if (tem == 0 || hum == 0) //规避错误值
-    {
-        memset(mqtt_json_s.mqtt_tem, 0, sizeof(mqtt_json_s.mqtt_tem));
-        memset(mqtt_json_s.mqtt_hum, 0, sizeof(mqtt_json_s.mqtt_hum));
-    }
-    else
-    {
-        sprintf(mqtt_json_s.mqtt_tem, "%4.2f", tem);
-        sprintf(mqtt_json_s.mqtt_hum, "%4.2f", hum);
-    }
+    // if (tem == 0 || hum == 0) //规避错误值
+    // {
+    //     memset(mqtt_json_s.mqtt_tem, 0, sizeof(mqtt_json_s.mqtt_tem));
+    //     memset(mqtt_json_s.mqtt_hum, 0, sizeof(mqtt_json_s.mqtt_hum));
+    // }
+    // else
+    // {
+    //     sprintf(mqtt_json_s.mqtt_tem, "%4.2f", tem);
+    //     sprintf(mqtt_json_s.mqtt_hum, "%4.2f", hum);
+    // }
 
     //printf("status_creat_json %s\r\n", status_creat_json);
     cJSON_AddItemToObject(root, "feeds", fe_body);
@@ -705,7 +711,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             pSub = cJSON_GetObjectItem(pJson, "dhcp"); //"dhcp"
             if (NULL != pSub)
             {
-                // EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, (uint8_t)pSub->valueint); //写入DHCP模式
+                EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, (uint8_t)pSub->valueint); //写入DHCP模式
                 user_dhcp_mode = (uint8_t)pSub->valueint;
             }
 
@@ -757,7 +763,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                 set_net_buf[11] = (uint8_t)strtoul(InpString, 0, 10);
             }
 
-            pSub = cJSON_GetObjectItem(pJson, "dns"); //"dns"
+            pSub = cJSON_GetObjectItem(pJson, "dns1"); //"dns"
             if (NULL != pSub)
             {
                 InpString = strtok(pSub->valuestring, ".");
@@ -772,12 +778,14 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                 InpString = strtok(NULL, ".");
                 set_net_buf[15] = (uint8_t)strtoul(InpString, 0, 10);
             }
+            for (uint8_t j = 0; j < 17; j++)
+            {
+                printf("netinfo_buff[%d]:%d\n", j, set_net_buf[j]);
+            }
             E2prom_page_Write(NETINFO_add, set_net_buf, sizeof(set_net_buf));
-            // for (uint8_t i = 0; i < 16; i++)
-            // {
-            //     printf("set_net_buf[%d]:%d\n", i, set_net_buf[i]);
-            //     EE_byte_Write(ADDR_PAGE3, NETINFO_add + i, set_net_buf[i]);
-            // }
+
+            EE_byte_Write(ADDR_PAGE2, net_mode_add, NET_LAN); //写入net_mode
+            net_mode = NET_LAN;
 
             W5500_Network_Init();
 
@@ -803,7 +811,8 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                 strcpy(wifi_data.wifi_pwd, pSub->valuestring);
                 printf("WIFI_PWD = %s\r\n", pSub->valuestring);
             }
-
+            EE_byte_Write(ADDR_PAGE2, net_mode_add, NET_WIFI); //写入net_mode
+            net_mode = NET_WIFI;
             // initialise_wifi(wifi_data.wifi_ssid, wifi_data.wifi_pwd);
             initialise_wifi();
             cJSON_Delete(pJson); //delete pJson

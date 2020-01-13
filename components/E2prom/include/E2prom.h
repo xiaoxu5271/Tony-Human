@@ -69,6 +69,7 @@ ESP_OK 读取成功
 #define need_update_add 0x00     //page2 用地址
 #define update_fail_num_add 0x01 //page2 用地址
 #define dhcp_mode_add 0x02       //page2 用地址
+#define net_mode_add 0x03        //page2 用地址
 
 //page3 用地址
 #define ADDR_PAGE3 0xAE

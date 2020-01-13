@@ -221,7 +221,7 @@ static prepare_type_env_t b_prepare_write_env;
 void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param);
 void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param);
 
-char buf[512];               // do not free from heap!
+char buf[1024];              // do not free from heap!
 char BleRespond[128] = "\0"; // 蓝牙回复
 bool blere_flag = false;
 
@@ -497,12 +497,6 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
                     E2prom_BluWrite(0x00, (uint8_t *)zerobuf, 256);
                     E2prom_BluWrite(0x00, (uint8_t *)buf, param->write.len);
                     Ble_mes_status = BLEOK;
-                }
-                else if (ret == BLU_WIFI_ERR) //WIFI连接失败
-                {
-                    ESP_LOGI("BLE", "Wifi_ErrCode=%d", Wifi_ErrCode);
-                    bzero(BleRespond, sizeof(BleRespond));
-                    sprintf(BleRespond, "{\"result\":\"error\",\"code\":%d}", Wifi_ErrCode);
                 }
                 else //激活失败
                 {

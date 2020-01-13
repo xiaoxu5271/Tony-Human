@@ -290,7 +290,7 @@ void Sht30_Task(void *arg)
     uint8_t count = 0;
     while (1)
     {
-        // xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
+        // xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, -1);
 
         if (fn_th > 0)
         {

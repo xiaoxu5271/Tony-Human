@@ -230,7 +230,7 @@ esp_err_t create_tcp_client()
 void my_tcp_connect(void)
 {
     //等待WIFI连接信号量，死等
-    xEventGroupWaitBits(tcp_event_group, AP_STACONNECTED_BIT, false, true, portMAX_DELAY);
+    xEventGroupWaitBits(tcp_event_group, AP_STACONNECTED_BIT, false, true, -1);
     ESP_LOGI(TAG, "start tcp connected");
 
     //延时3S准备建立server
@@ -359,7 +359,7 @@ void my_tcp_connect_task(void *pvParameters)
     {
         g_rxtx_need_restart = false;
         //等待WIFI连接信号量，死等
-        xEventGroupWaitBits(tcp_event_group, AP_STACONNECTED_BIT, false, true, portMAX_DELAY);
+        xEventGroupWaitBits(tcp_event_group, AP_STACONNECTED_BIT, false, true, -1);
 
         ESP_LOGI(TAG, "start tcp connected");
 

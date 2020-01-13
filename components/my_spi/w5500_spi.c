@@ -92,7 +92,7 @@ void spi_writebyte(uint8_t writebyte)
     t.flags = SPI_TRANS_USE_TXDATA;
     t.length = sizeof(uint8_t) * 8; //Command is 8 bits
     t.tx_data[0] = writebyte;       //The data is the cmd itself
-    //xSemaphoreTake(rdySem, 100);        //portMAX_DELAY); //Wait until slave is ready
+    //xSemaphoreTake(rdySem, 100);        //-1); //Wait until slave is ready
     ret = spi_device_transmit(spi, &t); //Transmit!
     assert(ret == ESP_OK);              //Should have had no issues.
 }

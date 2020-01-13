@@ -18,11 +18,13 @@
 #include "MQTTPacket.h"
 #include "w5500_driver.h"
 #include "Json_parse.h"
+#include "Smartconfig.h"
 
 #define TAG "LAN_MQTT"
 
+TaskHandle_t lan_mqtt_Handle = NULL;
 MQTTPacket_connectData user_MQTTPacket_ConnectData;
-uint8_t mqtt_buff[2048]; //¿Õ¼ä²»¹»£¬¿ÉÄÜ»áµ¼ÖÂ½ÓÊÕÊı¾İÊ±·µ»Ø -1
+uint8_t mqtt_buff[2048]; //ç©ºé—´ä¸å¤Ÿï¼Œå¯èƒ½ä¼šå¯¼è‡´æ¥æ”¶æ•°æ®æ—¶è¿”å› -1
 uint8_t lan_mqtt_status = 0;
 
 static int transport_getdata(uint8_t *buf, int count)
@@ -38,11 +40,12 @@ void lan_mqtt_init(void)
     user_MQTTPacket_ConnectData.username.cstring = MQTT_USER;
     user_MQTTPacket_ConnectData.password.cstring = MQTT_PASS;
     user_MQTTPacket_ConnectData.clientID.cstring = MQTT_CLIEND_ID;
+    // xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 3, &lan_mqtt_Handle); //å¼€å¯ LAN_MQTT
 }
 uint8_t mqtt_remote_ip[4];
-/*mqttÁ¬½Óº¯Êı
-	²ÎÊı£º¿Õ
-	·µ»Ø£º1£ºÁ¬½Ó³É¹¦£¬0Á¬½ÓÊ§°Ü
+/*mqttè¿æ¥å‡½æ•°
+	å‚æ•°ï¼šç©º
+	è¿”å›ï¼š1ï¼šè¿æ¥æˆåŠŸï¼Œ0è¿æ¥å¤±è´¥
 */
 static uint8_t mqtt_connect()
 {
@@ -65,7 +68,7 @@ static uint8_t mqtt_connect()
             ESP_LOGE(TAG, "MQTT> send error:%d.rc:%d.\r\n", ret, rc);
             return 0;
         }
-        //µÈ´ıÓ¦´ğĞÅºÅ
+        //ç­‰å¾…åº”ç­”ä¿¡å·
         do
         {
             while (MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata) != CONNACK)
@@ -83,9 +86,9 @@ static uint8_t mqtt_connect()
         return 1;
     }
 }
-/*mqtt¶©ÔÄÖ÷Ìâ
-	²ÎÊı£ºÖ÷Ìâ
-	·µ»Ø£º1:³É¹¦,0:Ê§°Ü
+/*mqttè®¢é˜…ä¸»é¢˜
+	å‚æ•°ï¼šä¸»é¢˜
+	è¿”å›ï¼š1:æˆåŠŸ,0:å¤±è´¥
 */
 
 /**************************************************/
@@ -103,7 +106,7 @@ static uint8_t mqtt_subscribe(char *Topic)
 
     topicString.cstring = (char *)Topic;
 
-    rc = MQTTSerialize_subscribe(mqtt_buff, sizeof(mqtt_buff), 0, msgid, 1, &topicString, &req_qos); //¹¹½¨¶©ÔÄ±¨ÎÄ
+    rc = MQTTSerialize_subscribe(mqtt_buff, sizeof(mqtt_buff), 0, msgid, 1, &topicString, &req_qos); //æ„å»ºè®¢é˜…æŠ¥æ–‡
 
     if (rc < 0)
     {
@@ -135,9 +138,9 @@ static uint8_t mqtt_subscribe(char *Topic)
 }
 
 /*
-	MQTT ·¢ËÍping±¨ÎÄ
-	²ÎÊı£º¿Õ
-	·µ»Ø£º1£º·¢ËÍ³É¹¦£¬0£º·¢ËÍÊ§°Ü
+	MQTT å‘é€pingæŠ¥æ–‡
+	å‚æ•°ï¼šç©º
+	è¿”å›ï¼š1ï¼šå‘é€æˆåŠŸï¼Œ0ï¼šå‘é€å¤±è´¥
 */
 static int8_t mqtt_ping()
 {
@@ -154,7 +157,7 @@ static int8_t mqtt_ping()
         return -1;
     }
 
-    //×èÈûµÈ´ı½ÓÊÕÊı¾İ 1s³¬Ê±
+    //é˜»å¡ç­‰å¾…æ¥æ”¶æ•°æ® 1sè¶…æ—¶
     while (getSn_RX_RSR(MQTT_SOCKET) == 0)
     {
         count++;
@@ -181,10 +184,10 @@ static int8_t mqtt_ping()
 
 // }
 
-/*mqttÔËĞĞÈÎÎñ£¬µ±tcp³É¹¦½¨Á¢Á´½ÓÊ±£¬»Ö¸´¸ÃÈÎÎñ£¬·ñÔòÊÇ¹ÒÆğ×´Ì¬
-µ±LINK¶Ï¿ªÊ±£¬¹ÒÆğ¸ÃÈÎÎñ
-¸ÃÈÎÎñ½¨Á¢ÔÚTCP³É¹¦Á¬½ÓµÄ»ù´¡ÉÏ£ºÁ¬½Ómqtt·şÎñÆ÷->¶©ÔÄÏà¹ØÖ÷Ìâ->
-·µ»Ø£ºÕı³£Çé¿ö×èÈûÈÎÎñ£¬Òì³£·µ»Ø´íÎóÀàĞÍ
+/*mqttè¿è¡Œä»»åŠ¡ï¼Œå½“tcpæˆåŠŸå»ºç«‹é“¾æ¥æ—¶ï¼Œæ¢å¤è¯¥ä»»åŠ¡ï¼Œå¦åˆ™æ˜¯æŒ‚èµ·çŠ¶æ€
+å½“LINKæ–­å¼€æ—¶ï¼ŒæŒ‚èµ·è¯¥ä»»åŠ¡
+è¯¥ä»»åŠ¡å»ºç«‹åœ¨TCPæˆåŠŸè¿æ¥çš„åŸºç¡€ä¸Šï¼šè¿æ¥mqttæœåŠ¡å™¨->è®¢é˜…ç›¸å…³ä¸»é¢˜->
+è¿”å›ï¼šæ­£å¸¸æƒ…å†µé˜»å¡ä»»åŠ¡ï¼Œå¼‚å¸¸è¿”å›é”™è¯¯ç±»å‹
 */
 static int8_t mqtt()
 {
@@ -201,15 +204,15 @@ static int8_t mqtt()
     uint32_t recv_timeout = 0;
     // uint8_t no_mqtt_msg_exchange = 0;
     //topoc.cstring = "fdj/iot/control/12345";
-    if (mqtt_connect()) //Á¬½Ó·şÎñÆ÷
+    if (mqtt_connect()) //è¿æ¥æœåŠ¡å™¨
     {
         ESP_LOGI(TAG, "MQTT> connected.\r\n");
         memset(mqtt_buff, 0, sizeof(mqtt_buff));
 
-        if (mqtt_subscribe(MQTT_Topic)) //¶©ÔÄ
+        if (mqtt_subscribe(MQTT_Topic)) //è®¢é˜…
         {
             ESP_LOGI(TAG, "MQTT> subscribe success.\r\n");
-            while (1) //¿ªÊ¼½ÓÊÕÊı¾İ£¬×èÈûÈÎÎñ
+            while (1) //å¼€å§‹æ¥æ”¶æ•°æ®ï¼Œé˜»å¡ä»»åŠ¡
             {
                 // HighWaterMark = uxTaskGetStackHighWaterMark(NULL);
                 // printf("MQTT-TASK runing\n");
@@ -221,7 +224,7 @@ static int8_t mqtt()
                     return 0;
                 }
 
-                //ÑÓÊ±×èÈû½ÓÊÕÊı¾İ
+                //å»¶æ—¶é˜»å¡æ¥æ”¶æ•°æ®
                 while ((ret = getSn_RX_RSR(MQTT_SOCKET)) == 0)
                 {
                     recv_timeout++;
@@ -233,7 +236,7 @@ static int8_t mqtt()
                     vTaskDelay(10 / portTICK_RATE_MS);
                 }
 
-                //ÅĞ¶ÏÊÇ·ñÊÕµ½Êı¾İ
+                //åˆ¤æ–­æ˜¯å¦æ”¶åˆ°æ•°æ®
                 if (ret > 0)
                 {
                     printf("getSn_RX_RSR = %d \n", ret);
@@ -248,12 +251,12 @@ static int8_t mqtt()
 
                         strcpy((char *)msg_rev_buf, (const char *)payload_in);
                         printf("message arrived %d: %s\n\r", payloadlen_in, (char *)msg_rev_buf);
-                        parse_objects_mqtt((char *)msg_rev_buf); //ÊÕµ½Æ½Ì¨MQTTÊı¾İ²¢½âÎö
+                        parse_objects_mqtt((char *)msg_rev_buf); //æ”¶åˆ°å¹³å°MQTTæ•°æ®å¹¶è§£æ
 
                         HighWaterMark = uxTaskGetStackHighWaterMark(NULL);
                         printf("MQTT-TASK HighWaterMark=%d \n", HighWaterMark);
 
-                        //ĞÄÌø¼ÆÊ±ÇåÁã
+                        //å¿ƒè·³è®¡æ—¶æ¸…é›¶
                         ping_timeout = 0;
                     }
                     else if (ret == -1)
@@ -262,11 +265,11 @@ static int8_t mqtt()
                         return -1;
                     }
                 }
-                //¶¨Ê±·¢ËÍĞÄÌø°ü£¬µ¥Î»S
+                //å®šæ—¶å‘é€å¿ƒè·³åŒ…ï¼Œå•ä½S
                 if (ping_timeout > KEEPLIVE_TIME)
                 {
                     ping_timeout = 0;
-                    //·¢ËÍĞÄÌø°ü
+                    //å‘é€å¿ƒè·³åŒ…
                     if ((ret = mqtt_ping()) < 0)
                     {
                         ESP_LOGE(TAG, "MQTT> ping error code:%d.\r\n", ret);
@@ -305,7 +308,7 @@ void lan_mqtt_task(void *pvParameter)
             {
                 lan_mqtt_status = 0;
                 ESP_LOGI(TAG, "vTaskDelete LAN_MQTT!\r\n");
-                vTaskDelete(NULL); //ÍøÏß¶Ï¿ª£¬É¾³ıÈÎÎñ
+                vTaskDelete(NULL); //ç½‘çº¿æ–­å¼€ï¼Œåˆ é™¤ä»»åŠ¡
             }
             else if ((ret = lan_socket(MQTT_SOCKET, Sn_MR_TCP, 4000, 0)) != MQTT_SOCKET)
             {
@@ -313,10 +316,10 @@ void lan_mqtt_task(void *pvParameter)
                 break;
             }
             break;
-        case SOCK_ESTABLISHED: //TCPÕı³£½¨Á¢Á¬½Ó
+        case SOCK_ESTABLISHED: //TCPæ­£å¸¸å»ºç«‹è¿æ¥
             ESP_LOGI(TAG, "MQTT> tcp connnect.\r\n");
-            //MQTT Á¬½Ó·â°ü
-            rc = mqtt(); //×èÈûÈÎÎñ£¬³ı·Çmqtt¹ı³Ì³öÏÖÒì³£
+            //MQTT è¿æ¥å°åŒ…
+            rc = mqtt(); //é˜»å¡ä»»åŠ¡ï¼Œé™¤émqttè¿‡ç¨‹å‡ºç°å¼‚å¸¸
             if (rc == 0)
             {
                 ESP_LOGE(TAG, "MQTT> ERROR.reopen socket.\r\n");
@@ -347,12 +350,13 @@ void lan_mqtt_task(void *pvParameter)
 void start_lan_mqtt(void)
 {
     printf("start_lan_mqtt!\n");
+    // xTaskResumeFromISR(lan_mqtt_Handle);
     lan_mqtt_status = 1;
-    xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 10, NULL); //¿ªÆô LAN_MQTT
+    // xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 10, NULL);
 }
 
 void stop_lan_mqtt(void)
 {
     printf("stop lan mqtt!\n");
-    lan_close(MQTT_SOCKET);
+    // lan_close(MQTT_SOCKET);
 }

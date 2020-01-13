@@ -9,7 +9,7 @@
 
 #define ESP_INTR_FLAG_DEFAULT 0
 
-#define TAG "HUNAN"
+#define TAG "HUMAN"
 
 static void huamn_timer_cb(void *arg);
 esp_timer_handle_t human_timer_handle = 0; //定时器句柄
@@ -20,14 +20,18 @@ esp_timer_create_args_t human_timer_arg = {
     .name = "HumanTimer"};
 
 static xQueueHandle human_evt_queue = NULL;
+static SemaphoreHandle_t human_binary_handle = NULL;
 
-static void human_gpio_intr_handler(void *arg)
+static void
+human_gpio_intr_handler(void *arg)
 {
     /* 获取触发中断的gpio口 */
     uint32_t key_num = (uint32_t)arg;
     /* 从中断处理函数中发出消息到队列 */
+    // Led_Status = LED_STA_SEND;
     if (key_num == GPIO_HUMAN)
-        xQueueSendFromISR(human_evt_queue, &key_num, NULL);
+        xSemaphoreGive(human_binary_handle);
+    // xQueueSendFromISR(human_evt_queue, &key_num, NULL);
 }
 
 void huamn_timer_cb(void *arg)
@@ -61,9 +65,12 @@ void Human_Init(void)
     gpio_set_intr_type(GPIO_HUMAN, GPIO_INTR_POSEDGE); //上升沿触发
     gpio_isr_handler_add(GPIO_HUMAN, human_gpio_intr_handler, (void *)(GPIO_HUMAN));
     //create a queue to handle gpio event from isr
-    human_evt_queue = xQueueCreate(10, sizeof(uint32_t));
+    // human_evt_queue = xQueueCreate(10, sizeof(uint32_t));
+    human_binary_handle = xSemaphoreCreateBinary();
 
     esp_timer_create(&human_timer_arg, &human_timer_handle);
+
+    xTaskCreate(Human_Task, "Human_Task", 4096, NULL, 4, &Human_Handle);
 }
 
 void Human_Task(void *arg)
@@ -73,7 +80,8 @@ void Human_Task(void *arg)
     vTaskDelay(30 * 1000 / portTICK_RATE_MS); //电路稳定时间，根据手册，最大30s
     while (1)
     {
-        if (xQueueReceive(human_evt_queue, &io_num, (30 * 1000) / portTICK_PERIOD_MS)) //30s无中断，则判断无人
+        // if (xQueueReceive(human_evt_queue, &io_num, (30 * 1000) / portTICK_PERIOD_MS)) //30s无中断，则判断无人
+        if (xSemaphoreTake(human_binary_handle, (30 * 1000) / portTICK_PERIOD_MS))
         {
             // ESP_LOGI(TAG, "HAVEHUMAN isr\n");
             esp_timer_start_once(human_timer_handle, 100 * 1000); //100MS 消除干扰

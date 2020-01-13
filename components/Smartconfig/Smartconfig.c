@@ -110,8 +110,11 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         break;
 
     case SYSTEM_EVENT_STA_LOST_IP:
-        ESP_LOGI(TAG, "SYSTEM_EVENT_STA_LOST_IP,reconnect! ");
-        esp_restart();
+        if (net_mode == NET_WIFI)
+        {
+            ESP_LOGI(TAG, "SYSTEM_EVENT_STA_LOST_IP,reconnect! ");
+            esp_restart();
+        }
         break;
 
     default:

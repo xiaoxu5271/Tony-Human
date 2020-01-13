@@ -332,7 +332,7 @@ int8_t lan_connect(uint8_t sn, uint8_t *addr, uint16_t port)
         {
             return SOCKERR_SOCKCLOSED;
         }
-        printf("lan connet getSn_SR\n");
+        printf("lan connet getSn_SR %d\n", getSn_SR(sn));
         vTaskDelay(500 / portTICK_PERIOD_MS); //
     }
 
