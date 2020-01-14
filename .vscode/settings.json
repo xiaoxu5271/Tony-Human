@@ -9,6 +9,7 @@
                 "esp_event_legacy.h": "c",
                 "base64_test.h": "c",
                 "base64.h": "c",
-                "my_base64.h": "c"
+                "my_base64.h": "c",
+                "json_parse.h": "c"
         }
 }

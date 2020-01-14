@@ -320,21 +320,21 @@ int8_t lan_connect(uint8_t sn, uint8_t *addr, uint16_t port)
     }
     if (sock_io_mode & (1 << sn))
         return SOCK_BUSY;
-    while (getSn_SR(sn) != SOCK_ESTABLISHED)
-    {
-        if (getSn_IR(sn) & Sn_IR_TIMEOUT)
-        {
-            setSn_IR(sn, Sn_IR_TIMEOUT);
-            return SOCKERR_TIMEOUT;
-        }
+    // while (getSn_SR(sn) != SOCK_ESTABLISHED)
+    // {
+    //     if (getSn_IR(sn) & Sn_IR_TIMEOUT)
+    //     {
+    //         setSn_IR(sn, Sn_IR_TIMEOUT);
+    //         return SOCKERR_TIMEOUT;
+    //     }
 
-        if (getSn_SR(sn) == SOCK_CLOSED)
-        {
-            return SOCKERR_SOCKCLOSED;
-        }
-        printf("lan connet getSn_SR %d\n", getSn_SR(sn));
-        vTaskDelay(500 / portTICK_PERIOD_MS); //
-    }
+    //     if (getSn_SR(sn) == SOCK_CLOSED)
+    //     {
+    //         return SOCKERR_SOCKCLOSED;
+    //     }
+    //     printf("lan connet getSn_SR %d\n", getSn_SR(sn));
+    //     vTaskDelay(500 / portTICK_PERIOD_MS); //
+    // }
 
     return SOCK_OK;
 }

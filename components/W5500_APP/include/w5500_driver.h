@@ -50,6 +50,14 @@
 #define LAN_NO_RJ45 401
 #define LAN_NO_IP 402
 #define LAN_NO_NET 403
+#define LAN_RET_ERR 404
+
+#define RJ45_DEBUG 1
+#define FAILURE -1
+#define SUCCESS 1
+#define RJ45_STATUS_TIMEOUT 3
+#define W5500_DNS_FAIL -3
+#define NO_RJ45_ACCESS -4
 
 extern uint8_t RJ45_STATUS;
 extern uint8_t LAN_DNS_STATUS;

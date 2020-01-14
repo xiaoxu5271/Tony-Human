@@ -209,17 +209,14 @@ int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uin
 
 void http_get_task(void *pvParameters)
 {
-    char recv_buf[1024];
-    http_send_buff(build_heart_url, 256, recv_buf, 1024);
     xSemaphoreGive(Binary_Http_Send); //先发送一次
 
     while (1)
     {
         //需要把数据发送到平台
+        xSemaphoreTake(Binary_Http_Send, (fn_dp * 1000) / portTICK_PERIOD_MS);
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                             false, true, -1);
-        printf("NET OK!\n");
-        xSemaphoreTake(Binary_Http_Send, (fn_dp * 1000) / portTICK_PERIOD_MS);
         printf("Http send !\n");
         http_send_mes();
     }
@@ -231,8 +228,8 @@ void send_heart_task(void *arg)
 
     while (1)
     {
-        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, -1); //等网络连接
         xSemaphoreTake(Binary_Heart_Send, -1);
+        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, -1); //等网络连接
         printf("Heart send !\n");
         if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
         {
@@ -249,6 +246,7 @@ void send_heart_task(void *arg)
         }
         else
         {
+            Led_Status = LED_STA_WIFIERR;
             printf("hart recv 0!\r\n");
         }
     }
@@ -273,7 +271,7 @@ int32_t http_activate(void)
 
     if (http_send_buff(build_http, 256, recv_buf, 1024) < 0)
     {
-        Led_Status = LED_STA_ACTIVE_ERR;
+        Led_Status = LED_STA_WIFIERR;
         return 101;
     }
     else
@@ -380,10 +378,18 @@ void http_send_mes(void)
     {
         // printf("解析返回数据！\n");
         ESP_LOGI(TAG, "mes recv:%s", recv_buf);
-        parse_objects_http_respond(strchr(recv_buf, '{'));
+        if (parse_objects_http_respond(strchr(recv_buf, '{')))
+        {
+            Led_Status = LED_STA_WORK;
+        }
+        else
+        {
+            Led_Status = LED_STA_ACTIVE_ERR;
+        }
     }
     else
     {
+        Led_Status = LED_STA_WIFIERR;
         printf("send return : %d \n", ret);
     }
 }

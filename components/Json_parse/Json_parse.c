@@ -528,6 +528,7 @@ void create_http_json(creat_json *pCreat_json)
     // cJSON *item = cJSON_CreateObject();
     cJSON *next = cJSON_CreateObject();
     cJSON *fe_body = cJSON_CreateArray();
+    uint8_t mac_sys[6] = {0};
     char mac_buff[64] = {0};
     char ssid64_buff[64] = {0};
     //char status_creat_json_c[256];
@@ -538,24 +539,39 @@ void create_http_json(creat_json *pCreat_json)
     strncpy(http_json_c.http_time, Server_Timer_SEND(), 24);
     wifi_ap_record_t wifidata;
 
-    if (LAN_DNS_STATUS != 1)
+    if (LAN_DNS_STATUS == 0)
     {
         if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
         {
             itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
         }
+        esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
         sprintf(mac_buff,
                 "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                wifidata.bssid[0],
-                wifidata.bssid[1],
-                wifidata.bssid[2],
-                wifidata.bssid[3],
-                wifidata.bssid[4],
-                wifidata.bssid[5]);
+                mac_sys[0],
+                mac_sys[1],
+                mac_sys[2],
+                mac_sys[3],
+                mac_sys[4],
+                mac_sys[5]);
         base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
 
         cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
         cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
+    }
+    else
+    {
+        esp_read_mac(mac_sys, 3); //获取芯片内部默认出厂MAC，
+        sprintf(mac_buff,
+                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                mac_sys[0],
+                mac_sys[1],
+                mac_sys[2],
+                mac_sys[3],
+                mac_sys[4],
+                mac_sys[5]);
+        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
+        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
     }
 
     // if (tem == 0 || hum == 0) //规避错误值

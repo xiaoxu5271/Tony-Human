@@ -19,6 +19,7 @@
 #include "w5500_driver.h"
 #include "Json_parse.h"
 #include "Smartconfig.h"
+#include "Http.h"
 
 #define TAG "LAN_MQTT"
 
@@ -195,8 +196,7 @@ static int8_t mqtt()
     int ret;
     uint8_t dup, retained;
     uint16_t mssageid;
-    int qos,
-        payloadlen_in;
+    int qos, payloadlen_in;
     MQTTString topoc;
     uint8_t msg_rev_buf[1024];
     uint32_t HighWaterMark;
@@ -298,6 +298,12 @@ void lan_mqtt_task(void *pvParameter)
     int8_t ret;
     // uint8_t mqtt_state = 1;
     int32_t rc;
+    uint8_t fail_num = 0;
+    if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == FAILURE)
+    {
+        ESP_LOGE(TAG, "lan dns resolve FAIL!\r\n");
+        vTaskDelete(NULL); //网线断开，删除任务
+    }
     while (1)
     {
         switch (getSn_SR(MQTT_SOCKET))
@@ -324,6 +330,7 @@ void lan_mqtt_task(void *pvParameter)
             {
                 ESP_LOGE(TAG, "MQTT> ERROR.reopen socket.\r\n");
             }
+            fail_num = 0;
             break;
         case SOCK_CLOSE_WAIT:
             lan_close(MQTT_SOCKET);
@@ -336,11 +343,17 @@ void lan_mqtt_task(void *pvParameter)
                 ESP_LOGE(TAG, "MQTT> socket connect faile : %d.\r\n", ret);
                 break;
             }
-
             break;
 
         default:
             ESP_LOGI(TAG, "MQTT> unknow mqtt socke SR:%x.\r\n", getSn_SR(MQTT_SOCKET));
+            fail_num++;
+            if (fail_num >= 10)
+            {
+                fail_num = 0;
+                printf("fail time out getSn_SR=0x%02x\n", getSn_SR(MQTT_SOCKET));
+                lan_close(MQTT_SOCKET);
+            }
             break;
         }
         vTaskDelay(100 / portTICK_RATE_MS);
@@ -352,11 +365,11 @@ void start_lan_mqtt(void)
     printf("start_lan_mqtt!\n");
     // xTaskResumeFromISR(lan_mqtt_Handle);
     lan_mqtt_status = 1;
-    // xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 10, NULL);
+    xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 10, NULL);
 }
 
 void stop_lan_mqtt(void)
 {
     printf("stop lan mqtt!\n");
-    // lan_close(MQTT_SOCKET);
+    lan_close(MQTT_SOCKET);
 }

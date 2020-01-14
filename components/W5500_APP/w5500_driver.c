@@ -41,12 +41,6 @@
 
 #define TAG "W5500_driver"
 
-#define RJ45_DEBUG 1
-#define FAILURE -1
-#define SUCCESS 1
-#define RJ45_STATUS_TIMEOUT 3
-#define W5500_DNS_FAIL -3
-#define NO_RJ45_ACCESS -4
 // #define WEB_SERVER "api.ubibot.cn"
 
 uint32_t socker_port = 3000; //本地端口 不可变
@@ -410,26 +404,27 @@ int8_t W5500_DHCP_Init(void)
 
 int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
-    int32_t rec_ret = 0, con_ret = 0;
+    int32_t rec_ret = 0;
+    int8_t con_ret = 0;
     uint16_t size = 0;
+    uint8_t fail_num = 0;
+    uint8_t temp;
     if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == FAILURE)
     {
         LAN_DNS_STATUS = 0;
         printf("IW5500_DNS_FAIL\n");
-        return W5500_DNS_FAIL;
+        return -1;
     }
     LAN_DNS_STATUS = 1;
 
     while (1)
     {
-        // printf("while ing !!!\n");
-        uint8_t temp;
         switch (temp = getSn_SR(SOCK_TCPS))
         {
         case SOCK_INIT:
             // printf("SOCK_INIT!!!\n");
             con_ret = lan_connect(SOCK_TCPS, http_dns_host_ip, server_port);
-            if (con_ret <= 0)
+            if (con_ret != SOCK_OK)
             {
                 printf("INIT FAIL CODE : %d\n", con_ret);
                 return con_ret;
@@ -442,6 +437,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
                 // printf("SOCK_ESTABLISHED!!!\n");
                 setSn_IR(SOCK_TCPS, Sn_IR_CON);
             }
+            fail_num = 0;
             // printf("send_buff   : %s, size :%d \n", (char *)send_buff, send_size);
             lan_send(SOCK_TCPS, (uint8_t *)send_buff, send_size);
 
@@ -486,12 +482,16 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
                 // printf("rec_ret: %d\r\n", rec_ret);
                 return rec_ret;
             }
-
             break;
 
         default:
-            printf("send get %2x\n", temp);
-            lan_close(SOCK_TCPS); //网线断开重联后会返回 0X22，自动进入UDP模式，所以需要关闭连接。
+            fail_num++;
+            if (fail_num >= 10)
+            {
+                fail_num = 0;
+                printf("fail time out getSn_SR=  0x%02x\n", temp);
+                return -temp;
+            }
             break;
         }
         vTaskDelay(100 / portTICK_RATE_MS);
@@ -519,6 +519,7 @@ void RJ45_Check_Task(void *arg)
                     {
                         if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
                         {
+                            lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip);
                             LAN_DNS_STATUS = 1;
                         }
                         else
@@ -537,7 +538,7 @@ void RJ45_Check_Task(void *arg)
                 //针对网络状态
                 if (LAN_DNS_STATUS == 0)
                 {
-                    ESP_LOGI(TAG, "有线网络连接断开！\n");
+                    ESP_LOGD(TAG, "有线网络连接断开！\n");
                     if (lan_mqtt_status == 1)
                     {
                         stop_lan_mqtt();
@@ -550,7 +551,7 @@ void RJ45_Check_Task(void *arg)
                             start_wifi_mqtt();
                         }
                     }
-                    else //断网断开ＭＱＴＴ
+                    else //断网断开MQTT
                     {
                         if (wifi_mqtt_status == 1 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
                         {
@@ -660,6 +661,7 @@ void RJ45_Check_Task(void *arg)
         }
         else
         {
+            LAN_DNS_STATUS = 0;
             xEventGroupClearBits(wifi_event_group, CONNECTED_BIT); //断网标志
         }
         vTaskDelay(100 / portTICK_RATE_MS);
