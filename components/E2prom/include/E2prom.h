@@ -58,6 +58,8 @@ ESP_OK 读取成功
 
 //page0 用地址
 #define ADDR_PAGE0 0xA8
+#define ApiKey_ADD 0x00
+#define ChannelId_ADD 0X20
 #define PRODUCT_ID_ADDR 0x40
 #define SERISE_NUM_ADDR 0x30
 
@@ -76,7 +78,8 @@ ESP_OK 读取成功
 #define ota_url_add 0x00
 #define NETINFO_add 0x80
 
-esp_err_t EE_byte_Write(uint8_t page, uint8_t reg_addr, uint8_t dat);
+esp_err_t
+EE_byte_Write(uint8_t page, uint8_t reg_addr, uint8_t dat);
 esp_err_t EE_byte_Read(uint8_t page, uint8_t reg_addr, uint8_t *dat);
 
 extern void E2prom_Init(void);

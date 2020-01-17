@@ -30,6 +30,7 @@
 
 unsigned long fn_dp = 60; //数据发送频率
 unsigned long fn_th = 0;  //温湿度频率
+unsigned long fn_sen = 1; //人感灵敏度，1对应100ms
 uint8_t cg_data_led = 1;  //发送数据 LED状态 0：不闪烁 1：闪烁
 uint8_t net_mode = 0;     //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
 
@@ -84,6 +85,18 @@ static short Parse_metadata(char *ptrptr)
             fn_flag = 1;
             fn_dp = (unsigned long)pSubSubSub->valueint;
             printf("fn_dp = %ld\n", fn_dp);
+        }
+    }
+
+    pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_sen"); //"fn_sen"
+    if (NULL != pSubSubSub)
+    {
+
+        if ((unsigned long)pSubSubSub->valueint != fn_sen)
+        {
+            fn_flag = 1;
+            fn_sen = (unsigned long)pSubSubSub->valueint;
+            printf("fn_sen = %ld\n", fn_sen);
         }
     }
 
@@ -253,12 +266,12 @@ esp_err_t parse_objects_http_active(char *http_json_data)
             //写入API-KEY
             sprintf(ApiKey, "%s%c", json_data_parse_channel_channel_write_key->valuestring, '\0');
             //printf("api key=%s\r\n", ApiKey);
-            E2prom_Write(0x00, (uint8_t *)ApiKey, 32);
+            E2prom_Write(ApiKey_ADD, (uint8_t *)ApiKey, 32);
 
             //写入channelid
             sprintf(ChannelId, "%s%c", json_data_parse_channel_channel_id_value->valuestring, '\0');
             //printf("channel_id=%s\r\n", ChannelId);
-            E2prom_Write(0x20, (uint8_t *)ChannelId, strlen(ChannelId));
+            E2prom_Write(ChannelId_ADD, (uint8_t *)ChannelId, strlen(ChannelId));
         }
     }
     cJSON_Delete(json_data_parse);
@@ -539,41 +552,6 @@ void create_http_json(creat_json *pCreat_json)
     strncpy(http_json_c.http_time, Server_Timer_SEND(), 24);
     wifi_ap_record_t wifidata;
 
-    if (LAN_DNS_STATUS == 0)
-    {
-        if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
-        {
-            itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
-        }
-        esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
-        sprintf(mac_buff,
-                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                mac_sys[0],
-                mac_sys[1],
-                mac_sys[2],
-                mac_sys[3],
-                mac_sys[4],
-                mac_sys[5]);
-        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-
-        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
-        cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
-    }
-    else
-    {
-        esp_read_mac(mac_sys, 3); //获取芯片内部默认出厂MAC，
-        sprintf(mac_buff,
-                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                mac_sys[0],
-                mac_sys[1],
-                mac_sys[2],
-                mac_sys[3],
-                mac_sys[4],
-                mac_sys[5]);
-        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
-    }
-
     // if (tem == 0 || hum == 0) //规避错误值
     // {
     //     memset(mqtt_json_s.mqtt_tem, 0, sizeof(mqtt_json_s.mqtt_tem));
@@ -602,7 +580,41 @@ void create_http_json(creat_json *pCreat_json)
     {
         cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
     }
-    cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
+
+    if (LAN_DNS_STATUS == 0) //wifi
+    {
+        if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+        {
+            itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
+        }
+        esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
+        sprintf(mac_buff,
+                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                mac_sys[0],
+                mac_sys[1],
+                mac_sys[2],
+                mac_sys[3],
+                mac_sys[4],
+                mac_sys[5]);
+        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
+        cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
+        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
+        cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
+    }
+    else //以太网
+    {
+        esp_read_mac(mac_sys, 3); //获取芯片内部默认出厂MAC，
+        sprintf(mac_buff,
+                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                mac_sys[0],
+                mac_sys[1],
+                mac_sys[2],
+                mac_sys[3],
+                mac_sys[4],
+                mac_sys[5]);
+        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
+        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
+    }
 
     char *cjson_printunformat;
     // cjson_printunformat = cJSON_PrintUnformatted(root); //将整个 json 转换成字符串 ，没有格式
@@ -834,6 +846,9 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             cJSON_Delete(pJson); //delete pJson
 
             return 1;
+        }
+        else if (!strcmp((char const *)pSub->valuestring, "ReadProduct")) //Command:ReadProduct
+        {
         }
     }
 

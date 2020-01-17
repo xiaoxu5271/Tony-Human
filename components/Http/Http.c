@@ -306,8 +306,7 @@ void http_send_mes(void)
     char build_po_url[512] = {0};
     char build_po_url_json[1024] = {0};
     char NET_INFO[64] = {0};
-    // char NET_NAME[48] = {0};
-    // char NET_MAC[30] = {0};
+
     if (LAN_DNS_STATUS == 1)
     {
         sprintf(NET_INFO, "&net=ethernet");

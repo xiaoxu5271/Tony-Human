@@ -124,10 +124,11 @@ void create_http_json(creat_json *pCreat_json);
 uint8_t work_status; //当前工作状态
 
 /************metadata 参数***********/
-extern unsigned long fn_dp; //数据发送频率
-extern unsigned long fn_th; //温湿度频率
-extern uint8_t cg_data_led; //发送数据 LED状态 0关闭，1打开
-extern uint8_t net_mode;    //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
+extern unsigned long fn_dp;  //数据发送频率
+extern unsigned long fn_th;  //温湿度频率
+extern unsigned long fn_sen; //人感灵敏度
+extern uint8_t cg_data_led;  //发送数据 LED状态 0关闭，1打开
+extern uint8_t net_mode;     //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
 /************************************/
 
 int auto_ctl_count; //自动控制指令计数，收到平台的自动控制指令后该变量清零，在定时器中每1s+1，加到180S（3min）后，进入本地计算

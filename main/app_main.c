@@ -90,10 +90,10 @@ void app_main(void)
         E2prom_BluWrite(0x00, (uint8_t *)zero_data, 256);   //清空蓝牙
         E2prom_page_Write(0x00, (uint8_t *)zero_data, 256); //清空蓝牙
 
-        E2prom_Read(0x30, (uint8_t *)SerialNum, 16);
+        E2prom_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, 16);
         printf("SerialNum=%s\n", SerialNum);
 
-        E2prom_Read(0x40, (uint8_t *)ProductId, 32);
+        E2prom_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, 32);
         printf("ProductId=%s\n", ProductId);
 
         EE_byte_Write(ADDR_PAGE2, need_update_add, 0);     //存放OTA升级需求参数

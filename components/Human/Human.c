@@ -6,6 +6,7 @@
 #include "Human.h"
 #include "Http.h"
 #include "Led.h"
+#include "Json_parse.h"
 
 #define ESP_INTR_FLAG_DEFAULT 0
 
@@ -29,7 +30,7 @@ human_gpio_intr_handler(void *arg)
     uint32_t key_num = (uint32_t)arg;
     /* 从中断处理函数中发出消息到队列 */
     // Led_Status = LED_STA_SEND;
-    if (key_num == GPIO_HUMAN)
+    if (key_num == GPIO_HUMAN && fn_sen != 0)
         xSemaphoreGive(human_binary_handle);
     // xQueueSendFromISR(human_evt_queue, &key_num, NULL);
 }
@@ -84,7 +85,7 @@ void Human_Task(void *arg)
         if (xSemaphoreTake(human_binary_handle, (30 * 1000) / portTICK_PERIOD_MS))
         {
             // ESP_LOGI(TAG, "HAVEHUMAN isr\n");
-            esp_timer_start_once(human_timer_handle, 100 * 1000); //100MS 消除干扰
+            esp_timer_start_once(human_timer_handle, fn_sen * 100 * 1000); //fn_sen*100MS 灵敏度
         }
         else
         {
