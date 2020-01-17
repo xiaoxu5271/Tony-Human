@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
@@ -139,7 +140,7 @@ int E2prom_BluWrite(uint8_t addr, uint8_t *data_write, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Write ok");
+            ESP_LOGD(TAG, "Write ok");
         }
         else
         {
@@ -162,7 +163,7 @@ int E2prom_BluWrite(uint8_t addr, uint8_t *data_write, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Write ok");
+            ESP_LOGD(TAG, "Write ok");
         }
         else
         {
@@ -198,7 +199,7 @@ int E2prom_Write(uint8_t addr, uint8_t *data_write, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Write ok");
+            ESP_LOGD(TAG, "Write ok");
         }
         else
         {
@@ -221,7 +222,7 @@ int E2prom_Write(uint8_t addr, uint8_t *data_write, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Write ok");
+            ESP_LOGD(TAG, "Write ok");
         }
         else
         {
@@ -257,7 +258,7 @@ int E2prom_Read(uint8_t addr, uint8_t *data_read, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Read ok");
+            ESP_LOGD(TAG, "Read ok");
         }
         else
         {
@@ -280,7 +281,7 @@ int E2prom_Read(uint8_t addr, uint8_t *data_read, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Read ok");
+            ESP_LOGD(TAG, "Read ok");
         }
         else
         {
@@ -316,7 +317,7 @@ int E2prom_BluRead(uint8_t addr, uint8_t *data_read, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Read ok");
+            ESP_LOGD(TAG, "Read ok");
         }
         else
         {
@@ -339,7 +340,7 @@ int E2prom_BluRead(uint8_t addr, uint8_t *data_read, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Read ok");
+            ESP_LOGD(TAG, "Read ok");
         }
         else
         {
@@ -382,7 +383,7 @@ int E2prom_page_Write(uint8_t addr, uint8_t *data_write, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Write ok");
+            ESP_LOGD(TAG, "Write ok");
         }
         else
         {
@@ -405,7 +406,7 @@ int E2prom_page_Write(uint8_t addr, uint8_t *data_write, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Write ok");
+            ESP_LOGD(TAG, "Write ok");
         }
         else
         {
@@ -441,7 +442,7 @@ int E2prom_page_Read(uint8_t addr, uint8_t *data_read, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Read ok");
+            ESP_LOGD(TAG, "Read ok");
         }
         else
         {
@@ -464,7 +465,7 @@ int E2prom_page_Read(uint8_t addr, uint8_t *data_read, int len)
         }
         else if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "Read ok");
+            ESP_LOGD(TAG, "Read ok");
         }
         else
         {
@@ -475,5 +476,23 @@ int E2prom_page_Read(uint8_t addr, uint8_t *data_read, int len)
 
     data_read = data_read_temp;
     vTaskDelay(20 / portTICK_RATE_MS);
+    return ret;
+}
+
+int E2prom_empty_all(void)
+{
+    int ret = 0;
+    char zero_data[256];
+    bzero(zero_data, sizeof(zero_data));
+    ret = E2prom_Write(0x00, (uint8_t *)zero_data, 256);
+    if (ret != 0)
+        return ret;
+    ret = E2prom_BluWrite(0x00, (uint8_t *)zero_data, 256);
+    if (ret != 0)
+        return ret;
+    ret = E2prom_page_Write(0x00, (uint8_t *)zero_data, 256); //清空
+    if (ret != 0)
+        return ret;
+
     return ret;
 }

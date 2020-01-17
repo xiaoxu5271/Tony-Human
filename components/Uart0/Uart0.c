@@ -36,7 +36,7 @@ void Uart0_read(void)
         uint8_t data_u0[BUF_SIZE];
 
         int len0 = uart_read_bytes(UART_NUM_0, data_u0, BUF_SIZE, 20 / portTICK_RATE_MS);
-        if (len0 != 0) //读取到按键数据
+        if (len0 != 0) //读取到串口数据
         {
                 len0 = 0;
                 ESP_LOGW(TAG, "data_u0=%s", data_u0);
@@ -46,9 +46,7 @@ void Uart0_read(void)
                 //     vTaskDelay(3000 / portTICK_RATE_MS);
                 //     fflush(stdout);//使stdout清空，就会立刻输出所有在缓冲区的内容。
                 //     esp_restart();//芯片复位 函数位于esp_system.h
-                // }
-
-                //parse_Uart0((char *)data_u0);
+                // }start_AP
                 ParseTcpUartCmd((char *)data_u0);
                 bzero(data_u0, sizeof(data_u0));
         }

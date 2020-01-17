@@ -6,7 +6,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
 
-#define FIRMWARE "HUM1-V0.2.0"
+#define FIRMWARE "HUM1-V0.2.1"
 
 #define POST_NORMAL 0X00
 #define POST_HEIGHT_ADD 0X01
@@ -26,7 +26,6 @@
 #define NOHUMAN 0x00
 #define HAVEHUMAN 0x01
 
-#define WEB_SERVER "api.ubibot.cn"
 #define WEB_PORT 80
 
 //需要发送的二值信号量
@@ -36,6 +35,14 @@ void initialise_http(void);
 
 void http_send_mes(void);
 int32_t http_activate(void);
+
+char SerialNum[16];
+char ProductId[32];
+char BleName[64];
+char ApiKey[33];
+char ChannelId[16];
+char USER_ID[48];
+char WEB_SERVER[32];
 
 extern uint8_t post_status;
 uint8_t human_status;

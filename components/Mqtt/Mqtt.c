@@ -25,6 +25,7 @@
 #include "Bluetooth.h"
 #include "lan_mqtt.h"
 #include "w5500_driver.h"
+#include "Http.h"
 
 char mqtt_pwd[45];
 char mqtt_usr[24];

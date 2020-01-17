@@ -12,6 +12,8 @@
 
 #define TAG "HUMAN"
 
+uint8_t human_chack = 0;
+
 static void huamn_timer_cb(void *arg);
 esp_timer_handle_t human_timer_handle = 0; //定时器句柄
 esp_timer_create_args_t human_timer_arg = {
@@ -26,12 +28,31 @@ static SemaphoreHandle_t human_binary_handle = NULL;
 static void
 human_gpio_intr_handler(void *arg)
 {
+    static uint8_t change_num = 0;
     /* 获取触发中断的gpio口 */
     uint32_t key_num = (uint32_t)arg;
     /* 从中断处理函数中发出消息到队列 */
     // Led_Status = LED_STA_SEND;
-    if (key_num == GPIO_HUMAN && fn_sen != 0)
-        xSemaphoreGive(human_binary_handle);
+    if (key_num == GPIO_HUMAN)
+    {
+        if (fn_sen != 0)
+        {
+            xSemaphoreGive(human_binary_handle);
+        }
+        //传感器判断
+        if (human_chack == 0)
+        {
+            if (change_num > 5)
+            {
+                human_chack = 1; //传感器OK
+            }
+            else
+            {
+                change_num++;
+            }
+        }
+    }
+
     // xQueueSendFromISR(human_evt_queue, &key_num, NULL);
 }
 

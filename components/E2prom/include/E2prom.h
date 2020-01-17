@@ -58,10 +58,17 @@ ESP_OK 读取成功
 
 //page0 用地址
 #define ADDR_PAGE0 0xA8
-#define ApiKey_ADD 0x00
-#define ChannelId_ADD 0X20
-#define PRODUCT_ID_ADDR 0x40
-#define SERISE_NUM_ADDR 0x30
+#define PRODUCT_ID_ADDR 0x00
+#define SERISE_NUM_ADDR 0x20
+#define WEB_HOST_ADD 0X30
+#define CHANNEL_ID_ADD 0X50
+#define USER_ID_ADD 0X60
+
+#define PRODUCT_ID_LEN 32
+#define SERISE_NUM_LEN 16
+#define WEB_HOST_LEN 32
+#define CHANNEL_ID_LEN 16
+#define USER_ID_LEN 48
 
 //page1 用地址
 #define ADDR_PAGE1 0xAA
@@ -89,5 +96,6 @@ extern int E2prom_BluWrite(uint8_t addr, uint8_t *data_write, int len);
 extern int E2prom_BluRead(uint8_t addr, uint8_t *data_read, int len);
 extern int E2prom_page_Write(uint8_t addr, uint8_t *data_write, int len);
 extern int E2prom_page_Read(uint8_t addr, uint8_t *data_read, int len);
+extern int E2prom_empty_all(void);
 
 #endif

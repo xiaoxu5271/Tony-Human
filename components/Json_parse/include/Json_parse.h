@@ -7,7 +7,6 @@ esp_err_t parse_objects_http_active(char *http_json_data);
 esp_err_t parse_objects_bluetooth(char *blu_json_data);
 esp_err_t parse_objects_mqtt(char *json_data);
 esp_err_t parse_objects_heart(char *json_data);
-esp_err_t parse_Uart0(char *json_data);
 esp_err_t parse_objects_http_respond(char *http_json_data);
 esp_err_t ParseTcpUartCmd(char *pcCmdBuffer);
 
@@ -27,9 +26,6 @@ esp_err_t creat_object(void);
 #define NET_AUTO 0 //上网模式 自动
 #define NET_LAN 1  //上网模式 网线
 #define NET_WIFI 2 //上网模式 wifi
-
-#define ProductId_len 32
-#define SerialNum_len 16
 
 struct
 {

@@ -23,6 +23,7 @@
 #include "w5500_driver.h"
 #include "tcp_bsp.h"
 #include "my_base64.h"
+#include "Human.h"
 
 //wifi_config_t wifi_config;
 
@@ -212,6 +213,7 @@ esp_err_t parse_objects_http_active(char *http_json_data)
     cJSON *json_data_parse_channel_channel_id_value = NULL;
     cJSON *json_data_parse_channel_metadata = NULL;
     cJSON *json_data_parse_channel_value = NULL;
+    cJSON *json_data_parse_channel_user_id = NULL;
     //char *json_print;
 
     // printf("start_parse_active_http_json\r\n");
@@ -257,6 +259,7 @@ esp_err_t parse_objects_http_active(char *http_json_data)
             json_data_parse_channel_channel_write_key = cJSON_GetObjectItem(json_data_parse_channel_value, "write_key");
             json_data_parse_channel_channel_id_value = cJSON_GetObjectItem(json_data_parse_channel_value, "channel_id");
             json_data_parse_channel_metadata = cJSON_GetObjectItem(json_data_parse_channel_value, "metadata");
+            json_data_parse_channel_user_id = cJSON_GetObjectItem(json_data_parse_channel_value, "user_id");
 
             // printf("metadata: %s\n", json_data_parse_channel_metadata->valuestring);
             Parse_metadata(json_data_parse_channel_metadata->valuestring);
@@ -265,13 +268,12 @@ esp_err_t parse_objects_http_active(char *http_json_data)
 
             //写入API-KEY
             sprintf(ApiKey, "%s%c", json_data_parse_channel_channel_write_key->valuestring, '\0');
-            //printf("api key=%s\r\n", ApiKey);
-            E2prom_Write(ApiKey_ADD, (uint8_t *)ApiKey, 32);
-
             //写入channelid
             sprintf(ChannelId, "%s%c", json_data_parse_channel_channel_id_value->valuestring, '\0');
-            //printf("channel_id=%s\r\n", ChannelId);
-            E2prom_Write(ChannelId_ADD, (uint8_t *)ChannelId, strlen(ChannelId));
+            E2prom_Write(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
+            //写入user_id
+            sprintf(USER_ID, "%s%c", json_data_parse_channel_user_id->valuestring, '\0');
+            E2prom_Write(USER_ID_ADD, (uint8_t *)USER_ID, USER_ID_LEN);
         }
     }
     cJSON_Delete(json_data_parse);
@@ -332,66 +334,6 @@ esp_err_t parse_objects_http_respond(char *http_json_data)
     }
     cJSON_Delete(json_data_parse);
     return 1;
-}
-
-esp_err_t parse_Uart0(char *json_data)
-{
-    cJSON *json_data_parse = NULL;
-    cJSON *json_data_parse_ProductID = NULL;
-    cJSON *json_data_parse_SeriesNumber = NULL;
-
-    //if(strstr(json_data,"{")==NULL)
-    if (json_data[0] != '{')
-    {
-        printf("uart0 Json Formatting error1\n");
-        return 0;
-    }
-
-    json_data_parse = cJSON_Parse(json_data);
-    if (json_data_parse == NULL) //如果数据包不为JSON则退出
-    {
-        printf("uart0 Json Formatting error\n");
-        cJSON_Delete(json_data_parse);
-
-        return 0;
-    }
-
-    else
-    {
-        json_data_parse_ProductID = cJSON_GetObjectItem(json_data_parse, "ProductID");
-        printf("ProductID= %s\n", json_data_parse_ProductID->valuestring);
-        json_data_parse_SeriesNumber = cJSON_GetObjectItem(json_data_parse, "SeriesNumber");
-        printf("SeriesNumber= %s\n", json_data_parse_SeriesNumber->valuestring);
-
-        sprintf(ProductId, "%s%c", json_data_parse_ProductID->valuestring, '\0');
-        E2prom_Write(0x40, (uint8_t *)ProductId, strlen(ProductId));
-
-        sprintf(SerialNum, "%s%c", json_data_parse_SeriesNumber->valuestring, '\0');
-        E2prom_Write(0x30, (uint8_t *)SerialNum, strlen(SerialNum));
-
-        //清空API-KEY存储，激活后获取
-        uint8_t data_write2[33] = "\0";
-        E2prom_Write(0x00, data_write2, 32);
-
-        //清空channelid，激活后获取
-        uint8_t data_write3[16] = "\0";
-        E2prom_Write(0x20, data_write3, 16);
-
-        uint8_t zerobuf[256] = "\0";
-        E2prom_BluWrite(0x00, (uint8_t *)zerobuf, 256); //清空蓝牙
-
-        //E2prom_Read(0x30,(uint8_t *)SerialNum,16);
-        //printf("read SerialNum=%s\n", SerialNum);
-
-        //E2prom_Read(0x40,(uint8_t *)ProductId,32);
-        //printf("read ProductId=%s\n", ProductId);
-
-        printf("{\"status\":0,\"code\": 0}");
-        cJSON_Delete(json_data_parse);
-        fflush(stdout); //使stdout清空，就会立刻输出所有在缓冲区的内容。
-        esp_restart();  //芯片复位 函数位于esp_system.h
-        return 1;
-    }
 }
 
 esp_err_t parse_objects_heart(char *json_data)
@@ -542,7 +484,7 @@ void create_http_json(creat_json *pCreat_json)
     cJSON *next = cJSON_CreateObject();
     cJSON *fe_body = cJSON_CreateArray();
     uint8_t mac_sys[6] = {0};
-    char mac_buff[64] = {0};
+    char mac_buff[32] = {0};
     char ssid64_buff[64] = {0};
     //char status_creat_json_c[256];
 
@@ -657,30 +599,28 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             pSub = cJSON_GetObjectItem(pJson, "Password"); //"Password"
             if (NULL != pSub)
             {
-
                 if (!strcmp((char const *)pSub->valuestring, "CloudForce"))
                 {
-                    //       E2prom_Write(PRODUCTURI_FLAG_ADDR, PRODUCT_URI, strlen(PRODUCT_URI), 1); //save product-uri flag
-
+                    E2prom_empty_all();
                     pSub = cJSON_GetObjectItem(pJson, "ProductID"); //"ProductID"
                     if (NULL != pSub)
                     {
                         printf("ProductID= %s, len= %d\n", pSub->valuestring, strlen(pSub->valuestring));
-                        E2prom_Write(PRODUCT_ID_ADDR, (uint8_t *)pSub->valuestring, ProductId_len); //save ProductID
+                        E2prom_Write(PRODUCT_ID_ADDR, (uint8_t *)pSub->valuestring, PRODUCT_ID_LEN); //save ProductID
                     }
 
                     pSub = cJSON_GetObjectItem(pJson, "SeriesNumber"); //"SeriesNumber"
                     if (NULL != pSub)
                     {
                         printf("SeriesNumber= %s, len=%d\n", pSub->valuestring, strlen(pSub->valuestring));
-                        E2prom_Write(SERISE_NUM_ADDR, (uint8_t *)pSub->valuestring, SerialNum_len); //save SeriesNumber
+                        E2prom_Write(SERISE_NUM_ADDR, (uint8_t *)pSub->valuestring, SERISE_NUM_LEN); //save SeriesNumber
                     }
 
                     pSub = cJSON_GetObjectItem(pJson, "Host"); //"Host"
                     if (NULL != pSub)
                     {
-
-                        //E2prom_Write(HOST_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring), 1); //save host in at24c08
+                        printf("Host= %s, len=%d\n", pSub->valuestring, strlen(pSub->valuestring));
+                        E2prom_Write(WEB_HOST_ADD, (uint8_t *)pSub->valuestring, WEB_HOST_LEN); //save SeriesNumber
                     }
 
                     pSub = cJSON_GetObjectItem(pJson, "apn"); //"apn"
@@ -704,16 +644,6 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                         // E2prom_Write(BEARER_PWD_ADDR, (uint8_t *)pSub->valuestring, strlen(pSub->valuestring), 1); //save pwd
                     }
 
-                    //清空API-KEY存储，激活后获取
-                    uint8_t data_write2[33] = "\0";
-                    E2prom_Write(0x00, data_write2, 32);
-
-                    //清空channelid，激活后获取
-                    uint8_t data_write3[16] = "\0";
-                    E2prom_Write(0x20, data_write3, 16);
-
-                    uint8_t zerobuf[256] = "\0";
-                    E2prom_BluWrite(0x00, (uint8_t *)zerobuf, 256); //清空蓝牙
                     printf("SetupProduct Successed !");
                     printf("{\"status\":0,\"code\": 0}");
 
@@ -849,6 +779,51 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
         }
         else if (!strcmp((char const *)pSub->valuestring, "ReadProduct")) //Command:ReadProduct
         {
+            char mac_buff[18];
+            char *json_temp;
+            uint8_t mac_sys[6] = {0};
+            cJSON *root = cJSON_CreateObject();
+
+            E2prom_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SERISE_NUM_LEN);
+            E2prom_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, PRODUCT_ID_LEN);
+            E2prom_Read(WEB_HOST_ADD, (uint8_t *)WEB_SERVER, WEB_HOST_LEN);
+            E2prom_Read(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
+            E2prom_Read(USER_ID_ADD, (uint8_t *)USER_ID, USER_ID_LEN);
+
+            esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
+            sprintf(mac_buff,
+                    "%02x:%02x:%02x:%02x:%02x:%02x",
+                    mac_sys[0],
+                    mac_sys[1],
+                    mac_sys[2],
+                    mac_sys[3],
+                    mac_sys[4],
+                    mac_sys[5]);
+
+            cJSON_AddItemToObject(root, "ProductID", cJSON_CreateString(ProductId));
+            cJSON_AddItemToObject(root, "SeriesNumber", cJSON_CreateString(SerialNum));
+            cJSON_AddItemToObject(root, "Host", cJSON_CreateString(WEB_SERVER));
+            cJSON_AddItemToObject(root, "CHANNEL_ID", cJSON_CreateString(ChannelId));
+            cJSON_AddItemToObject(root, "USER_ID", cJSON_CreateString(USER_ID));
+            cJSON_AddItemToObject(root, "MAC", cJSON_CreateString(mac_buff));
+            cJSON_AddItemToObject(root, "firmware", cJSON_CreateString(FIRMWARE));
+
+            // sprintf(json_temp, "%s", cJSON_PrintUnformatted(root));
+            json_temp = cJSON_PrintUnformatted(root);
+            printf("%s\n", json_temp);
+            cJSON_Delete(root); //delete pJson
+            free(json_temp);
+        }
+        else if (!strcmp((char const *)pSub->valuestring, "CheckSensors")) //Command:ReadProduct
+        {
+            if (human_chack == 1)
+            {
+                printf("{\"result\":\"OK\",\"human\":\"OK\"}\n");
+            }
+            else
+            {
+                printf("{\"result\":\"ERROR\",\"human\":\"ERROR\"}\n");
+            }
         }
     }
 

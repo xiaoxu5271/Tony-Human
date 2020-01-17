@@ -10,6 +10,9 @@
                 "base64_test.h": "c",
                 "base64.h": "c",
                 "my_base64.h": "c",
-                "json_parse.h": "c"
+                "json_parse.h": "c",
+                "sht30dis.h": "c",
+                "http.h": "c",
+                "*.inc": "c"
         }
 }

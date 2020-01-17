@@ -49,12 +49,6 @@ typedef enum
 
 typedef struct blufi_beacon_s blufi_beacon_t;
 
-char SerialNum[17];
-char ProductId[33];
-char BleName[64];
-char ApiKey[33];
-char ChannelId[17];
-
 uint8_t Ble_mes_status;
 
 //#define PROFILE_NUM 1

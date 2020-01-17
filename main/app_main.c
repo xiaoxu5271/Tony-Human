@@ -32,7 +32,6 @@ static void Uart0_Task(void *arg)
     while (1)
     {
         Uart0_read();
-
         vTaskDelay(10 / portTICK_RATE_MS);
     }
 }
@@ -61,40 +60,23 @@ void app_main(void)
     Human_Init();
     Led_Init();
     user_app_key_init();
-    //   strcpy(SerialNum,"AAA0003HUM1");
-    //   strcpy(ProductId,"28343913545840b3b9b42c568e78e243");
-
     xTaskCreate(Uart0_Task, "Uart0_Task", 4096, NULL, 9, NULL);
-
     /*step1 判断是否有序列号和product id****/
-    E2prom_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SerialNum_len);
+    E2prom_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SERISE_NUM_LEN);
     printf("SerialNum=%s\n", SerialNum);
 
-    E2prom_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, ProductId_len);
+    E2prom_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, PRODUCT_ID_LEN);
     printf("ProductId=%s\n", ProductId);
 
-    printf("FIRMWARE=%s\n", FIRMWARE);
+    E2prom_Read(WEB_HOST_ADD, (uint8_t *)WEB_SERVER, WEB_HOST_LEN);
+    printf("Host=%s\n", WEB_SERVER);
 
-    // EE_byte_Write(ADDR_PAGE2, need_update_add, 0);     //存放OTA升级需求参数
-    // EE_byte_Write(ADDR_PAGE2, update_fail_num_add, 0); //存放OTA升级重试次数
-    // char zero_data[256];
-    // bzero(zero_data, sizeof(zero_data));
-    // E2prom_page_Write(0x00, (uint8_t *)zero_data, 256); //清空蓝牙
+    printf("FIRMWARE=%s\n", FIRMWARE);
 
     if ((SerialNum[0] == 0xff) && (SerialNum[1] == 0xff)) //新的eeprom，先清零
     {
         printf("new eeprom\n");
-        char zero_data[256];
-        bzero(zero_data, sizeof(zero_data));
-        E2prom_Write(0x00, (uint8_t *)zero_data, 256);
-        E2prom_BluWrite(0x00, (uint8_t *)zero_data, 256);   //清空蓝牙
-        E2prom_page_Write(0x00, (uint8_t *)zero_data, 256); //清空蓝牙
-
-        E2prom_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, 16);
-        printf("SerialNum=%s\n", SerialNum);
-
-        E2prom_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, 32);
-        printf("ProductId=%s\n", ProductId);
+        E2prom_empty_all();
 
         EE_byte_Write(ADDR_PAGE2, need_update_add, 0);     //存放OTA升级需求参数
         EE_byte_Write(ADDR_PAGE2, update_fail_num_add, 0); //存放OTA升级重试次数
@@ -104,7 +86,7 @@ void app_main(void)
     EE_byte_Read(ADDR_PAGE2, net_mode_add, &net_mode); //读取网络模式
     printf("net mode is %d!\n", net_mode);
 
-    if ((strlen(SerialNum) == 0) || (strlen(ProductId) == 0)) //未获取到序列号或productid，未烧写序列号
+    if ((strlen(SerialNum) == 0) || (strlen(ProductId) == 0) || (strlen(WEB_SERVER) == 0)) //未获取到序列号或productid，未烧写序列号
     {
         printf("no SerialNum or product id!\n");
         while (1)
