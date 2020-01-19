@@ -269,6 +269,8 @@ int32_t http_activate(void)
 
     ESP_LOGI(TAG, "build_http=%s\n", build_http);
 
+    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, -1); //等网络连接
+
     if (http_send_buff(build_http, 256, recv_buf, 1024) < 0)
     {
         Led_Status = LED_STA_WIFIERR;

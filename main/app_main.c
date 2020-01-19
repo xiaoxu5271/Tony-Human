@@ -36,16 +36,6 @@ static void Uart0_Task(void *arg)
     }
 }
 
-/*
-  EEPROM PAGE0 
-    0x00 APIkey(32byte)
-    0x20 chnnel_id(4byte)
-    0x30 Serial_No(16byte)
-    0x40 Protuct_id(32byte)
-  EEPROM PAGE1
-    0X00 bluesave  (256byte)
-*/
-
 void app_main(void)
 {
     nvs_flash_init(); //初始化flash
