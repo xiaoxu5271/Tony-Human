@@ -29,26 +29,6 @@ esp_err_t creat_object(void);
 
 struct
 {
-    int8_t mqtt_angle;
-    char mqtt_angle_char[8];
-    int8_t mqtt_height;
-    char mqtt_height_char[8];
-    char mqtt_mode[8];
-
-    int8_t mqtt_angle_adj;  //用于手动控制解析改变角度取值-1/+1
-    int8_t mqtt_height_adj; //用于手动控制解析改变高度取值-1/+1
-
-    int mqtt_last;
-
-    int mqtt_sun_condition;
-    char mqtt_sun_condition_char[2];
-    int mqtt_wind_protection;
-    char mqtt_wind_protection_char[2];
-    int mqtt_frost_protection;
-    char mqtt_frost_protection_char[2];
-    int mqtt_fire_alarm;
-    char mqtt_fire_alarm_char[2];
-    char mqtt_stage[8];
     char mqtt_command_id[32];
     char mqtt_string[256];
     char mqtt_Rssi[8];
@@ -116,8 +96,6 @@ struct
 int read_bluetooth(void);
 //creat_json *create_http_json(uint8_t post_status);
 void create_http_json(creat_json *pCreat_json);
-
-uint8_t work_status; //当前工作状态
 
 /************metadata 参数***********/
 extern unsigned long fn_dp;  //数据发送频率

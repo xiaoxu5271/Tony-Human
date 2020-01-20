@@ -513,7 +513,6 @@ void create_http_json(creat_json *pCreat_json)
     cJSON_AddItemToObject(next, "created_at", cJSON_CreateString(http_json_c.http_time));
     // cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_tem)); //温度
     // cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_hum)); //湿度
-    //cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_mode));        //模式
     if (human_status == NOHUMAN)
     {
         cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));

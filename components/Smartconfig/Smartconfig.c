@@ -202,7 +202,7 @@ void init_wifi(void) //
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE)); //实验，测试解决wifi中断问题
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
-    if (s_staconf.sta.ssid[0] != '\0')
+    // if (s_staconf.sta.ssid[0] != '\0')
     {
         printf("wifi_init_sta finished.");
         printf("connect to ap SSID:%s password:%s\r\n",
@@ -216,12 +216,12 @@ void init_wifi(void) //
         esp_wifi_connect();
         //Led_Status = LED_STA_TOUCH;
     }
-    else
-    {
-        // printf("Waiting for SetupWifi ....\r\n");
-        // wifi_init_softap();
-        // my_tcp_connect();
-    }
+    // else
+    // {
+    //     // printf("Waiting for SetupWifi ....\r\n");
+    //     // wifi_init_softap();
+    //     // my_tcp_connect();
+    // }
 }
 
 /*

@@ -5,8 +5,29 @@
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "E2prom.h"
+#include "Led.h"
 
 static const char *TAG = "EEPROM";
+
+void eeprom_check(void);
+
+void E2prom_Init(void)
+{
+    int i2c_master_port = I2C_MASTER_NUM;
+    i2c_config_t conf;
+    conf.mode = I2C_MODE_MASTER;
+    conf.sda_io_num = I2C_MASTER_SDA_IO;
+    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.scl_io_num = I2C_MASTER_SCL_IO;
+    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
+    i2c_param_config(i2c_master_port, &conf);
+    i2c_driver_install(i2c_master_port, conf.mode,
+                       I2C_MASTER_RX_BUF_DISABLE,
+                       I2C_MASTER_TX_BUF_DISABLE, 0);
+
+    eeprom_check();
+}
 
 esp_err_t EE_byte_Write(uint8_t page, uint8_t reg_addr, uint8_t dat)
 {
@@ -95,22 +116,6 @@ static esp_err_t EE_Page_Read(uint8_t page, uint8_t reg_addr, uint8_t *dat, int 
     ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
     return ret;
-}
-
-void E2prom_Init(void)
-{
-    int i2c_master_port = I2C_MASTER_NUM;
-    i2c_config_t conf;
-    conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = I2C_MASTER_SDA_IO;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.scl_io_num = I2C_MASTER_SCL_IO;
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
-    i2c_param_config(i2c_master_port, &conf);
-    i2c_driver_install(i2c_master_port, conf.mode,
-                       I2C_MASTER_RX_BUF_DISABLE,
-                       I2C_MASTER_TX_BUF_DISABLE, 0);
 }
 
 int E2prom_BluWrite(uint8_t addr, uint8_t *data_write, int len)
@@ -495,4 +500,33 @@ int E2prom_empty_all(void)
         return ret;
 
     return ret;
+}
+
+void eeprom_check(void)
+{
+    uint8_t temp;
+    EE_byte_Read(ADDR_PAGE3, 255, &temp);
+    if (temp == 0xff)
+    {
+        EE_byte_Read(ADDR_PAGE2, 255, &temp);
+        if (temp == 0xff)
+        {
+            printf("\nnew eeprom\n");
+            E2prom_empty_all();
+            EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, 1); //写入DHCP模式，默认开启
+        }
+    }
+
+    EE_byte_Write(ADDR_PAGE3, 255, 0x55);
+    EE_byte_Read(ADDR_PAGE3, 255, &temp);
+    if (temp != 0x55)
+    {
+        while (1)
+        {
+            Led_Status = LED_STA_HEARD_ERR;
+            printf("eeprom error!\n");
+            vTaskDelay(500 / portTICK_RATE_MS);
+        }
+    }
+    printf("eeprom check ok!\n");
 }

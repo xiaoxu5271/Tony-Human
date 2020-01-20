@@ -39,40 +39,22 @@ static void Uart0_Task(void *arg)
 void app_main(void)
 {
     nvs_flash_init(); //初始化flash
-    work_status = WORK_INIT;
-    mqtt_json_s.mqtt_height = -1;
-    mqtt_json_s.mqtt_angle = -1;
-
-    //Led_On();
+    Led_Init();
     E2prom_Init();
-    //Fire_Init();
     Uart0_Init();
     Human_Init();
-    Led_Init();
+
     user_app_key_init();
     xTaskCreate(Uart0_Task, "Uart0_Task", 4096, NULL, 9, NULL);
+    printf("FIRMWARE=%s\n", FIRMWARE);
+
     /*step1 判断是否有序列号和product id****/
     E2prom_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SERISE_NUM_LEN);
     printf("SerialNum=%s\n", SerialNum);
-
     E2prom_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, PRODUCT_ID_LEN);
     printf("ProductId=%s\n", ProductId);
-
     E2prom_Read(WEB_HOST_ADD, (uint8_t *)WEB_SERVER, WEB_HOST_LEN);
     printf("Host=%s\n", WEB_SERVER);
-
-    printf("FIRMWARE=%s\n", FIRMWARE);
-
-    if ((SerialNum[0] == 0xff) && (SerialNum[1] == 0xff)) //新的eeprom，先清零
-    {
-        printf("new eeprom\n");
-        E2prom_empty_all();
-
-        EE_byte_Write(ADDR_PAGE2, need_update_add, 0);     //存放OTA升级需求参数
-        EE_byte_Write(ADDR_PAGE2, update_fail_num_add, 0); //存放OTA升级重试次数
-        EE_byte_Write(ADDR_PAGE2, net_mode_add, NET_AUTO); //写入net_mode
-        EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, 1);       //写入DHCP模式，默认开启
-    }
     EE_byte_Read(ADDR_PAGE2, net_mode_add, &net_mode); //读取网络模式
     printf("net mode is %d!\n", net_mode);
 

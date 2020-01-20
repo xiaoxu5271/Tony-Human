@@ -82,6 +82,13 @@ static void Led_Task(void *arg)
 
             Led_Status = Last_Led_Status;
             break;
+
+        case LED_STA_HEARD_ERR:
+            Led_Off();
+            vTaskDelay(100 / portTICK_RATE_MS);
+            Led_R_On();
+            vTaskDelay(100 / portTICK_RATE_MS);
+            break;
         }
     }
 }

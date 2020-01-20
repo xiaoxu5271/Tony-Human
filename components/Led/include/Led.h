@@ -21,6 +21,7 @@ uint8_t Led_Status;
 #define LED_STA_WORK 0x08       //正常工作
 #define LED_STA_SEND 0X09       //发送数据
 #define LED_STA_ACTIVE_ERR 0X10 //激活失败
+#define LED_STA_HEARD_ERR 0X11  //硬件错误
 
 void Led_R_On(void);
 void Led_G_On(void);
