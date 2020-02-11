@@ -1,18 +1,23 @@
 {
-        "C_Cpp.errorSquiggles": "Disabled",
-        "files.associations": {
-                "smartconfig.h": "c",
-                "e2prom.h": "c",
-                "esp_event_loop.h": "c",
-                "esp_log.h": "c",
-                "esp_event.h": "c",
-                "esp_event_legacy.h": "c",
-                "base64_test.h": "c",
-                "base64.h": "c",
-                "my_base64.h": "c",
-                "json_parse.h": "c",
-                "sht30dis.h": "c",
-                "http.h": "c",
-                "*.inc": "c"
-        }
+    "C_Cpp.errorSquiggles": "Disabled",
+    "files.associations": {
+        "smartconfig.h": "c",
+        "e2prom.h": "c",
+        "esp_event_loop.h": "c",
+        "esp_log.h": "c",
+        "esp_event.h": "c",
+        "esp_event_legacy.h": "c",
+        "base64_test.h": "c",
+        "base64.h": "c",
+        "my_base64.h": "c",
+        "json_parse.h": "c",
+        "sht30dis.h": "c",
+        "http.h": "c",
+        "*.inc": "c"
+    },
+    "editor.fontFamily": "Fira Code", //后边的引号中写上要设置的字体类型，个人比较喜欢Fira Code
+    "editor.fontLigatures": true, //这个控制是否启用字体连字，true启用，false不启用，这里选择启用
+    "editor.fontSize": 14, //设置字体大小，这个不多说都明白
+    "editor.fontWeight": "normal", //这个设置字体粗细，可选normal,bold,"100"~"900"等，选择合适的就行
+    "terminal.integrated.fontFamily": "Menlo for Powerline"
 }
