@@ -6,7 +6,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
 
-#define FIRMWARE "HUM1-V0.2.2"
+#define FIRMWARE "HUM1-V0.2.3"
 
 #define POST_NORMAL 0X00
 #define POST_HEIGHT_ADD 0X01
@@ -30,6 +30,7 @@
 
 //需要发送的二值信号量
 extern SemaphoreHandle_t Binary_Http_Send;
+extern esp_timer_handle_t timer_human_handle; //定时器句柄
 
 void initialise_http(void);
 
@@ -42,7 +43,7 @@ char BleName[64];
 char ApiKey[33];
 char ChannelId[16];
 char USER_ID[48];
-char WEB_SERVER[32];
+char WEB_SERVER[20];
 
 extern uint8_t post_status;
 uint8_t human_status;

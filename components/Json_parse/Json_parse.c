@@ -29,7 +29,7 @@
 
 //#define DEBUG_
 
-unsigned long fn_dp = 60; //数据发送频率
+unsigned long fn_dp = 0;  //数据发送频率
 unsigned long fn_th = 0;  //温湿度频率
 unsigned long fn_sen = 1; //人感灵敏度，1对应100ms
 uint8_t cg_data_led = 1;  //发送数据 LED状态 0：不闪烁 1：闪烁
@@ -86,6 +86,20 @@ static short Parse_metadata(char *ptrptr)
             fn_flag = 1;
             fn_dp = (unsigned long)pSubSubSub->valueint;
             printf("fn_dp = %ld\n", fn_dp);
+            if (timer_human_handle != NULL)
+            {
+                human_intr_num = 0;
+                if (fn_dp > 0)
+                {
+                    esp_timer_start_periodic(timer_human_handle, fn_dp * 1000000); //创建定时器，单位us
+                    printf("start human send timer!\n");
+                }
+                else
+                {
+                    esp_timer_stop(timer_human_handle);
+                    printf("stop human send timer!\n");
+                }
+            }
         }
     }
 
@@ -475,7 +489,7 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
     return 1;
 }
 
-void create_http_json(creat_json *pCreat_json)
+void create_http_json(creat_json *pCreat_json, uint8_t flag)
 {
     printf("INTO CREATE_HTTP_JSON\r\n");
     //creat_json *pCreat_json = malloc(sizeof(creat_json));
@@ -513,13 +527,22 @@ void create_http_json(creat_json *pCreat_json)
     cJSON_AddItemToObject(next, "created_at", cJSON_CreateString(http_json_c.http_time));
     // cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_tem)); //温度
     // cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_hum)); //湿度
-    if (human_status == NOHUMAN)
+
+    if (flag == 1)
     {
-        cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
+        cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
+        human_intr_num = 0;
     }
-    else if (human_status == HAVEHUMAN)
+    else
     {
-        cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
+        if (human_status == NOHUMAN)
+        {
+            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
+        }
+        else if (human_status == HAVEHUMAN)
+        {
+            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
+        }
     }
 
     if (LAN_DNS_STATUS == 0) //wifi
@@ -538,7 +561,8 @@ void create_http_json(creat_json *pCreat_json)
                 mac_sys[4],
                 mac_sys[5]);
         base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-        cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
+        if (flag == 0)
+            cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
         cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
         cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
     }
@@ -559,7 +583,7 @@ void create_http_json(creat_json *pCreat_json)
 
     char *cjson_printunformat;
     // cjson_printunformat = cJSON_PrintUnformatted(root); //将整个 json 转换成字符串 ，没有格式
-    cjson_printunformat = cJSON_Print(root); //将整个 json 转换成字符串 ，有格式
+    cjson_printunformat = cJSON_PrintUnformatted(root); //将整个 json 转换成字符串 ，有格式
     //printf("status_creat_json= %s\r\n", cjson_printunformat);
 
     pCreat_json->creat_json_c = strlen(cjson_printunformat); //  creat_json_c 是整个json 所占的长度

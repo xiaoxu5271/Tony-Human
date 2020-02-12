@@ -14,5 +14,6 @@ TaskHandle_t Human_Handle;
 int havehuman_count;
 int nohuman_count;
 extern uint8_t human_chack;
+extern uint64_t human_intr_num;
 
 #endif

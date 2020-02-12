@@ -13,6 +13,7 @@
 #define TAG "HUMAN"
 
 uint8_t human_chack = 0;
+uint64_t human_intr_num = 0;
 
 static void huamn_timer_cb(void *arg);
 esp_timer_handle_t human_timer_handle = 0; //定时器句柄
@@ -35,6 +36,11 @@ human_gpio_intr_handler(void *arg)
     // Led_Status = LED_STA_SEND;
     if (key_num == GPIO_HUMAN)
     {
+        if (fn_dp > 0)
+        {
+            human_intr_num++;
+        }
+
         if (fn_sen != 0)
         {
             xSemaphoreGive(human_binary_handle);
@@ -110,7 +116,14 @@ void Human_Task(void *arg)
         }
         else
         {
-            human_status = NOHUMAN;
+            if (human_status == HAVEHUMAN)
+            {
+                human_status = NOHUMAN;
+                if (Binary_Http_Send != NULL) //立即上传数据
+                {
+                    xSemaphoreGive(Binary_Http_Send);
+                }
+            }
             ESP_LOGI(TAG, "NOHUMAN\n");
         }
     }

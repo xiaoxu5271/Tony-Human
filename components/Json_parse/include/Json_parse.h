@@ -46,56 +46,18 @@ struct
 
 struct
 {
-    int http_angle;
-    int http_height;
-    int http_mode;
-    int http_sun_condition;
     char http_time[24];
 } http_json_c;
 
 typedef struct
 {
-    char creat_json_b[512];
+    char creat_json_b[256];
     int creat_json_c;
 } creat_json;
 
-typedef struct
-{
-    float lon;
-    float lat;
-    float orientation;
-    int T1_h;
-    int T1_m;
-    int T2_h;
-    int T2_m;
-    int T3_h;
-    int T3_m;
-    int T4_h;
-    int T4_m;
-    uint8_t WallKeyId[4];
-    int8_t Switch;
-} object_bluetooth_json;
-
-struct
-{
-    float lon;
-    float lat;
-    float orientation;
-    int T1_h;
-    int T1_m;
-    int T2_h;
-    int T2_m;
-    int T3_h;
-    int T3_m;
-    int T4_h;
-    int T4_m;
-    uint8_t WallKeyId[4];
-    int8_t Switch;
-} ob_blu_json;
-
 int read_bluetooth(void);
 //creat_json *create_http_json(uint8_t post_status);
-void create_http_json(creat_json *pCreat_json);
+void create_http_json(creat_json *pCreat_json, uint8_t flag);
 
 /************metadata 参数***********/
 extern unsigned long fn_dp;  //数据发送频率
@@ -104,7 +66,5 @@ extern unsigned long fn_sen; //人感灵敏度
 extern uint8_t cg_data_led;  //发送数据 LED状态 0关闭，1打开
 extern uint8_t net_mode;     //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
 /************************************/
-
-int auto_ctl_count; //自动控制指令计数，收到平台的自动控制指令后该变量清零，在定时器中每1s+1，加到180S（3min）后，进入本地计算
 
 #endif

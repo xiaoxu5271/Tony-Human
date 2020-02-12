@@ -27,6 +27,7 @@
 SemaphoreHandle_t xMutex_Http_Send = NULL;
 SemaphoreHandle_t Binary_Http_Send = NULL;
 SemaphoreHandle_t Binary_Heart_Send = NULL;
+SemaphoreHandle_t Binary_Human_Send = NULL;
 
 // extern uint8_t data_read[34];
 
@@ -34,73 +35,25 @@ static char *TAG = "HTTP";
 uint32_t HTTP_STATUS = HTTP_KEY_GET;
 uint8_t post_status = POST_NOCOMMAND;
 
-struct HTTP_STA
-{
-    char GET[10];
-    char POST[10];
-    char HEART_BEAT[64];
-
-    char POST_URL1[64];
-    char POST_URL_METADATA[16];
-    char POST_URL_FIRMWARE[16];
-    char POST_URL_MAC[16];
-    char POST_URL_SSID[16];
-    char POST_URL_COMMAND_ID[16];
-    char IP[10];
-
-    char WEB_URL1[50];
-    char WEB_URL2[20];
-    char WEB_URL3[20];
-
-    char HTTP_VERSION10[20];
-    char HTTP_VERSION11[20];
-
-    char HOST[30];
-    char USER_AHENT[40];
-    char CONTENT_LENGTH[30];
-    char ENTER[10];
-
-}
-
-http =
-    {
-        "GET ",
-        "POST ",
-        "http://api.ubibot.cn/heartbeat?api_key=",
-
-        "http://api.ubibot.cn/update.json?api_key=",
-        "&metadata=true",
-        "&firmware=",
-        "&mac=",
-        "&ssid_base64=",
-        "&command_id=",
-        "&IP=",
-
-        "http://api.ubibot.cn/products/",
-        "/devices/",
-        "/activate",
-
-        " HTTP/1.0\r\n",
-        " HTTP/1.1\r\n",
-
-        "Host: api.ubibot.cn\r\n",
-        "User-Agent: dalian urban ILS1\r\n",
-        "Content-Length:",
-        "\r\n\r\n",
-
-};
-
 static char build_heart_url[256];
+static char build_human_url[512];
 
 TaskHandle_t httpHandle = NULL;
 esp_timer_handle_t http_timer_suspend_p = NULL;
 
 void timer_heart_cb(void *arg);
-esp_timer_handle_t timer_heart_handle = 0; //定时器句柄
+esp_timer_handle_t timer_heart_handle = NULL; //定时器句柄
 esp_timer_create_args_t timer_heart_arg = {
     .callback = &timer_heart_cb,
     .arg = NULL,
     .name = "Heart_Timer"};
+
+void timer_human_cb(void *arg);
+esp_timer_handle_t timer_human_handle = NULL; //定时器句柄
+esp_timer_create_args_t timer_human_arg = {
+    .callback = &timer_human_cb,
+    .arg = NULL,
+    .name = "Human_Timer"};
 
 int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
@@ -222,6 +175,48 @@ void http_get_task(void *pvParameters)
     }
 }
 
+void send_human_task(void *arg)
+{
+    char recv_buf[1024] = {0};
+    while (1)
+    {
+        xSemaphoreTake(Binary_Human_Send, -1);
+        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, -1); //等网络连接
+
+        creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
+        //创建POST的json格式
+        create_http_json(pCreat_json1, 1);
+
+        sprintf(build_human_url, "POST http://%s/update.json?api_key=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n%s",
+                WEB_SERVER,
+                ApiKey,
+                WEB_SERVER,
+                pCreat_json1->creat_json_c,
+                pCreat_json1->creat_json_b);
+        free(pCreat_json1);
+
+        printf("Human send :\n%s!\n", build_human_url);
+        if (http_send_buff(build_human_url, 1024, recv_buf, 1024) > 0)
+        {
+            // printf("解析返回数据！\n");
+            ESP_LOGI(TAG, "mes recv:%s", recv_buf);
+            if (parse_objects_http_respond(strchr(recv_buf, '{')))
+            {
+                Led_Status = LED_STA_WORK;
+            }
+            else
+            {
+                Led_Status = LED_STA_ACTIVE_ERR;
+            }
+        }
+        else
+        {
+            Led_Status = LED_STA_WIFIERR;
+            // printf("send return : %d \n", ret);
+        }
+    }
+}
+
 void send_heart_task(void *arg)
 {
     char recv_buf[1024] = {0};
@@ -258,13 +253,18 @@ void timer_heart_cb(void *arg)
     xSemaphoreGive(Binary_Heart_Send);
 }
 
+void timer_human_cb(void *arg)
+{
+    xSemaphoreGive(Binary_Human_Send);
+}
+
 //激活流程
 int32_t http_activate(void)
 {
     char build_http[256];
     char recv_buf[1024];
 
-    sprintf(build_http, "%s%s%s%s%s%s%s", http.GET, http.WEB_URL1, ProductId, http.WEB_URL2, SerialNum, http.WEB_URL3, http.ENTER);
+    sprintf(build_http, "GET http://%s/products/%s/devices/%s/activate\r\n\r\n", WEB_SERVER, ProductId, SerialNum);
     //http.HTTP_VERSION10, http.HOST, http.USER_AHENT, http.ENTER);
 
     ESP_LOGI(TAG, "build_http=%s\n", build_http);
@@ -315,52 +315,32 @@ void http_send_mes(void)
     }
 
     creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
-    //pCreat_json1->creat_json_b=malloc(1024);
-
-    //ESP_LOGI("wifi", "1free Heap:%d,%d", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_8BIT));
     //创建POST的json格式
-    create_http_json(pCreat_json1);
+    create_http_json(pCreat_json1, 0);
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s",
-                http.POST,
-                http.POST_URL1,
+        sprintf(build_po_url, "POST http://%s/update.json?api_key=%s&metadata=true&firmware=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n",
+                WEB_SERVER,
                 ApiKey,
-                http.POST_URL_METADATA,
-                http.POST_URL_FIRMWARE,
                 FIRMWARE,
-                current_net_ip,
-                NET_INFO,
-                http.HTTP_VERSION11,
-                http.HOST,
-                http.USER_AHENT,
-                http.CONTENT_LENGTH,
-                pCreat_json1->creat_json_c,
-                http.ENTER);
+                WEB_SERVER,
+                pCreat_json1->creat_json_c);
         // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, http.POST_URL_SSID, NET_NAME,
         //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
     else
     {
         post_status = POST_NOCOMMAND;
-        sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%d%s",
-                http.POST,
-                http.POST_URL1,
+
+        sprintf(build_po_url, "POST http://%s/update.json?api_key=%s&metadata=true&firmware=%s&command_id=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n",
+                WEB_SERVER,
                 ApiKey,
-                http.POST_URL_METADATA,
-                http.POST_URL_FIRMWARE,
                 FIRMWARE,
-                current_net_ip,
-                NET_INFO,
-                http.POST_URL_COMMAND_ID,
                 mqtt_json_s.mqtt_command_id,
-                http.HTTP_VERSION11,
-                http.HOST,
-                http.USER_AHENT,
-                http.CONTENT_LENGTH,
-                pCreat_json1->creat_json_c,
-                http.ENTER);
+                WEB_SERVER,
+                pCreat_json1->creat_json_c);
+
         // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_SSID, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
         //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
     }
@@ -400,6 +380,10 @@ void initialise_http(void)
     xMutex_Http_Send = xSemaphoreCreateMutex();   //创建HTTP发送互斥信号
     Binary_Http_Send = xSemaphoreCreateBinary();  //http
     Binary_Heart_Send = xSemaphoreCreateBinary(); //心跳包
+    Binary_Human_Send = xSemaphoreCreateBinary(); //人感
+
+    esp_err_t err = esp_timer_create(&timer_human_arg, &timer_human_handle);
+    err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
 
     while (http_activate() != 1) //激活
     {
@@ -408,12 +392,13 @@ void initialise_http(void)
     }
 
     //心跳包 ,激活成功后获取
-    sprintf(build_heart_url, "%s%s%s%s%s%s%s", http.GET, http.HEART_BEAT, ApiKey,
-            http.HTTP_VERSION10, http.HOST, http.USER_AHENT, http.ENTER);
+    sprintf(build_heart_url, "GET http://%s/heartbeat?api_key=%s HTTP/1.0\r\nHost: %sUser-Agent: dalian urban ILS1\r\n\r\n",
+            WEB_SERVER,
+            ApiKey,
+            WEB_SERVER);
     printf("build_heart_url:%s", build_heart_url);
     xSemaphoreGive(Binary_Heart_Send);
 
-    esp_err_t err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
     err = esp_timer_start_periodic(timer_heart_handle, 60 * 1000000); //创建定时器，单位us，定时60s
     if (err != ESP_OK)
     {
@@ -422,4 +407,5 @@ void initialise_http(void)
 
     xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 6, &httpHandle);
     xTaskCreate(&send_heart_task, "send_heart_task", 8192, NULL, 5, NULL);
+    xTaskCreate(&send_human_task, "send_human_task", 4096, NULL, 4, NULL);
 }

@@ -25,7 +25,7 @@
 
 TaskHandle_t lan_mqtt_Handle = NULL;
 MQTTPacket_connectData user_MQTTPacket_ConnectData;
-uint8_t mqtt_buff[2048]; //空间不够，可能会导致接收数据时返回 -1
+
 uint8_t lan_mqtt_status = 0;
 
 static int transport_getdata(uint8_t *buf, int count)
@@ -50,6 +50,7 @@ uint8_t mqtt_remote_ip[4];
 */
 static uint8_t mqtt_connect()
 {
+    uint8_t mqtt_buff[2048];
     uint8_t SessionFlg, ConnAckFlg;
     uint8_t count = 0;
     int32_t ret;
@@ -95,6 +96,7 @@ static uint8_t mqtt_connect()
 /**************************************************/
 static uint8_t mqtt_subscribe(char *Topic)
 {
+    uint8_t mqtt_buff[2048];
     int msgid = 1;
     int req_qos = 0;
     int granted_qos;
@@ -145,6 +147,7 @@ static uint8_t mqtt_subscribe(char *Topic)
 */
 static int8_t mqtt_ping()
 {
+    uint8_t mqtt_buff[2048];
     int rc;
     int32_t ret;
     uint32_t count = 0;
@@ -192,6 +195,7 @@ static int8_t mqtt_ping()
 */
 static int8_t mqtt()
 {
+    uint8_t mqtt_buff[2048];
     uint8_t *payload_in;
     int ret;
     uint8_t dup, retained;
