@@ -88,6 +88,15 @@ static void Led_Task(void *arg)
             vTaskDelay(100 / portTICK_RATE_MS);
             Led_R_On();
             vTaskDelay(100 / portTICK_RATE_MS);
+
+        case LED_STA_OTA:
+            Led_Off();
+            Led_G_On();
+            vTaskDelay(50 / portTICK_RATE_MS);
+            Led_Off();
+            Led_B_On();
+            vTaskDelay(50 / portTICK_RATE_MS);
+
             break;
         }
     }

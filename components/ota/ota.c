@@ -23,6 +23,7 @@
 #include "w5500_driver.h"
 #include "w5500_socket.h"
 #include "w5500.h"
+#include "Led.h"
 
 #include "ota.h"
 
@@ -127,6 +128,7 @@ static void wifi_ota_task(void *pvParameter)
     bool image_header_was_checked = false;
     while (1)
     {
+        Led_Status = LED_STA_OTA;
         int data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
         // printf("\n ota_write_data=%2x \n", (unsigned int)ota_write_data);
         if (data_read < 0)
@@ -391,6 +393,7 @@ void lan_ota_task(void *arg)
 
             while (binary_file_length != content_len)
             {
+                Led_Status = LED_STA_OTA;
                 //开始接收数据
                 size = getSn_RX_RSR(SOCK_OTA);
                 if (size > 0)
