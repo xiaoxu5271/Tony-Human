@@ -91,6 +91,7 @@ static short Parse_metadata(char *ptrptr)
                 human_intr_num = 0;
                 if (fn_dp > 0)
                 {
+                    esp_timer_stop(timer_human_handle);
                     esp_timer_start_periodic(timer_human_handle, fn_dp * 1000000); //创建定时器，单位us
                     printf("start human send timer!\n");
                 }
