@@ -303,7 +303,9 @@ void lan_mqtt_task(void *pvParameter)
     // uint8_t mqtt_state = 1;
     int32_t rc;
     uint8_t fail_num = 0;
-    if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == FAILURE)
+    uint8_t MQTT_IP[4];
+    const char mqtt_sever[] = "mqtt.ubibot.cn";
+    if (lan_dns_resolve(SOCK_TCPS, mqtt_sever, MQTT_IP) == FAILURE)
     {
         ESP_LOGE(TAG, "lan dns resolve FAIL!\r\n");
         vTaskDelete(NULL); //网线断开，删除任务
@@ -342,7 +344,7 @@ void lan_mqtt_task(void *pvParameter)
             break;
         case SOCK_INIT:
             ESP_LOGI(TAG, "MQTT> socket state SOCK_INIT.\r\n");
-            if ((ret = (uint32_t)lan_connect(MQTT_SOCKET, http_dns_host_ip, MQTT_PORT)) != SOCK_OK)
+            if ((ret = (uint32_t)lan_connect(MQTT_SOCKET, MQTT_IP, MQTT_PORT)) != SOCK_OK)
             {
                 ESP_LOGE(TAG, "MQTT> socket connect faile : %d.\r\n", ret);
                 break;
