@@ -43,6 +43,7 @@ void app_main(void)
     E2prom_Init();
     Uart0_Init();
     Human_Init();
+    w5500_user_int();
 
     user_app_key_init();
     xTaskCreate(Uart0_Task, "Uart0_Task", 4096, NULL, 9, NULL);
@@ -74,7 +75,7 @@ void app_main(void)
 
     ble_app_init();
     init_wifi();
-    w5500_user_int();
+    // w5500_user_int();
 
     xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                         false, true, -1); //等待网络连接

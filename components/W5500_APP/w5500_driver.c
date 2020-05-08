@@ -687,10 +687,10 @@ int8_t w5500_user_int(void)
     gpio_config(&io_conf);
     w5500_lib_init();
     w5500_reset();
-    if ((IINCHIP_READ(VERSIONR)) != VERSIONR_ID)
+    while ((IINCHIP_READ(VERSIONR)) != VERSIONR_ID)
     {
         printf("w5500 read err!\r\n\r\n");
-        return -1;
+        vTaskDelay(1000 / portTICK_RATE_MS);
     }
 
     xTaskCreate(RJ45_Check_Task, "RJ45_Check_Task", 4096, NULL, 7, NULL); //创建任务，不断检查RJ45连接状态
