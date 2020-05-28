@@ -38,7 +38,15 @@ static void Uart0_Task(void *arg)
 
 void app_main(void)
 {
-    nvs_flash_init(); //初始化flash
+    esp_err_t ret;
+    ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
     Led_Init();
     E2prom_Init();
     Uart0_Init();
@@ -49,7 +57,6 @@ void app_main(void)
     xTaskCreate(Uart0_Task, "Uart0_Task", 4096, NULL, 9, NULL);
     printf("FIRMWARE=%s\n", FIRMWARE);
 
-    /*step1 判断是否有序列号和product id****/
     E2prom_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SERISE_NUM_LEN);
     printf("SerialNum=%s\n", SerialNum);
     E2prom_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, PRODUCT_ID_LEN);
@@ -59,23 +66,11 @@ void app_main(void)
     EE_byte_Read(ADDR_PAGE2, net_mode_add, &net_mode); //读取网络模式
     printf("net mode is %d!\n", net_mode);
 
-    if ((strlen(SerialNum) == 0) || (strlen(ProductId) == 0) || (strlen(WEB_SERVER) == 0)) //未获取到序列号或productid，未烧写序列号
-    {
-        printf("no SerialNum or product id!\n");
-        while (1)
-        {
-            //故障灯
-            Led_Status = LED_STA_NOSER;
-            vTaskDelay(500 / portTICK_RATE_MS);
-        }
-    }
-
     strncpy(ble_dev_pwd, SerialNum + 3, 4);
     printf("ble_dev_pwd=%s\n", ble_dev_pwd);
 
     ble_app_init();
     init_wifi();
-    // w5500_user_int();
 
     xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                         false, true, -1); //等待网络连接
@@ -83,16 +78,14 @@ void app_main(void)
     initialise_http();
     initialise_mqtt();
 
-    // EE_byte_Read(ADDR_PAGE2, need_update_add, &need_update);
-    // EE_byte_Read(ADDR_PAGE2, update_fail_num_add, &update_fail_num);
-    // printf(" nead_update: %d       update_fail_num: %d\n", need_update, update_fail_num);
-    // if (need_update == 1)
-    // {
-    //     printf("需要升级，已失败次数 %d \n", update_fail_num);
-    //     ota_start();
-    // }
-    // else
-    // {
-    //     printf("无需升级\n");
-    // }
+    if ((strlen(SerialNum) == 0) || (strlen(ProductId) == 0) || (strlen(WEB_SERVER) == 0)) //未获取到序列号或productid，未烧写序列号
+    {
+        printf("no SerialNum or product id!\n");
+        while (1)
+        {
+            //故障灯
+            // Led_Status = LED_STA_NOSER;
+            vTaskDelay(500 / portTICK_RATE_MS);
+        }
+    }
 }

@@ -11,6 +11,7 @@ esp_err_t parse_objects_http_respond(char *http_json_data);
 esp_err_t ParseTcpUartCmd(char *pcCmdBuffer);
 
 esp_err_t creat_object(void);
+void E2prom_set_defaul(void);
 
 #define WORK_INIT 0X00       //初始化
 #define WORK_AUTO 0x01       //平台自动模式

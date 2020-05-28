@@ -538,11 +538,11 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     }
     else
     {
-        if (human_status == NOHUMAN)
+        if (human_status == false)
         {
             cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
         }
-        else if (human_status == HAVEHUMAN)
+        else if (human_status == true)
         {
             cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
         }
@@ -856,4 +856,14 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
     cJSON_Delete(pJson); //delete pJson
 
     return ESP_FAIL;
+}
+
+void E2prom_set_defaul(void)
+{
+    //上网方式自动
+    net_mode = 0;
+    EE_byte_Write(ADDR_PAGE2, net_mode_add, net_mode);
+    //自动获取IP
+    user_dhcp_mode = 1;
+    EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, user_dhcp_mode);
 }

@@ -7,7 +7,7 @@
 #include "E2prom.h"
 #include "Led.h"
 
-static const char *TAG = "EEPROM";
+#define TAG "EEPROM"
 
 void eeprom_check(void);
 
@@ -511,7 +511,7 @@ void eeprom_check(void)
         EE_byte_Read(ADDR_PAGE2, 255, &temp);
         if (temp == 0xff)
         {
-            printf("\nnew eeprom\n");
+            ESP_LOGI(TAG, "\nnew eeprom\n");
             E2prom_empty_all();
             EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, 1); //写入DHCP模式，默认开启
         }
@@ -523,10 +523,11 @@ void eeprom_check(void)
     {
         while (1)
         {
-            Led_Status = LED_STA_HEARD_ERR;
-            printf("eeprom error!\n");
+            E2P_FLAG = false;
+            ESP_LOGE(TAG, "eeprom error!\n");
             vTaskDelay(500 / portTICK_RATE_MS);
         }
     }
-    printf("eeprom check ok!\n");
+    E2P_FLAG = true;
+    ESP_LOGI(TAG, "eeprom check ok!\n");
 }

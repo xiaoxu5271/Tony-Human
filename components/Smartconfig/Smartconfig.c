@@ -68,7 +68,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
             case NET_AUTO:
                 if (LAN_DNS_STATUS == 0)
                 {
-                    Led_Status = LED_STA_WIFIERR; //断网
+                    Net_sta_flag = false;
                     xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
                 }
                 esp_wifi_connect();
@@ -79,7 +79,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
                 break;
 
             case NET_WIFI:
-                Led_Status = LED_STA_WIFIERR; //断网
+                Net_sta_flag = false;
                 xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
                 esp_wifi_connect();
                 ESP_LOGI(TAG, "reconnect! ");
@@ -238,7 +238,6 @@ void wifi_init_softap(void)
 {
     tcp_event_group = xEventGroupCreate();
     start_AP = 1;
-    Led_Status = LED_STA_AP;
     ESP_ERROR_CHECK(esp_wifi_stop());
     wifi_config_t wifi_config = {
         .ap = {

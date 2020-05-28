@@ -14,6 +14,14 @@ extern void Led_Init(void);
 
 uint8_t Led_Status;
 
+extern bool E2P_FLAG;
+extern bool ETH_FLAG;
+
+extern bool Set_defaul_flag;
+extern bool Net_sta_flag;
+extern bool Cnof_net_flag;
+extern bool No_ser_flag;
+
 enum led_sta
 {
     LED_STA_INIT = 0x00, //初始化
@@ -37,5 +45,7 @@ void Led_B_Off(void);
 
 void Turn_ON_LED(void);
 void Turn_Off_LED(void);
+void Led_R_fade_Off(void);
+void Led_R_fade_On(void);
 
 #endif

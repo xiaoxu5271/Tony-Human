@@ -4,7 +4,7 @@
 
 #include "esp_system.h"
 #include "esp_wifi.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 
@@ -128,7 +128,7 @@ static void wifi_ota_task(void *pvParameter)
     bool image_header_was_checked = false;
     while (1)
     {
-        Led_Status = LED_STA_OTA;
+        // Led_Status = LED_STA_OTA;
         int data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
         // printf("\n ota_write_data=%2x \n", (unsigned int)ota_write_data);
         if (data_read < 0)
@@ -141,7 +141,6 @@ static void wifi_ota_task(void *pvParameter)
         {
             if (image_header_was_checked == false)
             {
-                esp_app_desc_t new_app_info;
                 if (data_read > sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t) + sizeof(esp_app_desc_t))
                 {
                     image_header_was_checked = true;
@@ -393,7 +392,7 @@ void lan_ota_task(void *arg)
 
             while (binary_file_length != content_len)
             {
-                Led_Status = LED_STA_OTA;
+                // Led_Status = LED_STA_OTA;
                 //开始接收数据
                 size = getSn_RX_RSR(SOCK_OTA);
                 if (size > 0)

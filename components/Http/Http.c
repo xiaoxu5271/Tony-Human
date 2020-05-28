@@ -4,7 +4,7 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 
@@ -202,17 +202,16 @@ void send_human_task(void *arg)
             ESP_LOGI(TAG, "mes recv:%s", recv_buf);
             if (parse_objects_http_respond(strchr(recv_buf, '{')))
             {
-                Led_Status = LED_STA_WORK;
+                Net_sta_flag = true;
             }
             else
             {
-                Led_Status = LED_STA_ACTIVE_ERR;
+                Net_sta_flag = false;
             }
         }
         else
         {
-            Led_Status = LED_STA_WIFIERR;
-            // printf("send return : %d \n", ret);
+            Net_sta_flag = false;
         }
     }
 }
@@ -232,17 +231,16 @@ void send_heart_task(void *arg)
             if (parse_objects_heart(strchr(recv_buf, '{')))
             {
                 //successed
-                Led_Status = LED_STA_WORK;
+                Net_sta_flag = true;
             }
             else
             {
-                Led_Status = LED_STA_ACTIVE_ERR;
+                Net_sta_flag = false;
             }
         }
         else
         {
-            Led_Status = LED_STA_WIFIERR;
-            printf("hart recv 0!\r\n");
+            Net_sta_flag = false;
         }
     }
 }
@@ -273,7 +271,7 @@ int32_t http_activate(void)
 
     if (http_send_buff(build_http, 256, recv_buf, 1024) < 0)
     {
-        Led_Status = LED_STA_WIFIERR;
+        Net_sta_flag = false;
         return 101;
     }
     else
@@ -281,12 +279,12 @@ int32_t http_activate(void)
         ESP_LOGI(TAG, "active recv:%s", recv_buf);
         if (parse_objects_http_active(strchr(recv_buf, '{')))
         {
-            Led_Status = LED_STA_WORK;
+            Net_sta_flag = true;
             return 1;
         }
         else
         {
-            Led_Status = LED_STA_ACTIVE_ERR;
+            Net_sta_flag = false;
             return 102;
         }
     }
@@ -297,13 +295,6 @@ uint8_t Last_Led_Status;
 void http_send_mes(void)
 {
     int ret = 0;
-
-    if (Led_Status != LED_STA_SEND) //解决两次发送间隔过短，导致LED一直闪烁
-    {
-        Last_Led_Status = Led_Status;
-    }
-    Led_Status = LED_STA_SEND;
-
     char recv_buf[1024] = {0};
     char build_po_url[512] = {0};
     char build_po_url_json[1024] = {0};
@@ -361,16 +352,16 @@ void http_send_mes(void)
         ESP_LOGI(TAG, "mes recv:%s", recv_buf);
         if (parse_objects_http_respond(strchr(recv_buf, '{')))
         {
-            Led_Status = LED_STA_WORK;
+            Net_sta_flag = true;
         }
         else
         {
-            Led_Status = LED_STA_ACTIVE_ERR;
+            Net_sta_flag = false;
         }
     }
     else
     {
-        Led_Status = LED_STA_WIFIERR;
+        Net_sta_flag = false;
         printf("send return : %d \n", ret);
     }
 }

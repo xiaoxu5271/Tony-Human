@@ -43,7 +43,7 @@
 #define PIN_NUM_W5500_REST 25
 #define PIN_NUM_W5500_INT 26
 
-#define HOST_NAME "api.ubibot.cn" //"api.ubibot.cn"api.yeelink.net
+// #define HOST_NAME "api-primary.ubibot.cn" //"api.ubibot.cn"api.yeelink.net  api-primary.ubibot.cn
 
 #define RJ45_CONNECTED 1
 #define RJ45_DISCONNECT 2

@@ -14,6 +14,7 @@
 
 uint8_t human_chack = 0;
 uint64_t human_intr_num = 0;
+bool human_status = false;
 
 static void huamn_timer_cb(void *arg);
 esp_timer_handle_t human_timer_handle = 0; //定时器句柄
@@ -66,15 +67,15 @@ void huamn_timer_cb(void *arg)
 {
     if (gpio_get_level(GPIO_HUMAN) == 1)
     {
-        if (human_status == NOHUMAN)
+        if (human_status == false)
         {
-            human_status = HAVEHUMAN;
+            human_status = true;
             if (Binary_Http_Send != NULL) //立即上传数据
             {
                 xSemaphoreGive(Binary_Http_Send);
             }
         }
-        ESP_LOGI(TAG, "HAVEHUMAN !\n");
+        ESP_LOGI(TAG, "true !\n");
     }
 }
 
@@ -104,27 +105,27 @@ void Human_Init(void)
 void Human_Task(void *arg)
 {
     uint32_t io_num;
-    human_status = NOHUMAN;
+    human_status = false;
     vTaskDelay(30 * 1000 / portTICK_RATE_MS); //电路稳定时间，根据手册，最大30s
     while (1)
     {
         // if (xQueueReceive(human_evt_queue, &io_num, (30 * 1000) / portTICK_PERIOD_MS)) //30s无中断，则判断无人
         if (xSemaphoreTake(human_binary_handle, (30 * 1000) / portTICK_PERIOD_MS))
         {
-            // ESP_LOGI(TAG, "HAVEHUMAN isr\n");
+            // ESP_LOGI(TAG, "true isr\n");
             esp_timer_start_once(human_timer_handle, fn_sen * 100 * 1000); //fn_sen*100MS 灵敏度
         }
         else
         {
-            if (human_status == HAVEHUMAN)
+            if (human_status == true)
             {
-                human_status = NOHUMAN;
+                human_status = false;
                 if (Binary_Http_Send != NULL) //立即上传数据
                 {
                     xSemaphoreGive(Binary_Http_Send);
                 }
             }
-            ESP_LOGI(TAG, "NOHUMAN\n");
+            ESP_LOGI(TAG, "false\n");
         }
     }
 }

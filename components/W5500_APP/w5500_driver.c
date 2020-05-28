@@ -100,7 +100,7 @@ void spi_cs_select(void)
 {
     // gpio_set_level(PIN_NUM_CS, 0);
     spi_select_w5500();
-    // printf("SPI CS SELECT! \n");
+    // ESP_LOGI(TAG,"SPI CS SELECT! \n");
     // return;
 }
 
@@ -110,7 +110,7 @@ void spi_cs_select(void)
 void spi_cs_deselect(void)
 {
     spi_deselect_w5500();
-    // printf("SPI CS DESELECT! \n");
+    // ESP_LOGI(TAG,"SPI CS DESELECT! \n");
     // return;
     // gpio_set_level(PIN_NUM_CS, 1);
 }
@@ -131,7 +131,7 @@ void w5500_lib_init(void)
 
     /* Registers call back function for SPI interface */
     reg_wizchip_spiburst_cbfunc(spi_readburst, spi_writeburst);
-    printf("lib_init success\n");
+    ESP_LOGI(TAG, "lib_init success\n");
 }
 
 /*******************************************************************************
@@ -153,7 +153,7 @@ int8_t check_rj45_status(void)
 {
     if (IINCHIP_READ(PHYCFGR) & 0x01)
     {
-        // printf("RJ45 OK\n");
+        // ESP_LOGI(TAG,"RJ45 OK\n");
         return ESP_OK;
     }
     return ESP_FAIL;
@@ -178,20 +178,20 @@ void my_ip_assign(void)
     ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO);
     memset(current_net_ip, 0, sizeof(current_net_ip));
     sprintf(current_net_ip, "&IP=%d.%d.%d.%d", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
-    printf("%s \n", current_net_ip);
+    ESP_LOGI(TAG, "%s \n", current_net_ip);
 
-    printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO.mac[0], gWIZNETINFO.mac[1], gWIZNETINFO.mac[2], gWIZNETINFO.mac[3], gWIZNETINFO.mac[4], gWIZNETINFO.mac[5]);
-    printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
-    printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO.gw[0], gWIZNETINFO.gw[1], gWIZNETINFO.gw[2], gWIZNETINFO.gw[3]);
-    printf("SUB: %d.%d.%d.%d\r\n", gWIZNETINFO.sn[0], gWIZNETINFO.sn[1], gWIZNETINFO.sn[2], gWIZNETINFO.sn[3]);
-    printf("DNS: %d.%d.%d.%d\r\n", gWIZNETINFO.dns[0], gWIZNETINFO.dns[1], gWIZNETINFO.dns[2], gWIZNETINFO.dns[3]);
+    ESP_LOGI(TAG, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO.mac[0], gWIZNETINFO.mac[1], gWIZNETINFO.mac[2], gWIZNETINFO.mac[3], gWIZNETINFO.mac[4], gWIZNETINFO.mac[5]);
+    ESP_LOGI(TAG, "SIP: %d.%d.%d.%d\r\n", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
+    ESP_LOGI(TAG, "GAR: %d.%d.%d.%d\r\n", gWIZNETINFO.gw[0], gWIZNETINFO.gw[1], gWIZNETINFO.gw[2], gWIZNETINFO.gw[3]);
+    ESP_LOGI(TAG, "SUB: %d.%d.%d.%d\r\n", gWIZNETINFO.sn[0], gWIZNETINFO.sn[1], gWIZNETINFO.sn[2], gWIZNETINFO.sn[3]);
+    ESP_LOGI(TAG, "DNS: %d.%d.%d.%d\r\n", gWIZNETINFO.dns[0], gWIZNETINFO.dns[1], gWIZNETINFO.dns[2], gWIZNETINFO.dns[3]);
 #endif
 }
 
 /****************DHCP IP冲突函数*****************/
 void my_ip_conflict(void)
 {
-    printf("DHCP IP 冲突\n");
+    ESP_LOGI(TAG, "DHCP IP 冲突\n");
 }
 
 /****************解析DNS*****************/
@@ -199,12 +199,12 @@ int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip)
 {
 
     DNS_init(sock, ethernet_buf);
-    printf("url : %s\n", web_url);
+    ESP_LOGI(TAG, "url : %s\n", web_url);
 
     if (DNS_run(gWIZNETINFO.dns, web_url, dns_host_ip) > 0)
     {
 #ifdef RJ45_DEBUG
-        printf("host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
+        ESP_LOGI(TAG, "host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
 #endif
 
         return SUCCESS;
@@ -212,14 +212,14 @@ int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip)
     else if (DNS_run(standby_dns, web_url, dns_host_ip) > 0)
     {
 #ifdef RJ45_DEBUG
-        printf("s_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
+        ESP_LOGI(TAG, "s_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
 #endif
 
         return SUCCESS;
     }
 
 #ifdef RJ45_DEBUG
-    printf("n_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
+    ESP_LOGI(TAG, "n_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
 #endif
     return FAILURE;
 }
@@ -261,11 +261,11 @@ void W5500_Network_Init(void)
         uint8_t i = 0;
         uint8_t netinfo_buff[16];
 
-        printf("dhcp mode --- 0 Static\n");
+        ESP_LOGI(TAG, "dhcp mode --- 0 Static\n");
         E2prom_page_Read(NETINFO_add, netinfo_buff, 16);
         for (uint8_t j = 0; j < 17; j++)
         {
-            printf("netinfo_buff[%d]:%d\n", j, netinfo_buff[j]);
+            ESP_LOGI(TAG, "netinfo_buff[%d]:%d\n", j, netinfo_buff[j]);
         }
 
         while (i < 16)
@@ -290,7 +290,7 @@ void W5500_Network_Init(void)
             {
                 dns[i - 12] = netinfo_buff[i];
             }
-            // printf("netinfo_buff[%d]:%d \n", i, netinfo_buff[i]);
+            // ESP_LOGI(TAG,"netinfo_buff[%d]:%d \n", i, netinfo_buff[i]);
             i++;
         }
 
@@ -305,7 +305,7 @@ void W5500_Network_Init(void)
 
     else if (user_dhcp_mode == 1)
     {
-        printf("dhcp mode --- 1 DHCP\n");
+        ESP_LOGI(TAG, "dhcp mode --- 1 DHCP\n");
         gWIZNETINFO.dhcp = NETINFO_DHCP; //< 1 - Static, 2 - DHCP
         ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
         W5500_DHCP_Init();
@@ -316,17 +316,17 @@ void W5500_Network_Init(void)
 
     memset(current_net_ip, 0, sizeof(current_net_ip));
     sprintf(current_net_ip, "&IP=%d.%d.%d.%d", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
-    printf("%s \n", current_net_ip);
+    ESP_LOGI(TAG, "%s \n", current_net_ip);
 
-    printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO_READ.mac[0], gWIZNETINFO_READ.mac[1], gWIZNETINFO_READ.mac[2], gWIZNETINFO_READ.mac[3], gWIZNETINFO_READ.mac[4], gWIZNETINFO_READ.mac[5]);
-    printf("SIP: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.ip[0], gWIZNETINFO_READ.ip[1], gWIZNETINFO_READ.ip[2], gWIZNETINFO_READ.ip[3]);
-    printf("GAR: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.gw[0], gWIZNETINFO_READ.gw[1], gWIZNETINFO_READ.gw[2], gWIZNETINFO_READ.gw[3]);
-    printf("SUB: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.sn[0], gWIZNETINFO_READ.sn[1], gWIZNETINFO_READ.sn[2], gWIZNETINFO_READ.sn[3]);
-    printf("DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
+    ESP_LOGI(TAG, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO_READ.mac[0], gWIZNETINFO_READ.mac[1], gWIZNETINFO_READ.mac[2], gWIZNETINFO_READ.mac[3], gWIZNETINFO_READ.mac[4], gWIZNETINFO_READ.mac[5]);
+    ESP_LOGI(TAG, "SIP: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.ip[0], gWIZNETINFO_READ.ip[1], gWIZNETINFO_READ.ip[2], gWIZNETINFO_READ.ip[3]);
+    ESP_LOGI(TAG, "GAR: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.gw[0], gWIZNETINFO_READ.gw[1], gWIZNETINFO_READ.gw[2], gWIZNETINFO_READ.gw[3]);
+    ESP_LOGI(TAG, "SUB: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.sn[0], gWIZNETINFO_READ.sn[1], gWIZNETINFO_READ.sn[2], gWIZNETINFO_READ.sn[3]);
+    ESP_LOGI(TAG, "DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
 #endif
 
     bl_flag = 0;
-    printf("Network_init success!!!\n");
+    ESP_LOGI(TAG, "Network_init success!!!\n");
 }
 
 int8_t W5500_DHCP_Init(void)
@@ -343,20 +343,20 @@ int8_t W5500_DHCP_Init(void)
         while ((ret_DHCP_run = DHCP_run()) != DHCP_IP_LEASED)
         {
 #ifdef RJ45_DEBUG
-            printf("ret_DHCP_run = %d \n", ret_DHCP_run);
+            ESP_LOGI(TAG, "ret_DHCP_run = %d \n", ret_DHCP_run);
 #endif
             switch (ret_DHCP_run)
             {
             case DHCP_IP_ASSIGN:
 #ifdef RJ45_DEBUG
-                printf("DHCP_IP_ASSIGN.\r\n");
+                ESP_LOGI(TAG, "DHCP_IP_ASSIGN.\r\n");
 #endif
             case DHCP_IP_CHANGED: /* If this block empty, act with default_ip_assign & default_ip_update */
                                   //
                                   // Add to ...
                                   //
 #ifdef RJ45_DEBUG
-                printf("DHCP_IP_CHANGED.\r\n");
+                ESP_LOGI(TAG, "DHCP_IP_CHANGED.\r\n");
 #endif
                 break;
 
@@ -365,14 +365,14 @@ int8_t W5500_DHCP_Init(void)
                 // TO DO YOUR NETWORK APPs.
                 //
 #ifdef RJ45_DEBUG
-                printf("DHCP_IP_LEASED.\r\n");
-                printf("DHCP LEASED TIME : %d Sec\r\n", getDHCPLeasetime());
+                ESP_LOGI(TAG, "DHCP_IP_LEASED.\r\n");
+                ESP_LOGI(TAG, "DHCP LEASED TIME : %d Sec\r\n", getDHCPLeasetime());
 #endif
                 break;
 
             case DHCP_FAILED:
 #ifdef RJ45_DEBUG
-                printf("DHCP_FAILED.\r\n");
+                ESP_LOGI(TAG, "DHCP_FAILED.\r\n");
 #endif
 
                 if (dhcp_retry++ > RETRY_TIME_OUT)
@@ -385,7 +385,7 @@ int8_t W5500_DHCP_Init(void)
 
             case DHCP_STOPPED:
 #ifdef RJ45_DEBUG
-                printf("DHCP_STOPPED.\r\n");
+                ESP_LOGI(TAG, "DHCP_STOPPED.\r\n");
 #endif
                 return FAILURE;
                 // vTaskDelay(10000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
@@ -412,7 +412,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
     if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == FAILURE)
     {
         LAN_DNS_STATUS = 0;
-        printf("IW5500_DNS_FAIL\n");
+        ESP_LOGI(TAG, "IW5500_DNS_FAIL\n");
         return -1;
     }
     LAN_DNS_STATUS = 1;
@@ -422,11 +422,11 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
         switch (temp = getSn_SR(SOCK_TCPS))
         {
         case SOCK_INIT:
-            // printf("SOCK_INIT!!!\n");
+            // ESP_LOGI(TAG,"SOCK_INIT!!!\n");
             con_ret = lan_connect(SOCK_TCPS, http_dns_host_ip, server_port);
             if (con_ret != SOCK_OK)
             {
-                printf("INIT FAIL CODE : %d\n", con_ret);
+                ESP_LOGI(TAG, "INIT FAIL CODE : %d\n", con_ret);
                 return con_ret;
             }
             break;
@@ -434,17 +434,17 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
         case SOCK_ESTABLISHED:
             if (getSn_IR(SOCK_TCPS) & Sn_IR_CON)
             {
-                // printf("SOCK_ESTABLISHED!!!\n");
+                // ESP_LOGI(TAG,"SOCK_ESTABLISHED!!!\n");
                 setSn_IR(SOCK_TCPS, Sn_IR_CON);
             }
             fail_num = 0;
-            // printf("send_buff   : %s, size :%d \n", (char *)send_buff, send_size);
+            // ESP_LOGI(TAG,"send_buff   : %s, size :%d \n", (char *)send_buff, send_size);
             lan_send(SOCK_TCPS, (uint8_t *)send_buff, send_size);
 
             vTaskDelay(100 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
 
             size = getSn_RX_RSR(SOCK_TCPS);
-            // printf("recv_size = %d\n", size);
+            // ESP_LOGI(TAG,"recv_size = %d\n", size);
             if (size > 0)
             {
                 if (size > ETHERNET_DATA_BUF_SIZE)
@@ -455,13 +455,13 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
                 rec_ret = lan_recv(SOCK_TCPS, (uint8_t *)recv_buff, size);
                 if (rec_ret < 0)
                 {
-                    printf("w5500 recv failed! %d\n", rec_ret);
+                    ESP_LOGI(TAG, "w5500 recv failed! %d\n", rec_ret);
                     return rec_ret;
                     //break;
                 }
                 else
                 {
-                    // printf(" len : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
+                    // ESP_LOGI(TAG," len : %d ------------w5500 recv  : %s\n", rec_ret, (char *)recv_buff);
                 }
             }
 
@@ -470,16 +470,16 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 
         case SOCK_CLOSE_WAIT:
             lan_close(SOCK_TCPS);
-            printf("SOCK_CLOSE_WAIT!!!\n");
+            ESP_LOGI(TAG, "SOCK_CLOSE_WAIT!!!\n");
 
             break;
 
         case SOCK_CLOSED:
-            // printf("Closed\r\n");
+            // ESP_LOGI(TAG,"Closed\r\n");
             lan_socket(SOCK_TCPS, Sn_MR_TCP, socker_port, 0x00);
             if (rec_ret > 0) //需要等到接收到数据才退出函数
             {
-                // printf("rec_ret: %d\r\n", rec_ret);
+                // ESP_LOGI(TAG,"rec_ret: %d\r\n", rec_ret);
                 return rec_ret;
             }
             break;
@@ -489,7 +489,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
             if (fail_num >= 10)
             {
                 fail_num = 0;
-                printf("fail time out getSn_SR=  0x%02x\n", temp);
+                ESP_LOGI(TAG, "fail time out getSn_SR=  0x%02x\n", temp);
                 return -temp;
             }
             break;
@@ -689,9 +689,11 @@ int8_t w5500_user_int(void)
     w5500_reset();
     while ((IINCHIP_READ(VERSIONR)) != VERSIONR_ID)
     {
-        printf("w5500 read err!\r\n\r\n");
+        ETH_FLAG = false;
+        ESP_LOGE(TAG, "w5500 read err!");
         vTaskDelay(1000 / portTICK_RATE_MS);
     }
+    ETH_FLAG = true;
 
     xTaskCreate(RJ45_Check_Task, "RJ45_Check_Task", 4096, NULL, 7, NULL); //创建任务，不断检查RJ45连接状态
 

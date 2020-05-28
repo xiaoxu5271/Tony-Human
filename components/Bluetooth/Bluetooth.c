@@ -901,7 +901,7 @@ void ble_app_start(void)
     esp_ble_gap_start_advertising(&adv_params);
     //开启成功
     bl_flag = 1;
-    Led_Status = LED_STA_AP;
+    Cnof_net_flag = true;
     stop_user_wifi(); //停止网络连接
 }
 
@@ -910,5 +910,6 @@ void ble_app_stop(void)
     esp_ble_gap_stop_advertising();
 
     bl_flag = 0;
+    Cnof_net_flag = false;
     ESP_LOGI(GATTS_TAG, "turn off ble！");
 }

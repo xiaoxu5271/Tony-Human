@@ -7,7 +7,7 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 // #include "platform.h"
@@ -305,7 +305,7 @@ void lan_mqtt_task(void *pvParameter)
     uint8_t fail_num = 0;
     uint8_t MQTT_IP[4];
     const char mqtt_sever[] = "mqtt.ubibot.cn";
-    if (lan_dns_resolve(SOCK_TCPS, mqtt_sever, MQTT_IP) == FAILURE)
+    if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)mqtt_sever, MQTT_IP) == FAILURE)
     {
         ESP_LOGE(TAG, "lan dns resolve FAIL!\r\n");
         vTaskDelete(NULL); //网线断开，删除任务

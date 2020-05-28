@@ -19,6 +19,7 @@
 #include "Bluetooth.h"
 #include "E2prom.h"
 #include "Json_parse.h"
+#include "Led.h"
 
 uint8_t Task_key_num = 0;
 
@@ -50,7 +51,7 @@ void short_pressed_cb(uint8_t key_num, uint8_t *short_pressed_counts)
             break;
         case 2:
             ESP_LOGI("short_pressed_cb", "double press!!!\n");
-            Task_key_num = 2;
+            ble_app_start();
             break;
         case 3:
             ESP_LOGI("short_pressed_cb", "trible press!!!\n");
@@ -88,35 +89,14 @@ void long_pressed_cb(uint8_t key_num, uint8_t *long_pressed_counts)
     case BOARD_BUTTON:
         ESP_LOGI("long_pressed_cb", "long press!!!\n");
 
-        Task_key_num = 5;
+        Set_defaul_flag = true;
+        E2prom_set_defaul();
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        esp_restart();
 
         break;
     default:
         break;
-    }
-}
-
-void user_key_cd_task(void *arg)
-{
-    while (1)
-    {
-        switch (Task_key_num)
-        {
-        case 1:
-            Task_key_num = 0;
-            // lan_ota();
-            break;
-
-        case 5:
-            Task_key_num = 0;
-            ble_app_start();
-            // wifi_init_softap();
-            break;
-
-        default:
-            break;
-        }
-        vTaskDelay(100 / portTICK_RATE_MS);
     }
 }
 
@@ -161,6 +141,5 @@ void user_app_key_init(void)
     int32_t err_code;
     err_code = user_key_init(gs_m_key_config, BOARD_BUTTON_COUNT, DECOUNE_TIMER, long_pressed_cb, short_pressed_cb);
     ESP_LOGI("user_app_key_init", "user_key_init is %d\n", err_code);
-    xTaskCreate(user_key_cd_task, "user_key_cd_task", 4096, NULL, 8, NULL);
     xTaskCreate(vTask_view_Work, "vTask_view_Work", 10240, NULL, 5, NULL);
 }

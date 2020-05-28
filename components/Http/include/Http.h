@@ -6,7 +6,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
 
-#define FIRMWARE "HUM1-V0.2.9"
+#define FIRMWARE "HUM1-V0.2.10"
 
 #define POST_NORMAL 0X00
 #define POST_HEIGHT_ADD 0X01
@@ -22,9 +22,6 @@
 #define HTTP_STA_SERIAL_NUMBER 0x00
 #define HTTP_KEY_GET 0x01
 #define HTTP_KEY_NOT_GET 0x02
-
-#define NOHUMAN 0x00
-#define HAVEHUMAN 0x01
 
 #define WEB_PORT 80
 
@@ -43,10 +40,9 @@ char BleName[64];
 char ApiKey[33];
 char ChannelId[16];
 char USER_ID[48];
-char WEB_SERVER[20];
+char WEB_SERVER[30];
 
 extern uint8_t post_status;
-uint8_t human_status;
 TaskHandle_t httpHandle;
 esp_timer_handle_t http_timer_suspend_p;
 extern uint8_t Last_Led_Status;
