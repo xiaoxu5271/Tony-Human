@@ -25,12 +25,11 @@
 
 #define WEB_PORT 80
 
-//需要发送的二值信号量
-extern SemaphoreHandle_t Binary_Http_Send;
-extern esp_timer_handle_t timer_human_handle; //定时器句柄
+extern TaskHandle_t http_Handle;
+extern TaskHandle_t heart_handle;
 
 void initialise_http(void);
-
+void Start_Active(void);
 void http_send_mes(void);
 int32_t http_activate(void);
 
@@ -43,7 +42,6 @@ char USER_ID[48];
 char WEB_SERVER[30];
 
 extern uint8_t post_status;
-TaskHandle_t httpHandle;
 esp_timer_handle_t http_timer_suspend_p;
 extern uint8_t Last_Led_Status;
 

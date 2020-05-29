@@ -25,20 +25,20 @@
 #include "Http.h"
 
 SemaphoreHandle_t xMutex_Http_Send = NULL;
-SemaphoreHandle_t Binary_Http_Send = NULL;
-SemaphoreHandle_t Binary_Heart_Send = NULL;
-SemaphoreHandle_t Binary_Human_Send = NULL;
 
+TaskHandle_t http_Handle = NULL;
+TaskHandle_t heart_handle = NULL;
+// TaskHandle_t human_handle = NULL;
 // extern uint8_t data_read[34];
 
 static char *TAG = "HTTP";
 uint32_t HTTP_STATUS = HTTP_KEY_GET;
 uint8_t post_status = POST_NOCOMMAND;
 
-static char build_heart_url[256];
-static char build_human_url[512];
+bool fn_dp_flag = false;
 
-TaskHandle_t httpHandle = NULL;
+static char build_heart_url[256];
+
 esp_timer_handle_t http_timer_suspend_p = NULL;
 
 void timer_heart_cb(void *arg);
@@ -47,13 +47,6 @@ esp_timer_create_args_t timer_heart_arg = {
     .callback = &timer_heart_cb,
     .arg = NULL,
     .name = "Heart_Timer"};
-
-void timer_human_cb(void *arg);
-esp_timer_handle_t timer_human_handle = NULL; //定时器句柄
-esp_timer_create_args_t timer_human_arg = {
-    .callback = &timer_human_cb,
-    .arg = NULL,
-    .name = "Human_Timer"};
 
 int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
@@ -162,57 +155,15 @@ int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uin
 
 void http_get_task(void *pvParameters)
 {
-    xSemaphoreGive(Binary_Http_Send); //先发送一次
 
     while (1)
     {
-        //需要把数据发送到平台
-        xSemaphoreTake(Binary_Http_Send, (fn_dp * 1000) / portTICK_PERIOD_MS);
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
                             false, true, -1);
         printf("Http send !\n");
         http_send_mes();
-    }
-}
 
-void send_human_task(void *arg)
-{
-    char recv_buf[1024] = {0};
-    while (1)
-    {
-        xSemaphoreTake(Binary_Human_Send, -1);
-        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, -1); //等网络连接
-
-        creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
-        //创建POST的json格式
-        create_http_json(pCreat_json1, 1);
-
-        sprintf(build_human_url, "POST http://%s/update.json?api_key=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n%s",
-                WEB_SERVER,
-                ApiKey,
-                WEB_SERVER,
-                pCreat_json1->creat_json_c,
-                pCreat_json1->creat_json_b);
-        free(pCreat_json1);
-
-        printf("Human send :\n%s!\n", build_human_url);
-        if (http_send_buff(build_human_url, 1024, recv_buf, 1024) > 0)
-        {
-            // printf("解析返回数据！\n");
-            ESP_LOGI(TAG, "mes recv:%s", recv_buf);
-            if (parse_objects_http_respond(strchr(recv_buf, '{')))
-            {
-                Net_sta_flag = true;
-            }
-            else
-            {
-                Net_sta_flag = false;
-            }
-        }
-        else
-        {
-            Net_sta_flag = false;
-        }
+        ulTaskNotifyTake(pdTRUE, -1);
     }
 }
 
@@ -222,13 +173,12 @@ void send_heart_task(void *arg)
 
     while (1)
     {
-        xSemaphoreTake(Binary_Heart_Send, -1);
         xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, -1); //等网络连接
         printf("Heart send !\n");
         if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
         {
             ESP_LOGI(TAG, "hart recv:%s", recv_buf);
-            if (parse_objects_heart(strchr(recv_buf, '{')))
+            if (parse_objects_heart(recv_buf))
             {
                 //successed
                 Net_sta_flag = true;
@@ -242,18 +192,24 @@ void send_heart_task(void *arg)
         {
             Net_sta_flag = false;
         }
+
+        ulTaskNotifyTake(pdTRUE, -1);
     }
 }
 
 //定时发送心跳包
 void timer_heart_cb(void *arg)
 {
-    xSemaphoreGive(Binary_Heart_Send);
-}
+    static uint32_t min_num = 0;
 
-void timer_human_cb(void *arg)
-{
-    xSemaphoreGive(Binary_Human_Send);
+    vTaskNotifyGiveFromISR(heart_handle, NULL);
+    min_num++;
+    if (fn_dp)
+        if (min_num * 60 % fn_dp == 0)
+        {
+            fn_dp_flag = true;
+            vTaskNotifyGiveFromISR(http_Handle, NULL);
+        }
 }
 
 //激活流程
@@ -277,7 +233,7 @@ int32_t http_activate(void)
     else
     {
         ESP_LOGI(TAG, "active recv:%s", recv_buf);
-        if (parse_objects_http_active(strchr(recv_buf, '{')))
+        if (parse_objects_http_active(recv_buf))
         {
             Net_sta_flag = true;
             return 1;
@@ -289,8 +245,6 @@ int32_t http_activate(void)
         }
     }
 }
-
-uint8_t Last_Led_Status;
 
 void http_send_mes(void)
 {
@@ -307,7 +261,8 @@ void http_send_mes(void)
 
     creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
     //创建POST的json格式
-    create_http_json(pCreat_json1, 0);
+    create_http_json(pCreat_json1, fn_dp_flag);
+    fn_dp_flag = false;
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
@@ -350,7 +305,7 @@ void http_send_mes(void)
     {
         // printf("解析返回数据！\n");
         ESP_LOGI(TAG, "mes recv:%s", recv_buf);
-        if (parse_objects_http_respond(strchr(recv_buf, '{')))
+        if (parse_objects_http_respond(recv_buf))
         {
             Net_sta_flag = true;
         }
@@ -368,13 +323,11 @@ void http_send_mes(void)
 
 void initialise_http(void)
 {
-    xMutex_Http_Send = xSemaphoreCreateMutex();   //创建HTTP发送互斥信号
-    Binary_Http_Send = xSemaphoreCreateBinary();  //http
-    Binary_Heart_Send = xSemaphoreCreateBinary(); //心跳包
-    Binary_Human_Send = xSemaphoreCreateBinary(); //人感
+    xMutex_Http_Send = xSemaphoreCreateMutex(); //创建HTTP发送互斥信号
 
-    esp_err_t err = esp_timer_create(&timer_human_arg, &timer_human_handle);
-    err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
+    esp_err_t err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
+    xTaskCreate(&http_get_task, "htt task", 8192, NULL, 6, &http_Handle);
+    xTaskCreate(&send_heart_task, "heart_task", 8192, NULL, 5, &heart_handle);
 
     while (http_activate() != 1) //激活
     {
@@ -388,15 +341,10 @@ void initialise_http(void)
             ApiKey,
             WEB_SERVER);
     printf("build_heart_url:%s", build_heart_url);
-    xSemaphoreGive(Binary_Heart_Send);
 
     err = esp_timer_start_periodic(timer_heart_handle, 60 * 1000000); //创建定时器，单位us，定时60s
     if (err != ESP_OK)
     {
         printf("timer heart create err code:%d\n", err);
     }
-
-    xTaskCreate(&http_get_task, "http_get_task", 8192, NULL, 6, &httpHandle);
-    xTaskCreate(&send_heart_task, "send_heart_task", 8192, NULL, 5, NULL);
-    xTaskCreate(&send_human_task, "send_human_task", 4096, NULL, 4, NULL);
 }

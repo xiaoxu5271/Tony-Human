@@ -4,10 +4,11 @@
 
 #include <cJSON.h>
 #include "esp_system.h"
+#include "esp_log.h"
+
 #include "Json_parse.h"
 #include "Nvs.h"
 #include "ServerTimer.h"
-#include "Http.h"
 
 #include "esp_wifi.h"
 #include "Smartconfig.h"
@@ -51,7 +52,6 @@ int n = 0, i;
 
 static short Parse_metadata(char *ptrptr)
 {
-    bool fn_flag = 0;
     if (NULL == ptrptr)
     {
         return 0;
@@ -71,7 +71,6 @@ static short Parse_metadata(char *ptrptr)
 
         if ((unsigned long)pSubSubSub->valueint != fn_th)
         {
-            fn_flag = 1;
             fn_th = (unsigned long)pSubSubSub->valueint;
             printf("fn_th = %ld\n", fn_th);
         }
@@ -83,24 +82,23 @@ static short Parse_metadata(char *ptrptr)
 
         if ((unsigned long)pSubSubSub->valueint != fn_dp)
         {
-            fn_flag = 1;
             fn_dp = (unsigned long)pSubSubSub->valueint;
             printf("fn_dp = %ld\n", fn_dp);
-            if (timer_human_handle != NULL)
-            {
-                human_intr_num = 0;
-                if (fn_dp > 0)
-                {
-                    esp_timer_stop(timer_human_handle);
-                    esp_timer_start_periodic(timer_human_handle, fn_dp * 1000000); //创建定时器，单位us
-                    printf("start human send timer!\n");
-                }
-                else
-                {
-                    esp_timer_stop(timer_human_handle);
-                    printf("stop human send timer!\n");
-                }
-            }
+            // if (timer_human_handle != NULL)
+            // {
+            //     human_intr_num = 0;
+            //     if (fn_dp > 0)
+            //     {
+            //         esp_timer_stop(timer_human_handle);
+            //         esp_timer_start_periodic(timer_human_handle, fn_dp * 1000000); //创建定时器，单位us
+            //         printf("start human send timer!\n");
+            //     }
+            //     else
+            //     {
+            //         esp_timer_stop(timer_human_handle);
+            //         printf("stop human send timer!\n");
+            //     }
+            // }
         }
     }
 
@@ -110,7 +108,6 @@ static short Parse_metadata(char *ptrptr)
 
         if ((unsigned long)pSubSubSub->valueint != fn_sen)
         {
-            fn_flag = 1;
             fn_sen = (unsigned long)pSubSubSub->valueint;
             printf("fn_sen = %ld\n", fn_sen);
         }
@@ -172,19 +169,16 @@ int32_t parse_objects_bluetooth(char *blu_json_data)
 {
     cJSON *cjson_blu_data_parse = NULL;
     cJSON *cjson_blu_data_parse_command = NULL;
-    // cJSON *cjson_blu_data_parse_wifissid = NULL;
-    // cJSON *cjson_blu_data_parse_wifipwd = NULL;
-    // cJSON *cjson_blu_data_parse_ob = NULL;
-    //cJSON *cjson_blu_data_parse_devicepwd = NULL;
 
-    printf("start_ble_parse_json：\r\n%s\n", blu_json_data);
-    if (blu_json_data[0] != '{')
+    char *resp_val = NULL;
+    resp_val = strstr(blu_json_data, "{");
+    if (resp_val == NULL)
     {
-        printf("blu_json_data Json Formatting error\n");
+        ESP_LOGE("JSON", "DATA NO JSON");
         return 0;
     }
+    cjson_blu_data_parse = cJSON_Parse(resp_val);
 
-    cjson_blu_data_parse = cJSON_Parse(blu_json_data);
     if (cjson_blu_data_parse == NULL) //如果数据包不为JSON则退出
     {
         printf("Json Formatting error2\n");
@@ -233,14 +227,15 @@ esp_err_t parse_objects_http_active(char *http_json_data)
 
     // printf("start_parse_active_http_json\r\n");
 
-    if (http_json_data[0] != '{')
+    char *resp_val = NULL;
+    resp_val = strstr(http_json_data, "{\"result\":\"success\",");
+    if (resp_val == NULL)
     {
-        printf("http_json_data Json Formatting error\n");
-
+        ESP_LOGE("JSON", "DATA NO JSON");
         return 0;
     }
+    json_data_parse = cJSON_Parse(resp_val);
 
-    json_data_parse = cJSON_Parse(http_json_data);
     if (json_data_parse == NULL)
     {
         printf("Json Formatting error3\n");
@@ -302,13 +297,15 @@ esp_err_t parse_objects_http_respond(char *http_json_data)
     cJSON *json_data_parse_value = NULL;
     cJSON *json_data_parse_errorcode = NULL;
 
-    if (http_json_data[0] != '{')
+    char *resp_val = NULL;
+    resp_val = strstr(http_json_data, "{\"result\":\"success\",");
+    if (resp_val == NULL)
     {
-        printf("http_respond_json_data Json Formatting error\n");
+        ESP_LOGE("JSON", "DATA NO JSON");
         return 0;
     }
+    json_data_parse = cJSON_Parse(resp_val);
 
-    json_data_parse = cJSON_Parse(http_json_data);
     if (json_data_parse == NULL)
     {
 
@@ -355,14 +352,15 @@ esp_err_t parse_objects_heart(char *json_data)
 {
     cJSON *json_data_parse = NULL;
     cJSON *json_data_parse_value = NULL;
-    json_data_parse = cJSON_Parse(json_data);
 
-    if (json_data[0] != '{')
+    char *resp_val = NULL;
+    resp_val = strstr(json_data, "{\"result\":\"success\",");
+    if (resp_val == NULL)
     {
-        printf("heart Json Formatting error\n");
-
+        ESP_LOGE("JSON", "DATA NO JSON");
         return 0;
     }
+    json_data_parse = cJSON_Parse(resp_val);
 
     if (json_data_parse == NULL) //如果数据包不为JSON则退出
     {
@@ -403,15 +401,14 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
     cJSON *json_data_url = NULL;
     cJSON *json_data_vesion = NULL;
 
-    json_data_parse = cJSON_Parse(mqtt_json_data);
-    // printf("%s", cJSON_Print(json_data_parse));
-
-    if (mqtt_json_data[0] != '{')
+    char *resp_val = NULL;
+    resp_val = strstr(mqtt_json_data, "{");
+    if (resp_val == NULL)
     {
-        printf("mqtt_json_data Json Formatting error\n");
-
+        ESP_LOGE("JSON", "DATA NO JSON");
         return 0;
     }
+    json_data_parse = cJSON_Parse(resp_val);
 
     if (json_data_parse == NULL) //如果数据包不为JSON则退出
     {
@@ -432,9 +429,9 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data)
         strncpy(mqtt_json_s.mqtt_string, json_data_string_parse->valuestring, strlen(json_data_string_parse->valuestring));
 
         post_status = POST_NORMAL;
-        if (Binary_Http_Send != NULL)
+        if (heart_handle != NULL) //立即上传数据
         {
-            xSemaphoreGive(Binary_Http_Send);
+            vTaskNotifyGiveFromISR(heart_handle, NULL);
         }
         // need_send = 1;
         json_data_string_parse = cJSON_Parse(json_data_string_parse->valuestring); //将command_string再次构建成json格式，以便二次解析
@@ -536,16 +533,14 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
         cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
         human_intr_num = 0;
     }
-    else
+
+    if (human_status == false)
     {
-        if (human_status == false)
-        {
-            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
-        }
-        else if (human_status == true)
-        {
-            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
-        }
+        cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
+    }
+    else if (human_status == true)
+    {
+        cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
     }
 
     if (LAN_DNS_STATUS == 0) //wifi
@@ -564,8 +559,7 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
                 mac_sys[4],
                 mac_sys[5]);
         base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-        if (flag == 0)
-            cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
+        cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
         cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
         cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
     }
@@ -762,10 +756,9 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                 InpString = strtok(NULL, ".");
                 set_net_buf[15] = (uint8_t)strtoul(InpString, 0, 10);
             }
-            for (uint8_t j = 0; j < 17; j++)
-            {
-                printf("netinfo_buff[%d]:%d\n", j, set_net_buf[j]);
-            }
+
+            esp_log_buffer_char(TAG, set_net_buf, 17);
+
             E2prom_page_Write(NETINFO_add, set_net_buf, sizeof(set_net_buf));
 
             EE_byte_Write(ADDR_PAGE2, net_mode_add, NET_LAN); //写入net_mode

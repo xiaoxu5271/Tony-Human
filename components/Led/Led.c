@@ -13,7 +13,7 @@
 #define GPIO_LED_B 21
 #define GPIO_LED_G (22)
 
-#define LEDC_TEST_FADE_TIME 2000
+#define LEDC_TEST_FADE_TIME 1000
 
 #else
 
@@ -76,6 +76,7 @@ static void Led_Task(void *arg)
             Led_Y_On();
             vTaskDelay(500 / portTICK_RATE_MS);
         }
+        //网络错误
         else if (Net_sta_flag == false)
         {
             Led_R_On();

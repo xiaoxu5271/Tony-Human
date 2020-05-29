@@ -24,7 +24,6 @@ esp_timer_create_args_t human_timer_arg = {
     .arg = NULL,
     .name = "HumanTimer"};
 
-static xQueueHandle human_evt_queue = NULL;
 static SemaphoreHandle_t human_binary_handle = NULL;
 
 static void
@@ -70,9 +69,9 @@ void huamn_timer_cb(void *arg)
         if (human_status == false)
         {
             human_status = true;
-            if (Binary_Http_Send != NULL) //立即上传数据
+            if (http_Handle != NULL) //立即上传数据
             {
-                xSemaphoreGive(Binary_Http_Send);
+                vTaskNotifyGiveFromISR(http_Handle, NULL);
             }
         }
         ESP_LOGI(TAG, "true !\n");
@@ -104,7 +103,6 @@ void Human_Init(void)
 
 void Human_Task(void *arg)
 {
-    uint32_t io_num;
     human_status = false;
     vTaskDelay(30 * 1000 / portTICK_RATE_MS); //电路稳定时间，根据手册，最大30s
     while (1)
@@ -120,9 +118,9 @@ void Human_Task(void *arg)
             if (human_status == true)
             {
                 human_status = false;
-                if (Binary_Http_Send != NULL) //立即上传数据
+                if (heart_handle != NULL) //立即上传数据
                 {
-                    xSemaphoreGive(Binary_Http_Send);
+                    vTaskNotifyGiveFromISR(heart_handle, NULL);
                 }
             }
             ESP_LOGI(TAG, "false\n");
