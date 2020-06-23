@@ -175,7 +175,6 @@ void my_ip_assign(void)
 
     ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
 
-#ifdef RJ45_DEBUG
     ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO);
     memset(current_net_ip, 0, sizeof(current_net_ip));
     sprintf(current_net_ip, "&IP=%d.%d.%d.%d", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
@@ -186,7 +185,6 @@ void my_ip_assign(void)
     ESP_LOGI(TAG, "GAR: %d.%d.%d.%d\r\n", gWIZNETINFO.gw[0], gWIZNETINFO.gw[1], gWIZNETINFO.gw[2], gWIZNETINFO.gw[3]);
     ESP_LOGI(TAG, "SUB: %d.%d.%d.%d\r\n", gWIZNETINFO.sn[0], gWIZNETINFO.sn[1], gWIZNETINFO.sn[2], gWIZNETINFO.sn[3]);
     ESP_LOGI(TAG, "DNS: %d.%d.%d.%d\r\n", gWIZNETINFO.dns[0], gWIZNETINFO.dns[1], gWIZNETINFO.dns[2], gWIZNETINFO.dns[3]);
-#endif
 }
 
 /****************DHCP IP冲突函数*****************/
@@ -204,24 +202,21 @@ int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip)
 
     if (DNS_run(gWIZNETINFO.dns, web_url, dns_host_ip) > 0)
     {
-#ifdef RJ45_DEBUG
+
         ESP_LOGI(TAG, "host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
-#endif
 
         return SUCCESS;
     }
     else if (DNS_run(standby_dns, web_url, dns_host_ip) > 0)
     {
-#ifdef RJ45_DEBUG
+
         ESP_LOGI(TAG, "s_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
-#endif
 
         return SUCCESS;
     }
 
-#ifdef RJ45_DEBUG
     ESP_LOGI(TAG, "n_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
-#endif
+
     return FAILURE;
 }
 
@@ -307,10 +302,10 @@ void W5500_Network_Init(void)
         ESP_LOGI(TAG, "dhcp mode --- 1 DHCP\n");
         gWIZNETINFO.dhcp = NETINFO_DHCP; //< 1 - Static, 2 - DHCP
         ctlnetwork(CN_SET_NETINFO, (void *)&gWIZNETINFO);
-        W5500_DHCP_Init();
+        reg_dhcp_cbfunc(my_ip_assign, my_ip_assign, my_ip_conflict);
+        DHCP_init(SOCK_DHCP, ethernet_buf);
     }
 
-#ifdef RJ45_DEBUG
     ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO_READ);
 
     memset(current_net_ip, 0, sizeof(current_net_ip));
@@ -322,7 +317,6 @@ void W5500_Network_Init(void)
     ESP_LOGI(TAG, "GAR: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.gw[0], gWIZNETINFO_READ.gw[1], gWIZNETINFO_READ.gw[2], gWIZNETINFO_READ.gw[3]);
     ESP_LOGI(TAG, "SUB: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.sn[0], gWIZNETINFO_READ.sn[1], gWIZNETINFO_READ.sn[2], gWIZNETINFO_READ.sn[3]);
     ESP_LOGI(TAG, "DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
-#endif
 
     // bl_flag = 0;
     ESP_LOGI(TAG, "Network_init success!!!\n");
@@ -335,45 +329,26 @@ int8_t W5500_DHCP_Init(void)
         // Ethernet_Timeout = 0;
         uint8_t dhcp_retry = 0;
         uint8_t ret_DHCP_run = 0;
-        reg_dhcp_cbfunc(my_ip_assign, my_ip_assign, my_ip_conflict);
-
-        DHCP_init(SOCK_DHCP, ethernet_buf);
 
         while ((ret_DHCP_run = DHCP_run()) != DHCP_IP_LEASED)
         {
-#ifdef RJ45_DEBUG
             ESP_LOGI(TAG, "ret_DHCP_run = %d \n", ret_DHCP_run);
-#endif
             switch (ret_DHCP_run)
             {
             case DHCP_IP_ASSIGN:
-#ifdef RJ45_DEBUG
                 ESP_LOGI(TAG, "DHCP_IP_ASSIGN.\r\n");
-#endif
+
             case DHCP_IP_CHANGED: /* If this block empty, act with default_ip_assign & default_ip_update */
-                                  //
-                                  // Add to ...
-                                  //
-#ifdef RJ45_DEBUG
                 ESP_LOGI(TAG, "DHCP_IP_CHANGED.\r\n");
-#endif
                 break;
 
             case DHCP_IP_LEASED:
-                //
-                // TO DO YOUR NETWORK APPs.
-                //
-#ifdef RJ45_DEBUG
                 ESP_LOGI(TAG, "DHCP_IP_LEASED.\r\n");
                 ESP_LOGI(TAG, "DHCP LEASED TIME : %d Sec\r\n", getDHCPLeasetime());
-#endif
                 break;
 
             case DHCP_FAILED:
-#ifdef RJ45_DEBUG
                 ESP_LOGI(TAG, "DHCP_FAILED.\r\n");
-#endif
-
                 if (dhcp_retry++ > RETRY_TIME_OUT)
                 {
                     dhcp_retry = 0;
@@ -383,12 +358,8 @@ int8_t W5500_DHCP_Init(void)
                 break;
 
             case DHCP_STOPPED:
-#ifdef RJ45_DEBUG
                 ESP_LOGI(TAG, "DHCP_STOPPED.\r\n");
-#endif
                 return FAILURE;
-                // vTaskDelay(10000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
-                // DHCP_init(SOCK_DHCP, ethernet_buf);
                 break;
 
             default:
@@ -497,178 +468,9 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
     }
 }
 
-/*****************RJ45_CHECK****************/
-// void RJ45_Check_Task(void *arg)
-// {
-//     // uint8_t need_reinit = 1;
-//     W5500_Network_Init();
-//     while (1)
-//     {
-//         if (Cnof_net_flag == false) //非配网状态
-//         {
-//             switch (net_mode)
-//             {
-//             case NET_AUTO: //自动选择
-//                 start_user_wifi();
-//                 //获取网络状态
-//                 if (check_rj45_status() == ESP_OK)
-//                 {
-//                     RJ45_STATUS = RJ45_CONNECTED; //
-//                     if (LAN_DNS_STATUS == 0)
-//                     {
-//                         if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
-//                         {
-//                             lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip);
-//                             LAN_DNS_STATUS = 1;
-//                         }
-//                         else
-//                         {
-//                             LAN_DNS_STATUS = 0;
-//                             // vTaskDelay(5000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
-//                         }
-//                     }
-//                 }
-//                 else
-//                 {
-//                     RJ45_STATUS = RJ45_DISCONNECT;
-//                     LAN_DNS_STATUS = 0;
-//                 }
-
-//                 //针对网络状态
-//                 if (LAN_DNS_STATUS == 0)
-//                 {
-//                     ESP_LOGD(TAG, "有线网络连接断开！\n");
-//                     if (MQTT_E_STA == 1)
-//                     {
-//                         stop_lan_mqtt();
-//                     }
-
-//                     if (wifi_connect_sta == connect_Y)
-//                     {
-//                         if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
-//                         {
-//                             start_wifi_mqtt();
-//                         }
-//                     }
-//                     else //断网断开MQTT
-//                     {
-//                         if (wifi_mqtt_status == 1 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
-//                         {
-//                             stop_wifi_mqtt();
-//                         }
-//                     }
-//                 }
-//                 else
-//                 {
-//                     ESP_LOGD(TAG, "有线网络已连接！\n");
-//                     xEventGroupSetBits(Net_sta_group, CONNECTED_BIT); //联网标志
-
-//                     if (MQTT_E_STA == 0)
-//                     {
-//                         start_lan_mqtt();
-//                     }
-//                     if (wifi_mqtt_status == 1)
-//                     {
-//                         stop_wifi_mqtt();
-//                     }
-//                 }
-
-//                 break;
-
-//             case NET_LAN: //仅网线
-//                 if (check_rj45_status() == ESP_OK)
-//                 {
-//                     RJ45_STATUS = RJ45_CONNECTED; //
-//                     if (LAN_DNS_STATUS == 0)
-//                     {
-//                         if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
-//                         {
-//                             LAN_ERR_CODE = 0;
-//                             LAN_DNS_STATUS = 1;
-//                         }
-//                         else
-//                         {
-//                             LAN_ERR_CODE = LAN_NO_IP;
-//                             LAN_DNS_STATUS = 0;
-//                             // vTaskDelay(5000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
-//                         }
-//                     }
-//                 }
-//                 else
-//                 {
-//                     LAN_ERR_CODE = LAN_NO_RJ45;
-//                     RJ45_STATUS = RJ45_DISCONNECT;
-//                     LAN_DNS_STATUS = 0;
-//                 }
-
-//                 if (LAN_DNS_STATUS == 0)
-//                 {
-//                     ESP_LOGD(TAG, "有线网络连接断开！\n");
-
-//                     Led_Status = LED_STA_WIFIERR;                       //断网
-//                     xEventGroupClearBits(Net_sta_group, CONNECTED_BIT); //断网标志
-//                     if (MQTT_E_STA == 1)
-//                     {
-//                         stop_lan_mqtt();
-//                     }
-//                 }
-//                 else
-//                 {
-//                     ESP_LOGD(TAG, "有线网络已连接！\n");
-//                     xEventGroupSetBits(Net_sta_group, CONNECTED_BIT); //联网标志
-
-//                     if (MQTT_E_STA == 0)
-//                     {
-//                         start_lan_mqtt();
-//                     }
-//                 }
-
-//                 if (wifi_mqtt_status == 1) //停用WIFI MQTT
-//                 {
-//                     stop_wifi_mqtt();
-//                 }
-
-//                 stop_user_wifi();
-//                 break;
-
-//             case NET_WIFI: //仅WIFI
-//                 LAN_DNS_STATUS = 0;
-//                 start_user_wifi();
-//                 if (MQTT_E_STA == 1)
-//                 {
-//                     stop_lan_mqtt();
-//                 }
-//                 if (wifi_connect_sta == connect_Y)
-//                 {
-//                     if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
-//                     {
-//                         start_wifi_mqtt();
-//                     }
-//                 }
-//                 else //断网断开ＭＱＴＴ
-//                 {
-//                     if (wifi_mqtt_status == 1 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
-//                     {
-//                         stop_wifi_mqtt();
-//                     }
-//                 }
-//                 break;
-
-//             default:
-//                 break;
-//             }
-//         }
-//         else
-//         {
-//             LAN_DNS_STATUS = 0;
-//             xEventGroupClearBits(Net_sta_group, CONNECTED_BIT); //断网标志
-//         }
-//         vTaskDelay(100 / portTICK_RATE_MS);
-//     }
-// }
-
 void RJ45_Task(void *arg)
 {
+    uint8_t ret_dhcp;
     xEventGroupSetBits(Net_sta_group, ETH_Task_BIT);
     RJ45_MODE = RJ45_INIT;
     while (net_mode == NET_LAN)
@@ -685,18 +487,38 @@ void RJ45_Task(void *arg)
             {
                 if ((xEventGroupGetBits(Net_sta_group) & CONNECTED_BIT) != CONNECTED_BIT)
                 {
-                    if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
+                    if (gWIZNETINFO.dhcp == NETINFO_DHCP)
+                    {
+                        ret_dhcp = DHCP_run();
+                        switch (ret_dhcp)
+                        {
+                        case DHCP_IP_LEASED:
+                            ESP_LOGI(TAG, "DHCP LEASED TIME : %d Sec\r\n", getDHCPLeasetime());
+                            xEventGroupSetBits(Net_sta_group, CONNECTED_BIT);
+                            break;
+
+                        default:
+                            Net_sta_flag = false;
+                            Net_ErrCode = 402;
+                            xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
+                            Start_Active();
+
+                            ESP_LOGI(TAG, "DHCP:%d", ret_dhcp);
+                            break;
+                        }
+                    }
+                    else
                     {
                         xEventGroupSetBits(Net_sta_group, CONNECTED_BIT);
-                    }
-                    else //获取内网IP失败
-                    {
                     }
                 }
             }
             else
             {
+                Net_sta_flag = false;
+                Net_ErrCode = 401;
                 xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
+                Start_Active();
             }
             break;
 

@@ -32,6 +32,7 @@ TaskHandle_t Active_Task_Handle = NULL;
 
 static char *TAG = "HTTP";
 uint8_t post_status = POST_NOCOMMAND;
+bool fn_dp_flag = true;
 
 esp_timer_handle_t http_timer_suspend_p = NULL;
 
@@ -51,6 +52,7 @@ void timer_heart_cb(void *arg)
     if (fn_dp)
         if (min_num * 60 % fn_dp == 0)
         {
+            fn_dp_flag = true;
             vTaskNotifyGiveFromISR(Binary_dp, NULL);
         }
 }
@@ -138,13 +140,11 @@ int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uin
 int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
 {
     xSemaphoreTake(xMutex_Http_Send, -1);
-    // xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT,
-    //                     false, true, -1); //等网络连接
 
     int32_t ret;
-    if (LAN_DNS_STATUS == 1)
+    if (net_mode == NET_LAN)
     {
-        printf("lan send!!!\n");
+        ESP_LOGI(TAG, "lan send!!!\n");
         ret = lan_http_send(send_buff, send_size, recv_buff, recv_size);
         // printf("lan_http_send return :%d\n", ret);
         xSemaphoreGive(xMutex_Http_Send);
@@ -153,7 +153,7 @@ int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uin
 
     else
     {
-        printf("wifi send!!!\n");
+        ESP_LOGI(TAG, "wifi send!!!\n");
         ret = wifi_http_send(send_buff, send_size, recv_buff, recv_size);
         xSemaphoreGive(xMutex_Http_Send);
         return ret;
@@ -165,196 +165,87 @@ void http_get_task(void *pvParameters)
 
     while (1)
     {
-        xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT,
-                            false, true, -1);
-        printf("Http send !\n");
+        xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1);
         http_send_mes();
 
         ulTaskNotifyTake(pdTRUE, -1);
     }
 }
 
-// void send_heart_task(void *arg)
-// {
-//     char recv_buf[1024] = {0};
+void http_send_mes(void)
+{
+    int ret = 0;
+    char recv_buf[1024] = {0};
+    char build_po_url[512] = {0};
+    char build_po_url_json[1024] = {0};
+    char NET_INFO[64] = {0};
 
-//     while (1)
-//     {
-//         xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT, false, true, -1); //等网络连接
-//         printf("Heart send !\n");
-//         if ((http_send_buff(build_heart_url, 256, recv_buf, 1024)) > 0)
-//         {
-//             ESP_LOGI(TAG, "hart recv:%s", recv_buf);
-//             if (parse_objects_heart(recv_buf))
-//             {
-//                 //successed
-//                 Net_sta_flag = true;
-//             }
-//             else
-//             {
-//                 Net_sta_flag = false;
-//             }
-//         }
-//         else
-//         {
-//             Net_sta_flag = false;
-//         }
+    if (LAN_DNS_STATUS == 1)
+    {
+        sprintf(NET_INFO, "&net=ethernet");
+    }
 
-//         ulTaskNotifyTake(pdTRUE, -1);
-//     }
-// }
+    creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
+    //创建POST的json格式
+    create_http_json(pCreat_json1, fn_dp_flag);
+    fn_dp_flag = false;
 
-// //定时发送心跳包
-// void timer_heart_cb(void *arg)
-// {
-//     static uint32_t min_num = 0;
+    if (post_status == POST_NOCOMMAND) //无commID
+    {
+        sprintf(build_po_url, "POST http://%s/update.json?api_key=%s&metadata=true&firmware=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n",
+                WEB_SERVER,
+                ApiKey,
+                FIRMWARE,
+                WEB_SERVER,
+                pCreat_json1->creat_json_c);
+        // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, http.POST_URL_SSID, NET_NAME,
+        //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
+    }
+    else
+    {
+        post_status = POST_NOCOMMAND;
 
-//     vTaskNotifyGiveFromISR(heart_handle, NULL);
-//     min_num++;
-//     if (fn_dp)
-//         if (min_num * 60 % fn_dp == 0)
-//         {
-//             fn_dp_flag = true;
-//             vTaskNotifyGiveFromISR(http_Handle, NULL);
-//         }
-// }
+        sprintf(build_po_url, "POST http://%s/update.json?api_key=%s&metadata=true&firmware=%s&command_id=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n",
+                WEB_SERVER,
+                ApiKey,
+                FIRMWARE,
+                mqtt_json_s.mqtt_command_id,
+                WEB_SERVER,
+                pCreat_json1->creat_json_c);
 
-// //激活流程
-// int32_t http_activate(void)
-// {
-//     char build_http[256];
-//     char recv_buf[1024];
+        // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_SSID, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
+        //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
+    }
 
-//     sprintf(build_http, "GET http://%s/products/%s/devices/%s/activate\r\n\r\n", WEB_SERVER, ProductId, SerialNum);
-//     //http.HTTP_VERSION10, http.HOST, http.USER_AHENT, http.ENTER);
+    sprintf(build_po_url_json, "%s%s", build_po_url, pCreat_json1->creat_json_b);
 
-//     ESP_LOGI(TAG, "build_http=%s\n", build_http);
+    // printf("JSON_test = : %s\n", pCreat_json1->creat_json_b);
 
-//     xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT, false, true, -1); //等网络连接
+    free(pCreat_json1);
+    ESP_LOGI(TAG, "POST:\n%s", build_po_url_json);
 
-//     if (http_send_buff(build_http, 256, recv_buf, 1024) < 0)
-//     {
-//         Net_sta_flag = false;
-//         return 101;
-//     }
-//     else
-//     {
-//         ESP_LOGI(TAG, "active recv:%s", recv_buf);
-//         if (parse_objects_http_active(recv_buf))
-//         {
-//             Net_sta_flag = true;
-//             return 1;
-//         }
-//         else
-//         {
-//             Net_sta_flag = false;
-//             return 102;
-//         }
-//     }
-// }
+    //发送并解析返回数据
+    /***********調用函數發送***********/
 
-// void http_send_mes(void)
-// {
-//     int ret = 0;
-//     char recv_buf[1024] = {0};
-//     char build_po_url[512] = {0};
-//     char build_po_url_json[1024] = {0};
-//     char NET_INFO[64] = {0};
-
-//     if (LAN_DNS_STATUS == 1)
-//     {
-//         sprintf(NET_INFO, "&net=ethernet");
-//     }
-
-//     creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
-//     //创建POST的json格式
-//     create_http_json(pCreat_json1, fn_dp_flag);
-//     fn_dp_flag = false;
-
-//     if (post_status == POST_NOCOMMAND) //无commID
-//     {
-//         sprintf(build_po_url, "POST http://%s/update.json?api_key=%s&metadata=true&firmware=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n",
-//                 WEB_SERVER,
-//                 ApiKey,
-//                 FIRMWARE,
-//                 WEB_SERVER,
-//                 pCreat_json1->creat_json_c);
-//         // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, http.POST_URL_SSID, NET_NAME,
-//         //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
-//     }
-//     else
-//     {
-//         post_status = POST_NOCOMMAND;
-
-//         sprintf(build_po_url, "POST http://%s/update.json?api_key=%s&metadata=true&firmware=%s&command_id=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n",
-//                 WEB_SERVER,
-//                 ApiKey,
-//                 FIRMWARE,
-//                 mqtt_json_s.mqtt_command_id,
-//                 WEB_SERVER,
-//                 pCreat_json1->creat_json_c);
-
-//         // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_SSID, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
-//         //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
-//     }
-
-//     sprintf(build_po_url_json, "%s%s", build_po_url, pCreat_json1->creat_json_b);
-
-//     // printf("JSON_test = : %s\n", pCreat_json1->creat_json_b);
-
-//     free(pCreat_json1);
-//     printf("build_po_url_json =\r\n%s\r\n build end \r\n", build_po_url_json);
-
-//     //发送并解析返回数据
-//     /***********調用函數發送***********/
-
-//     if (http_send_buff(build_po_url_json, 1024, recv_buf, 1024) > 0)
-//     {
-//         // printf("解析返回数据！\n");
-//         ESP_LOGI(TAG, "mes recv:%s", recv_buf);
-//         if (parse_objects_http_respond(recv_buf))
-//         {
-//             Net_sta_flag = true;
-//         }
-//         else
-//         {
-//             Net_sta_flag = false;
-//         }
-//     }
-//     else
-//     {
-//         Net_sta_flag = false;
-//         printf("send return : %d \n", ret);
-//     }
-// }
-
-// void initialise_http(void)
-// {
-//     xMutex_Http_Send = xSemaphoreCreateMutex(); //创建HTTP发送互斥信号
-
-//     esp_err_t err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
-//     xTaskCreate(&http_get_task, "htt task", 8192, NULL, 6, &http_Handle);
-//     xTaskCreate(&send_heart_task, "heart_task", 8192, NULL, 5, &heart_handle);
-
-//     while (http_activate() != 1) //激活
-//     {
-//         ESP_LOGE(TAG, "activate fail\n");
-//         vTaskDelay(2000 / portTICK_PERIOD_MS);
-//     }
-
-//     //心跳包 ,激活成功后获取
-//     sprintf(build_heart_url, "GET http://%s/heartbeat?api_key=%s HTTP/1.0\r\nHost: %sUser-Agent: dalian urban ILS1\r\n\r\n",
-//             WEB_SERVER,
-//             ApiKey,
-//             WEB_SERVER);
-//     printf("build_heart_url:%s", build_heart_url);
-
-//     err = esp_timer_start_periodic(timer_heart_handle, 60 * 1000000); //创建定时器，单位us，定时60s
-//     if (err != ESP_OK)
-//     {
-//         printf("timer heart create err code:%d\n", err);
-//     }
-// }
+    if (http_send_buff(build_po_url_json, 1024, recv_buf, 1024) > 0)
+    {
+        // printf("解析返回数据！\n");
+        ESP_LOGI(TAG, "mes recv:%s", recv_buf);
+        if (parse_objects_http_respond(recv_buf))
+        {
+            Net_sta_flag = true;
+        }
+        else
+        {
+            Net_sta_flag = false;
+        }
+    }
+    else
+    {
+        Net_sta_flag = false;
+        printf("send return : %d \n", ret);
+    }
+}
 
 //发送心跳包
 bool Send_herat(void)
@@ -364,63 +255,35 @@ bool Send_herat(void)
     bool ret = false;
     xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1); //等网络连接
 
-    xSemaphoreTake(xMutex_Http_Send, -1);
     build_heart_url = (char *)malloc(256);
     recv_buf = (char *)malloc(HTTP_RECV_BUFF_LEN);
-    if (net_mode == NET_WIFI)
-    {
-        sprintf(build_heart_url, "GET /heartbeat?api_key=%s HTTP/1.1\r\nHost: %s\r\n\r\n",
-                ApiKey,
-                WEB_SERVER);
 
-        if ((http_send_buff(build_heart_url, 256, recv_buf, HTTP_RECV_BUFF_LEN)) > 0)
+    sprintf(build_heart_url, "GET /heartbeat?api_key=%s HTTP/1.1\r\nHost: %s\r\n\r\n",
+            ApiKey,
+            WEB_SERVER);
+
+    if ((http_send_buff(build_heart_url, 256, recv_buf, HTTP_RECV_BUFF_LEN)) > 0)
+    {
+        if (parse_objects_heart(recv_buf))
         {
-            if (parse_objects_heart(recv_buf))
-            {
-                //successed
-                ret = true;
-                Net_sta_flag = true;
-            }
-            else
-            {
-                ESP_LOGE(TAG, "hart recv:%s", recv_buf);
-                ret = false;
-                Net_sta_flag = false;
-            }
+            //successed
+            ret = true;
+            Net_sta_flag = true;
         }
         else
         {
+            ESP_LOGE(TAG, "hart recv:%s", recv_buf);
             ret = false;
             Net_sta_flag = false;
-            ESP_LOGE(TAG, "hart recv 0!\r\n");
         }
     }
     else
     {
-        // sprintf(build_heart_url, "http://%s/heartbeat?api_key=%s\r\n", WEB_SERVER, ApiKey);
-        // if (EC20_Active(build_heart_url, recv_buf) == 0)
-        // {
-        //     ret = false;
-        //     Net_sta_flag = false;
-        //     ESP_LOGE(TAG, "hart recv 0!\r\n");
-        // }
-        // else
-        // {
-        //     // ESP_LOGI(TAG, "active recv:%s", recv_buf);
-        //     if (parse_objects_heart(recv_buf))
-        //     {
-        //         ret = true;
-        //         Net_sta_flag = true;
-        //     }
-        //     else
-        //     {
-        //         ret = false;
-        //         Net_sta_flag = false;
-        //     }
-        // }
+        ret = false;
+        Net_sta_flag = false;
+        ESP_LOGE(TAG, "hart recv 0!\r\n");
     }
 
-    xSemaphoreGive(xMutex_Http_Send);
     free(recv_buf);
     free(build_heart_url);
     return ret;
@@ -451,56 +314,29 @@ uint16_t http_activate(void)
     uint16_t ret = 0;
 
     xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT, false, true, -1); //等网络连接
-    xSemaphoreTake(xMutex_Http_Send, -1);
-    if (net_mode == NET_WIFI)
+
+    sprintf(build_http, "GET /products/%s/devices/%s/activate HTTP/1.1\r\nHost: %s\r\n\r\n", ProductId, SerialNum, WEB_SERVER);
+    ESP_LOGI(TAG, "%s", build_http);
+    if (http_send_buff(build_http, 256, recv_buf, HTTP_RECV_BUFF_LEN) < 0)
     {
-        sprintf(build_http, "GET /products/%s/devices/%s/activate HTTP/1.1\r\nHost: %s\r\n\r\n", ProductId, SerialNum, WEB_SERVER);
-        ESP_LOGI(TAG, "%s", build_http);
-        if (wifi_http_send(build_http, 256, recv_buf, HTTP_RECV_BUFF_LEN) < 0)
+        Net_sta_flag = false;
+        ret = 301;
+    }
+    else
+    {
+        if (parse_objects_http_active(recv_buf))
         {
-            Net_sta_flag = false;
-            ret = 301;
+            Net_sta_flag = true;
+            ret = 1;
         }
         else
         {
-            if (parse_objects_http_active(recv_buf))
-            {
-                Net_sta_flag = true;
-                ret = 1;
-            }
-            else
-            {
-                ESP_LOGE(TAG, "active recv:%s", recv_buf);
-                Net_sta_flag = false;
-                ret = 302;
-            }
+            ESP_LOGE(TAG, "active recv:%s", recv_buf);
+            Net_sta_flag = false;
+            ret = 302;
         }
     }
-    // else
-    // {
-    //     sprintf(build_http, "http://%s/products/%s/devices/%s/activate\r\n", WEB_SERVER, ProductId, SerialNum);
-    //     if (EC20_Active(build_http, recv_buf) == 0)
-    //     {
-    //         ESP_LOGE(TAG, "active ERR");
-    //         Net_sta_flag = false;
-    //         ret = 101;
-    //     }
-    //     else
-    //     {
-    //         // ESP_LOGI(TAG, "active recv:%s", recv_buf);
-    //         if (parse_objects_http_active(recv_buf))
-    //         {
-    //             Net_sta_flag = true;
-    //             ret = 1;
-    //         }
-    //         else
-    //         {
-    //             Net_sta_flag = false;
-    //             ret = 102;
-    //         }
-    //     }
-    // }
-    xSemaphoreGive(xMutex_Http_Send);
+
     free(build_http);
     free(recv_buf);
     return ret;
@@ -535,6 +371,7 @@ void Start_Active(void)
 void initialise_http(void)
 {
     xTaskCreate(send_heart_task, "send_heart_task", 4096, NULL, 5, &Binary_Heart_Send);
+    xTaskCreate(http_get_task, "http_get_task", 8192, NULL, 4, &Binary_dp);
     esp_err_t err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
     err = esp_timer_start_periodic(timer_heart_handle, 60 * 1000000); //创建定时器，单位us，定时60s
     if (err != ESP_OK)

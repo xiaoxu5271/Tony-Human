@@ -3,10 +3,12 @@
 #include "freertos/queue.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
-#include "Human.h"
 #include "Http.h"
 #include "Led.h"
 #include "Json_parse.h"
+#include "Smartconfig.h"
+
+#include "Human.h"
 
 #define ESP_INTR_FLAG_DEFAULT 0
 
@@ -72,9 +74,9 @@ void huamn_timer_cb(void *arg)
             if (Binary_dp != NULL) //立即上传数据
             {
                 vTaskNotifyGiveFromISR(Binary_dp, NULL);
+                ESP_LOGI(TAG, "Have human\n");
             }
         }
-        ESP_LOGI(TAG, "true !\n");
     }
 }
 
@@ -105,6 +107,7 @@ void Human_Task(void *arg)
 {
     human_status = false;
     vTaskDelay(30 * 1000 / portTICK_RATE_MS); //电路稳定时间，根据手册，最大30s
+    xEventGroupSetBits(Net_sta_group, HUMAN_I_BIT);
     while (1)
     {
         // if (xQueueReceive(human_evt_queue, &io_num, (30 * 1000) / portTICK_PERIOD_MS)) //30s无中断，则判断无人
@@ -121,9 +124,9 @@ void Human_Task(void *arg)
                 if (Binary_dp != NULL) //立即上传数据
                 {
                     vTaskNotifyGiveFromISR(Binary_dp, NULL);
+                    ESP_LOGI(TAG, "No human\n");
                 }
             }
-            ESP_LOGI(TAG, "false\n");
         }
     }
 }

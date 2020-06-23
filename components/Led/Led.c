@@ -4,6 +4,8 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "Human.h"
+#include "Json_parse.h"
+#include "Smartconfig.h"
 
 #include "Led.h"
 
@@ -50,6 +52,9 @@ ledc_channel_config_t ledc_channel = {.channel = LEDC_CHANNEL_0,
 *******************************************/
 static void Led_Task(void *arg)
 {
+    Led_Off();
+    Led_G_On();
+    xEventGroupWaitBits(Net_sta_group, HUMAN_I_BIT, false, true, -1);
     while (1)
     {
         //硬件错误
@@ -73,22 +78,32 @@ static void Led_Task(void *arg)
             Led_B_On();
             vTaskDelay(500 / portTICK_RATE_MS);
             Led_Off();
-            Led_Y_On();
+            Led_R_On();
             vTaskDelay(500 / portTICK_RATE_MS);
         }
         //网络错误
         else if (Net_sta_flag == false)
         {
+            Led_Off();
             Led_R_On();
             vTaskDelay(100 / portTICK_RATE_MS);
         }
         else
         {
-            if (human_status == true)
+            //开启LED指示
+            if (cg_data_led == 1)
             {
-                Led_Off();
-                Led_R_fade_On();
-                Led_R_fade_Off();
+                if (human_status == true)
+                {
+                    Led_Off();
+                    Led_R_fade_On();
+                    Led_R_fade_Off();
+                }
+                else
+                {
+                    Led_Off();
+                    vTaskDelay(100 / portTICK_RATE_MS);
+                }
             }
             else
             {
@@ -129,64 +144,32 @@ void Led_Init(void)
     xTaskCreate(Led_Task, "Led_Task", 4096, NULL, 2, &Led_Task_Handle);
 }
 
-void Led_R_On(void)
-{
-    gpio_set_level(GPIO_LED_R, 0);
-    // gpio_set_level(GPIO_LED_G, 1);
-    gpio_set_level(GPIO_LED_B, 1);
-}
-
-void Led_G_On(void)
-{
-    gpio_set_level(GPIO_LED_R, 1);
-    // gpio_set_level(GPIO_LED_G, 0);
-    gpio_set_level(GPIO_LED_B, 1);
-}
-
-void Led_B_On(void)
-{
-    gpio_set_level(GPIO_LED_R, 1);
-    // gpio_set_level(GPIO_LED_G, 1);
-    gpio_set_level(GPIO_LED_B, 0);
-}
-
-void Led_Y_On(void)
-{
-    gpio_set_level(GPIO_LED_R, 0);
-    // gpio_set_level(GPIO_LED_G, 0);
-    gpio_set_level(GPIO_LED_B, 1);
-}
-
-void Led_C_On(void) //
-{
-    gpio_set_level(GPIO_LED_R, 1);
-    // gpio_set_level(GPIO_LED_G, 0);
-    gpio_set_level(GPIO_LED_B, 0);
-}
-
 void Led_G_Off(void)
 {
     ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 1023);
     ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
 }
+void Led_R_On(void)
+{
+    gpio_set_level(GPIO_LED_R, 0);
+}
+
+void Led_G_On(void)
+{
+    ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 0);
+    ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
+}
+
+void Led_B_On(void)
+{
+    gpio_set_level(GPIO_LED_B, 0);
+}
 
 void Led_Off(void)
 {
     gpio_set_level(GPIO_LED_R, 1);
-    // gpio_set_level(GPIO_LED_G, 1);
     Led_G_Off();
     gpio_set_level(GPIO_LED_B, 1);
-}
-
-void Turn_Off_LED(void)
-{
-    vTaskSuspend(Led_Task_Handle);
-    Led_Off();
-}
-
-void Turn_ON_LED(void)
-{
-    vTaskResume(Led_Task_Handle);
 }
 
 void Led_R_fade_Off(void)

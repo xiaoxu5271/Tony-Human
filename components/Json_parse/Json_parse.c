@@ -94,21 +94,6 @@ static short Parse_metadata(char *ptrptr)
         {
             fn_dp = (uint32_t)pSubSubSub->valueint;
             printf("fn_dp = %d\n", fn_dp);
-            // if (timer_human_handle != NULL)
-            // {
-            //     human_intr_num = 0;
-            //     if (fn_dp > 0)
-            //     {
-            //         esp_timer_stop(timer_human_handle);
-            //         esp_timer_start_periodic(timer_human_handle, fn_dp * 1000000); //创建定时器，单位us
-            //         printf("start human send timer!\n");
-            //     }
-            //     else
-            //     {
-            //         esp_timer_stop(timer_human_handle);
-            //         printf("stop human send timer!\n");
-            //     }
-            // }
         }
     }
 
@@ -131,14 +116,6 @@ static short Parse_metadata(char *ptrptr)
         {
             cg_data_led = (uint8_t)pSubSubSub->valueint;
             printf("cg_data_led = %d\n", cg_data_led);
-            if (cg_data_led == 0)
-            {
-                Turn_Off_LED();
-            }
-            else
-            {
-                Turn_ON_LED();
-            }
         }
     }
 
@@ -491,7 +468,6 @@ uint16_t Create_Status_Json(char *status_buff, bool filed_flag)
 
 void create_http_json(creat_json *pCreat_json, uint8_t flag)
 {
-    printf("INTO CREATE_HTTP_JSON\r\n");
     //creat_json *pCreat_json = malloc(sizeof(creat_json));
     cJSON *root = cJSON_CreateObject();
     // cJSON *item = cJSON_CreateObject();
@@ -500,24 +476,9 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     uint8_t mac_sys[6] = {0};
     char mac_buff[32] = {0};
     char ssid64_buff[64] = {0};
-    //char status_creat_json_c[256];
 
-    //printf("Server_Timer_SEND() %s", (char *)Server_Timer_SEND());
-    //strncpy(http_json_c.http_time[20], Server_Timer_SEND(), 20);
-    // printf("this http_json_c.http_time[20]  %s\r\n", http_json_c.http_time);
     strncpy(http_json_c.http_time, Server_Timer_SEND(), 24);
     wifi_ap_record_t wifidata;
-
-    // if (tem == 0 || hum == 0) //规避错误值
-    // {
-    //     memset(mqtt_json_s.mqtt_tem, 0, sizeof(mqtt_json_s.mqtt_tem));
-    //     memset(mqtt_json_s.mqtt_hum, 0, sizeof(mqtt_json_s.mqtt_hum));
-    // }
-    // else
-    // {
-    //     sprintf(mqtt_json_s.mqtt_tem, "%4.2f", tem);
-    //     sprintf(mqtt_json_s.mqtt_hum, "%4.2f", hum);
-    // }
 
     //printf("status_creat_json %s\r\n", status_creat_json);
     cJSON_AddItemToObject(root, "feeds", fe_body);
@@ -528,12 +489,6 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     // cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_tem)); //温度
     // cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_hum)); //湿度
 
-    if (flag == 1)
-    {
-        cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
-        human_intr_num = 0;
-    }
-
     if (human_status == false)
     {
         cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
@@ -542,40 +497,46 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     {
         cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
     }
-
-    if (LAN_DNS_STATUS == 0) //wifi
+    //构建附属信息
+    if (flag == 1)
     {
-        if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+        if (net_mode == NET_WIFI) //wifi
         {
-            itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
+            if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+            {
+                itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
+            }
+            esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
+            sprintf(mac_buff,
+                    "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                    mac_sys[0],
+                    mac_sys[1],
+                    mac_sys[2],
+                    mac_sys[3],
+                    mac_sys[4],
+                    mac_sys[5]);
+            base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
+            cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
+            cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
+            cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
         }
-        esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
-        sprintf(mac_buff,
-                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                mac_sys[0],
-                mac_sys[1],
-                mac_sys[2],
-                mac_sys[3],
-                mac_sys[4],
-                mac_sys[5]);
-        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-        cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
-        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
-        cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
-    }
-    else //以太网
-    {
-        esp_read_mac(mac_sys, 3); //获取芯片内部默认出厂MAC，
-        sprintf(mac_buff,
-                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                mac_sys[0],
-                mac_sys[1],
-                mac_sys[2],
-                mac_sys[3],
-                mac_sys[4],
-                mac_sys[5]);
-        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
+        else //以太网
+        {
+            esp_read_mac(mac_sys, 3); //获取芯片内部默认出厂MAC，
+            sprintf(mac_buff,
+                    "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                    mac_sys[0],
+                    mac_sys[1],
+                    mac_sys[2],
+                    mac_sys[3],
+                    mac_sys[4],
+                    mac_sys[5]);
+            base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
+            cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
+        }
+
+        cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
+        human_intr_num = 0;
     }
 
     char *cjson_printunformat;

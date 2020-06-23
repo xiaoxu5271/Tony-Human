@@ -30,7 +30,7 @@
 /*
 ===========================
 全局变量定义
-=========================== 
+===========================
 */
 // EventGroupHandle_t Net_sta_group; //wifi建立成功信号量
 //socket
@@ -40,6 +40,8 @@ static struct sockaddr_in client_addr;             //client地址
 static unsigned int socklen = sizeof(client_addr); //地址长度
 static int connect_socket = 0;                     //连接socket
 bool g_rxtx_need_restart = false;                  //异常后，重新连接标记
+
+#define TAG "tcp" //打印的tag
 
 TaskHandle_t tx_rx_task = NULL;
 // int g_total_data = 0;

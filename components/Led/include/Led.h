@@ -38,7 +38,6 @@ enum led_sta
 void Led_R_On(void);
 void Led_G_On(void);
 void Led_B_On(void);
-void Led_Y_On(void);
 void Led_C_On(void);
 void Led_Off(void);
 void Led_B_Off(void);
