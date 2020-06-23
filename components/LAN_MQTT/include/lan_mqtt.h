@@ -6,13 +6,11 @@
 
 #if 1
 
-#define MQTT_PORT 1883
-#define MQTT_CLIEND_ID BleName       //ID
-#define MQTT_DOMAIN "mqtt.ubibot.cn" //MQTT
-#define MQTT_USER mqtt_usr           //
-#define MQTT_PASS mqtt_pwd           //
-#define MQTT_Topic mqtt_topic        //
-#define KEEPLIVE_TIME 10             //
+// #define MQTT_PORT 1883
+// #define MQTT_USER mqtt_usr    //
+// #define MQTT_PASS mqtt_pwd    //
+// #define MQTT_Topic mqtt_topic //
+#define KEEPLIVE_TIME 10 //
 
 #else
 #define MQTT_SOCKET 2
@@ -24,8 +22,6 @@
 #define MQTT_Topic "/product/28343913545840b3b9b42c568e78e243/channel/4777/control"
 
 #endif
-
-extern uint8_t lan_mqtt_status;
 
 typedef void (*mqtt_connect_callback)(void);
 

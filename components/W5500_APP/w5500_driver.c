@@ -41,13 +41,14 @@
 
 #define TAG "W5500_driver"
 
-// #define WEB_SERVER "api.ubibot.cn"
+TaskHandle_t RJ45_Task_Handle;
 
 uint32_t socker_port = 3000; //本地端口 不可变
 uint8_t ethernet_buf[ETHERNET_DATA_BUF_SIZE];
 uint8_t http_dns_host_ip[4];
 
-char current_net_ip[20]; //当前内网IP，用于上传
+char current_net_ip[20];        //当前内网IP，用于上传
+uint8_t netinfo_buff[16] = {0}; //IP 设置参数
 uint8_t server_port = 80;
 uint8_t standby_dns[4] = {8, 8, 8, 8};
 uint8_t RJ45_STATUS;
@@ -255,14 +256,12 @@ void W5500_Network_Init(void)
     // ctlwizchip(CW_SET_PHYCONF, (void *)&gWIZPHYCONF); //设置连接速度，降低功耗、温度。  然而发现并没有什么卵用
     // ctlwizchip(CW_GET_PHYCONF, (void *)&gWIZPHYCONF_READ);
 
-    EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &user_dhcp_mode); //获取DHCP模式
+    // EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &user_dhcp_mode); //获取DHCP模式
     if (user_dhcp_mode == 0)
     {
         uint8_t i = 0;
-        uint8_t netinfo_buff[16];
-
         ESP_LOGI(TAG, "dhcp mode --- 0 Static\n");
-        E2prom_page_Read(NETINFO_add, netinfo_buff, 16);
+        // E2P_Read(ETHERNET_IP_ADD, netinfo_buff, 16);
         for (uint8_t j = 0; j < 17; j++)
         {
             ESP_LOGI(TAG, "netinfo_buff[%d]:%d\n", j, netinfo_buff[j]);
@@ -325,7 +324,7 @@ void W5500_Network_Init(void)
     ESP_LOGI(TAG, "DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
 #endif
 
-    bl_flag = 0;
+    // bl_flag = 0;
     ESP_LOGI(TAG, "Network_init success!!!\n");
 }
 
@@ -499,173 +498,215 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 }
 
 /*****************RJ45_CHECK****************/
-void RJ45_Check_Task(void *arg)
+// void RJ45_Check_Task(void *arg)
+// {
+//     // uint8_t need_reinit = 1;
+//     W5500_Network_Init();
+//     while (1)
+//     {
+//         if (Cnof_net_flag == false) //非配网状态
+//         {
+//             switch (net_mode)
+//             {
+//             case NET_AUTO: //自动选择
+//                 start_user_wifi();
+//                 //获取网络状态
+//                 if (check_rj45_status() == ESP_OK)
+//                 {
+//                     RJ45_STATUS = RJ45_CONNECTED; //
+//                     if (LAN_DNS_STATUS == 0)
+//                     {
+//                         if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
+//                         {
+//                             lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip);
+//                             LAN_DNS_STATUS = 1;
+//                         }
+//                         else
+//                         {
+//                             LAN_DNS_STATUS = 0;
+//                             // vTaskDelay(5000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
+//                         }
+//                     }
+//                 }
+//                 else
+//                 {
+//                     RJ45_STATUS = RJ45_DISCONNECT;
+//                     LAN_DNS_STATUS = 0;
+//                 }
+
+//                 //针对网络状态
+//                 if (LAN_DNS_STATUS == 0)
+//                 {
+//                     ESP_LOGD(TAG, "有线网络连接断开！\n");
+//                     if (MQTT_E_STA == 1)
+//                     {
+//                         stop_lan_mqtt();
+//                     }
+
+//                     if (wifi_connect_sta == connect_Y)
+//                     {
+//                         if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
+//                         {
+//                             start_wifi_mqtt();
+//                         }
+//                     }
+//                     else //断网断开MQTT
+//                     {
+//                         if (wifi_mqtt_status == 1 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
+//                         {
+//                             stop_wifi_mqtt();
+//                         }
+//                     }
+//                 }
+//                 else
+//                 {
+//                     ESP_LOGD(TAG, "有线网络已连接！\n");
+//                     xEventGroupSetBits(Net_sta_group, CONNECTED_BIT); //联网标志
+
+//                     if (MQTT_E_STA == 0)
+//                     {
+//                         start_lan_mqtt();
+//                     }
+//                     if (wifi_mqtt_status == 1)
+//                     {
+//                         stop_wifi_mqtt();
+//                     }
+//                 }
+
+//                 break;
+
+//             case NET_LAN: //仅网线
+//                 if (check_rj45_status() == ESP_OK)
+//                 {
+//                     RJ45_STATUS = RJ45_CONNECTED; //
+//                     if (LAN_DNS_STATUS == 0)
+//                     {
+//                         if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
+//                         {
+//                             LAN_ERR_CODE = 0;
+//                             LAN_DNS_STATUS = 1;
+//                         }
+//                         else
+//                         {
+//                             LAN_ERR_CODE = LAN_NO_IP;
+//                             LAN_DNS_STATUS = 0;
+//                             // vTaskDelay(5000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
+//                         }
+//                     }
+//                 }
+//                 else
+//                 {
+//                     LAN_ERR_CODE = LAN_NO_RJ45;
+//                     RJ45_STATUS = RJ45_DISCONNECT;
+//                     LAN_DNS_STATUS = 0;
+//                 }
+
+//                 if (LAN_DNS_STATUS == 0)
+//                 {
+//                     ESP_LOGD(TAG, "有线网络连接断开！\n");
+
+//                     Led_Status = LED_STA_WIFIERR;                       //断网
+//                     xEventGroupClearBits(Net_sta_group, CONNECTED_BIT); //断网标志
+//                     if (MQTT_E_STA == 1)
+//                     {
+//                         stop_lan_mqtt();
+//                     }
+//                 }
+//                 else
+//                 {
+//                     ESP_LOGD(TAG, "有线网络已连接！\n");
+//                     xEventGroupSetBits(Net_sta_group, CONNECTED_BIT); //联网标志
+
+//                     if (MQTT_E_STA == 0)
+//                     {
+//                         start_lan_mqtt();
+//                     }
+//                 }
+
+//                 if (wifi_mqtt_status == 1) //停用WIFI MQTT
+//                 {
+//                     stop_wifi_mqtt();
+//                 }
+
+//                 stop_user_wifi();
+//                 break;
+
+//             case NET_WIFI: //仅WIFI
+//                 LAN_DNS_STATUS = 0;
+//                 start_user_wifi();
+//                 if (MQTT_E_STA == 1)
+//                 {
+//                     stop_lan_mqtt();
+//                 }
+//                 if (wifi_connect_sta == connect_Y)
+//                 {
+//                     if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
+//                     {
+//                         start_wifi_mqtt();
+//                     }
+//                 }
+//                 else //断网断开ＭＱＴＴ
+//                 {
+//                     if (wifi_mqtt_status == 1 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
+//                     {
+//                         stop_wifi_mqtt();
+//                     }
+//                 }
+//                 break;
+
+//             default:
+//                 break;
+//             }
+//         }
+//         else
+//         {
+//             LAN_DNS_STATUS = 0;
+//             xEventGroupClearBits(Net_sta_group, CONNECTED_BIT); //断网标志
+//         }
+//         vTaskDelay(100 / portTICK_RATE_MS);
+//     }
+// }
+
+void RJ45_Task(void *arg)
 {
-    // uint8_t need_reinit = 1;
-    W5500_Network_Init();
-    while (1)
+    xEventGroupSetBits(Net_sta_group, ETH_Task_BIT);
+    RJ45_MODE = RJ45_INIT;
+    while (net_mode == NET_LAN)
     {
-        if (bl_flag == 0) //非配网状态
+        switch (RJ45_MODE)
         {
-            switch (net_mode)
+        case RJ45_INIT:
+            W5500_Network_Init();
+            RJ45_MODE = RJ45_WORK;
+            break;
+
+        case RJ45_WORK:
+            if (check_rj45_status() == ESP_OK)
             {
-            case NET_AUTO: //自动选择
-                start_user_wifi();
-                //获取网络状态
-                if (check_rj45_status() == ESP_OK)
+                if ((xEventGroupGetBits(Net_sta_group) & CONNECTED_BIT) != CONNECTED_BIT)
                 {
-                    RJ45_STATUS = RJ45_CONNECTED; //
-                    if (LAN_DNS_STATUS == 0)
+                    if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
                     {
-                        if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
-                        {
-                            lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip);
-                            LAN_DNS_STATUS = 1;
-                        }
-                        else
-                        {
-                            LAN_DNS_STATUS = 0;
-                            // vTaskDelay(5000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
-                        }
+                        xEventGroupSetBits(Net_sta_group, CONNECTED_BIT);
+                    }
+                    else //获取内网IP失败
+                    {
                     }
                 }
-                else
-                {
-                    RJ45_STATUS = RJ45_DISCONNECT;
-                    LAN_DNS_STATUS = 0;
-                }
-
-                //针对网络状态
-                if (LAN_DNS_STATUS == 0)
-                {
-                    ESP_LOGD(TAG, "有线网络连接断开！\n");
-                    if (lan_mqtt_status == 1)
-                    {
-                        stop_lan_mqtt();
-                    }
-
-                    if (wifi_connect_sta == connect_Y)
-                    {
-                        if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
-                        {
-                            start_wifi_mqtt();
-                        }
-                    }
-                    else //断网断开MQTT
-                    {
-                        if (wifi_mqtt_status == 1 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
-                        {
-                            stop_wifi_mqtt();
-                        }
-                    }
-                }
-                else
-                {
-                    ESP_LOGD(TAG, "有线网络已连接！\n");
-                    xEventGroupSetBits(wifi_event_group, CONNECTED_BIT); //联网标志
-
-                    if (lan_mqtt_status == 0)
-                    {
-                        start_lan_mqtt();
-                    }
-                    if (wifi_mqtt_status == 1)
-                    {
-                        stop_wifi_mqtt();
-                    }
-                }
-
-                break;
-
-            case NET_LAN: //仅网线
-                if (check_rj45_status() == ESP_OK)
-                {
-                    RJ45_STATUS = RJ45_CONNECTED; //
-                    if (LAN_DNS_STATUS == 0)
-                    {
-                        if (W5500_DHCP_Init() == SUCCESS) //获取内网IP成功
-                        {
-                            LAN_ERR_CODE = 0;
-                            LAN_DNS_STATUS = 1;
-                        }
-                        else
-                        {
-                            LAN_ERR_CODE = LAN_NO_IP;
-                            LAN_DNS_STATUS = 0;
-                            // vTaskDelay(5000 / portTICK_RATE_MS); //失败后延时重新开启DHCP
-                        }
-                    }
-                }
-                else
-                {
-                    LAN_ERR_CODE = LAN_NO_RJ45;
-                    RJ45_STATUS = RJ45_DISCONNECT;
-                    LAN_DNS_STATUS = 0;
-                }
-
-                if (LAN_DNS_STATUS == 0)
-                {
-                    ESP_LOGD(TAG, "有线网络连接断开！\n");
-
-                    Led_Status = LED_STA_WIFIERR;                          //断网
-                    xEventGroupClearBits(wifi_event_group, CONNECTED_BIT); //断网标志
-                    if (lan_mqtt_status == 1)
-                    {
-                        stop_lan_mqtt();
-                    }
-                }
-                else
-                {
-                    ESP_LOGD(TAG, "有线网络已连接！\n");
-                    xEventGroupSetBits(wifi_event_group, CONNECTED_BIT); //联网标志
-
-                    if (lan_mqtt_status == 0)
-                    {
-                        start_lan_mqtt();
-                    }
-                }
-
-                if (wifi_mqtt_status == 1) //停用WIFI MQTT
-                {
-                    stop_wifi_mqtt();
-                }
-
-                stop_user_wifi();
-                break;
-
-            case NET_WIFI: //仅WIFI
-                LAN_DNS_STATUS = 0;
-                start_user_wifi();
-                if (lan_mqtt_status == 1)
-                {
-                    stop_lan_mqtt();
-                }
-                if (wifi_connect_sta == connect_Y)
-                {
-                    if (wifi_mqtt_status == 0 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
-                    {
-                        start_wifi_mqtt();
-                    }
-                }
-                else //断网断开ＭＱＴＴ
-                {
-                    if (wifi_mqtt_status == 1 && MQTT_INIT_STA == 1) //WIFI_MQTT初始化完成
-                    {
-                        stop_wifi_mqtt();
-                    }
-                }
-                break;
-
-            default:
-                break;
             }
+            else
+            {
+                xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
+            }
+            break;
+
+        default:
+            break;
         }
-        else
-        {
-            LAN_DNS_STATUS = 0;
-            xEventGroupClearBits(wifi_event_group, CONNECTED_BIT); //断网标志
-        }
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
+    xEventGroupClearBits(Net_sta_group, ETH_Task_BIT);
+    vTaskDelete(NULL);
 }
 
 /*******************有线网初始化*******************/
@@ -695,9 +736,26 @@ int8_t w5500_user_int(void)
     }
     ETH_FLAG = true;
 
-    xTaskCreate(RJ45_Check_Task, "RJ45_Check_Task", 4096, NULL, 7, NULL); //创建任务，不断检查RJ45连接状态
+    if (net_mode == NET_LAN)
+    {
+        Start_Eth_Net();
+    }
+    // xTaskCreate(RJ45_Check_Task, "RJ45_Check_Task", 4096, NULL, 7, NULL); //创建任务，不断检查RJ45连接状态
 
     return SUCCESS;
+}
+
+void Start_Eth_Net(void)
+{
+    if ((xEventGroupGetBits(Net_sta_group) & ETH_Task_BIT) != ETH_Task_BIT)
+    {
+        xTaskCreate(RJ45_Task, "RJ45_Task", 4096, NULL, 20, &RJ45_Task_Handle);
+    }
+    RJ45_MODE = RJ45_INIT;
+}
+
+void Stop_Eth_Net(void)
+{
 }
 
 /*******************************************************************************

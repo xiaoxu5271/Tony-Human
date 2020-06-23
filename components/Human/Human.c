@@ -69,9 +69,9 @@ void huamn_timer_cb(void *arg)
         if (human_status == false)
         {
             human_status = true;
-            if (http_Handle != NULL) //立即上传数据
+            if (Binary_dp != NULL) //立即上传数据
             {
-                vTaskNotifyGiveFromISR(http_Handle, NULL);
+                vTaskNotifyGiveFromISR(Binary_dp, NULL);
             }
         }
         ESP_LOGI(TAG, "true !\n");
@@ -118,9 +118,9 @@ void Human_Task(void *arg)
             if (human_status == true)
             {
                 human_status = false;
-                if (heart_handle != NULL) //立即上传数据
+                if (Binary_dp != NULL) //立即上传数据
                 {
-                    vTaskNotifyGiveFromISR(heart_handle, NULL);
+                    vTaskNotifyGiveFromISR(Binary_dp, NULL);
                 }
             }
             ESP_LOGI(TAG, "false\n");

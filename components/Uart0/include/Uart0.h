@@ -19,11 +19,6 @@ WallKey应用函数，给入Key_Id(蓝牙发送过来的)和方向左0右1
 #ifndef _USERUART0_H_
 #define _USERUART0_H_
 
-
-
-extern void Uart0_Init(void);
-extern void Uart0_read(void);
-
+void Uart0_Init(void);
 
 #endif
-

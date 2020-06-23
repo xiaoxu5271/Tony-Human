@@ -12,7 +12,6 @@
 #include "nvs_flash.h"
 // #include "platform.h"
 
-#include "lan_mqtt.h"
 #include "w5500_socket.h"
 // #include "MQTTConnect.h"
 #include "MQTTPacket.h"
@@ -20,13 +19,13 @@
 #include "Json_parse.h"
 #include "Smartconfig.h"
 #include "Http.h"
+#include "Mqtt.h"
 
+#include "lan_mqtt.h"
 #define TAG "LAN_MQTT"
 
 TaskHandle_t lan_mqtt_Handle = NULL;
 MQTTPacket_connectData user_MQTTPacket_ConnectData;
-
-uint8_t lan_mqtt_status = 0;
 
 static int transport_getdata(uint8_t *buf, int count)
 {
@@ -38,9 +37,9 @@ void lan_mqtt_init(void)
     user_MQTTPacket_ConnectData.keepAliveInterval = 60;
     user_MQTTPacket_ConnectData.MQTTVersion = 3;    //mqtt version
     user_MQTTPacket_ConnectData.struct_version = 0; //must be 0
-    user_MQTTPacket_ConnectData.username.cstring = MQTT_USER;
-    user_MQTTPacket_ConnectData.password.cstring = MQTT_PASS;
-    user_MQTTPacket_ConnectData.clientID.cstring = MQTT_CLIEND_ID;
+    user_MQTTPacket_ConnectData.username.cstring = mqtt_usr;
+    user_MQTTPacket_ConnectData.password.cstring = mqtt_pwd;
+    // user_MQTTPacket_ConnectData.clientID.cstring = MQTT_CLIEND_ID;
     // xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 3, &lan_mqtt_Handle); //开启 LAN_MQTT
 }
 uint8_t mqtt_remote_ip[4];
@@ -213,7 +212,7 @@ static int8_t mqtt()
         ESP_LOGI(TAG, "MQTT> connected.\r\n");
         memset(mqtt_buff, 0, sizeof(mqtt_buff));
 
-        if (mqtt_subscribe(MQTT_Topic)) //订阅
+        if (mqtt_subscribe(topic_p)) //订阅
         {
             ESP_LOGI(TAG, "MQTT> subscribe success.\r\n");
             while (1) //开始接收数据，阻塞任务
@@ -255,7 +254,7 @@ static int8_t mqtt()
 
                         strcpy((char *)msg_rev_buf, (const char *)payload_in);
                         printf("message arrived %d: %s\n\r", payloadlen_in, (char *)msg_rev_buf);
-                        parse_objects_mqtt((char *)msg_rev_buf); //收到平台MQTT数据并解析
+                        parse_objects_mqtt((char *)msg_rev_buf, false); //收到平台MQTT数据并解析
 
                         HighWaterMark = uxTaskGetStackHighWaterMark(NULL);
                         printf("MQTT-TASK HighWaterMark=%d \n", HighWaterMark);
@@ -318,7 +317,7 @@ void lan_mqtt_task(void *pvParameter)
             ESP_LOGI(TAG, "MQTT> SOCK_CLOSE.\r\n");
             if (LAN_DNS_STATUS == 0)
             {
-                lan_mqtt_status = 0;
+                MQTT_E_STA = 0;
                 ESP_LOGI(TAG, "vTaskDelete LAN_MQTT!\r\n");
                 vTaskDelete(NULL); //网线断开，删除任务
             }
@@ -368,14 +367,24 @@ void lan_mqtt_task(void *pvParameter)
 
 void start_lan_mqtt(void)
 {
-    printf("start_lan_mqtt!\n");
-    // xTaskResumeFromISR(lan_mqtt_Handle);
-    lan_mqtt_status = 1;
-    xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 10, NULL);
+
+    if ((xEventGroupGetBits(Net_sta_group) & (MQTT_E_S_BIT | MQTT_INITED_BIT)) == MQTT_INITED_BIT) //设备激活过，但MQTT未启动
+    {
+        ESP_LOGI(TAG, "start_lan_mqtt!\n");
+        MQTT_E_STA = 1;
+        xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 10, NULL);
+        xEventGroupSetBits(Net_sta_group, MQTT_E_S_BIT);
+    }
 }
 
 void stop_lan_mqtt(void)
 {
-    printf("stop lan mqtt!\n");
-    lan_close(MQTT_SOCKET);
+
+    if ((xEventGroupGetBits(Net_sta_group) & MQTT_E_S_BIT) == MQTT_E_S_BIT)
+    {
+        ESP_LOGI(TAG, "stop lan mqtt!\n");
+        lan_close(MQTT_SOCKET);
+        MQTT_E_STA = false;
+        xEventGroupClearBits(Net_sta_group, MQTT_E_S_BIT);
+    }
 }

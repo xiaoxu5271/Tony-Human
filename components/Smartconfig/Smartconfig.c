@@ -4,315 +4,280 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-
+#include "esp_event.h"
 #include "esp_wifi.h"
 #include "esp_wpa2.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
-
 #include "nvs_flash.h"
-#include "tcpip_adapter.h"
 #include "esp_smartconfig.h"
 /*  user include */
-#include "Smartconfig.h"
 #include "esp_log.h"
 #include "Led.h"
-#include "tcp_bsp.h"
-#include "w5500_driver.h"
+// #include "tcp_bsp.h"
+// #include "w5500_driver.h"
 #include "Json_parse.h"
 #include "Bluetooth.h"
+#include "Mqtt.h"
+#include "Http.h"
+#include "w5500_driver.h"
 
-TaskHandle_t my_tcp_connect_Handle;
-EventGroupHandle_t wifi_event_group;
-EventGroupHandle_t tcp_event_group;
+#include "Smartconfig.h"
+#define TAG "NET_CFG"
 
-wifi_config_t s_staconf;
+// TaskHandle_t my_tcp_connect_Handle;
+// EventGroupHandle_t tcp_event_group;
 
-uint8_t wifi_connect_sta = connect_N;
-uint8_t wifi_work_sta = turn_on;
 uint8_t start_AP = 0;
-uint8_t bl_flag = 0; //蓝牙配网模式
-uint16_t Wifi_ErrCode = 0;
+uint16_t Net_ErrCode = 0;
+bool scan_flag = false;
 
-static esp_err_t event_handler(void *ctx, system_event_t *event)
+static void event_handler(void *arg, esp_event_base_t event_base,
+                          int32_t event_id, void *event_data)
 {
-    switch (event->event_id)
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
     {
-    case SYSTEM_EVENT_STA_START:
-        //esp_wifi_connect();
-        break;
-
-    case SYSTEM_EVENT_STA_GOT_IP:
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-        wifi_connect_sta = connect_Y;
-        break;
-
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        Wifi_ErrCode = event->event_info.disconnected.reason;
-        ESP_LOGI(TAG, "断网,Wifi_ErrCode:%d", Wifi_ErrCode);
-        if (Wifi_ErrCode >= 1 && Wifi_ErrCode <= 24) //适配APP，
+        if (scan_flag == false)
         {
-            Wifi_ErrCode += 300;
+            esp_wifi_connect();
         }
-
-        wifi_connect_sta = connect_N;
-        if (start_AP == 1 || bl_flag == 1) //判断是不是要进入配网模式
-        {
-            xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-        }
-        else
-        {
-            switch (net_mode) //选择网络模式
-            {
-            case NET_AUTO:
-                if (LAN_DNS_STATUS == 0)
-                {
-                    Net_sta_flag = false;
-                    xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-                }
-                esp_wifi_connect();
-                ESP_LOGI(TAG, "reconnect! ");
-                break;
-
-            case NET_LAN:
-                break;
-
-            case NET_WIFI:
-                Net_sta_flag = false;
-                xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-                esp_wifi_connect();
-                ESP_LOGI(TAG, "reconnect! ");
-                break;
-
-            default:
-                break;
-            }
-        }
-
-        break;
-
-    case SYSTEM_EVENT_AP_STACONNECTED: //AP模式-有STA连接成功
-        //作为ap，有sta连接
-        ESP_LOGI(TAG, "station:" MACSTR " join,AID=%d\n",
-                 MAC2STR(event->event_info.sta_connected.mac),
-                 event->event_info.sta_connected.aid);
-        xEventGroupSetBits(tcp_event_group, AP_STACONNECTED_BIT);
-        break;
-
-    case SYSTEM_EVENT_AP_STADISCONNECTED: //AP模式-有STA断线
-        ESP_LOGI(TAG, "station:" MACSTR "leave,AID=%d\n",
-                 MAC2STR(event->event_info.sta_disconnected.mac),
-                 event->event_info.sta_disconnected.aid);
-
-        g_rxtx_need_restart = true;
-        xEventGroupClearBits(tcp_event_group, AP_STACONNECTED_BIT);
-        break;
-
-    case SYSTEM_EVENT_STA_LOST_IP:
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+    {
         if (net_mode == NET_WIFI)
         {
-            ESP_LOGI(TAG, "SYSTEM_EVENT_STA_LOST_IP,reconnect! ");
-            esp_restart();
+            Net_sta_flag = false;
+            xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
+            Start_Active();
         }
-        break;
 
-    default:
-        ESP_LOGI(TAG, "event->event_id:%d", event->event_id);
-        break;
+        wifi_event_sta_disconnected_t *event = (wifi_event_sta_disconnected_t *)event_data;
+        if (event->reason >= 200)
+        {
+            Net_ErrCode = event->reason;
+        }
+        ESP_LOGI(TAG, "Wi-Fi disconnected,reason:%d", event->reason);
+        if (scan_flag == false)
+        {
+            esp_wifi_connect();
+        }
     }
-    return ESP_OK;
-}
-
-void initialise_wifi(void) //(char *wifi_ssid, char *wifi_password)
-{
-    // printf("WIFI Reconnect,SSID=%s,PWD=%s\r\n", wifi_ssid, wifi_password);
-    // bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
-    // strcpy(wifi_data.wifi_ssid, wifi_ssid);
-
-    // Led_Status = LED_STA_WIFIERR; //断网
-    xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-    // esp_wifi_connect();
-
-    // ESP_ERROR_CHECK(esp_wifi_stop());
-    // ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
-
-    // if (s_staconf.sta.ssid[0] != '\0') //判断当前系统中是否有WIFI信息,
-    // {
-    //     memset(&s_staconf.sta, 0, sizeof(s_staconf)); //清空原有数据
-    // }
-    // strcpy((char *)s_staconf.sta.ssid, wifi_data.wifi_ssid);
-    // strcpy((char *)s_staconf.sta.password, wifi_data.wifi_pwd);
-
-    // if (start_AP == 1) //如果是从AP模式进入，则需要重新设置为STA模式
-    // {
-    //     start_AP = 0;
-    //     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    // }
-
-    // ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
-    // ESP_ERROR_CHECK(esp_wifi_start());
-    // esp_wifi_connect();
-
-    esp_wifi_deinit();
-
-    tcpip_adapter_init();
-
-    // ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE)); //实验，测试解决wifi中断问题
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    // ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
-
-    memset(&s_staconf.sta, 0, sizeof(s_staconf));
-    strcpy((char *)s_staconf.sta.ssid, wifi_data.wifi_ssid);
-    strcpy((char *)s_staconf.sta.password, wifi_data.wifi_pwd);
-
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
-    ESP_ERROR_CHECK(esp_wifi_start());
-    esp_wifi_connect();
-
-    bl_flag = 0; //重初始化后置位
-}
-
-void reconnect_wifi_usr(void)
-{
-    printf("WIFI Reconnect\r\n");
-    ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
-
-    ESP_ERROR_CHECK(esp_wifi_stop());
-    memset(&s_staconf.sta, 0, sizeof(s_staconf));
-
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
-    start_user_wifi();
+    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+    {
+        xEventGroupSetBits(Net_sta_group, CONNECTED_BIT);
+        Start_Active();
+        // ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+        // ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+    }
 }
 
 void init_wifi(void) //
 {
     start_AP = 0;
-    tcpip_adapter_init();
-    wifi_event_group = xEventGroupCreate();
-    memset(&s_staconf.sta, 0, sizeof(s_staconf));
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    // tcpip_adapter_init();
+    // Net_sta_group = xEventGroupCreate();
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_create_default_wifi_sta();
 
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE)); //实验，测试解决wifi中断问题
+
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
-    // if (s_staconf.sta.ssid[0] != '\0')
+    // ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
+    // wifi_config_t s_staconf;
+    // memset(&s_staconf.sta, 0, sizeof(s_staconf));
+    // strcpy((char *)s_staconf.sta.ssid, wifi_data.wifi_ssid);
+    // strcpy((char *)s_staconf.sta.password, wifi_data.wifi_pwd);
+
+    // ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
+    if (net_mode == NET_WIFI)
     {
-        printf("wifi_init_sta finished.");
-        printf("connect to ap SSID:%s password:%s\r\n",
-               s_staconf.sta.ssid, s_staconf.sta.password);
-
-        bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
-        strcpy(wifi_data.wifi_ssid, (char *)s_staconf.sta.ssid);
-
-        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
-        ESP_ERROR_CHECK(esp_wifi_start());
-        esp_wifi_connect();
-        //Led_Status = LED_STA_TOUCH;
+        xEventGroupSetBits(Net_sta_group, WIFI_S_BIT);
+        start_user_wifi();
     }
-    // else
-    // {
-    //     // printf("Waiting for SetupWifi ....\r\n");
-    //     // wifi_init_softap();
-    //     // my_tcp_connect();
-    // }
-}
-
-/*
-* WIFI作为AP的初始化
-* @param[in]   void  		       :无
-* @retval      void                :无
-* @note        修改日志 
-*               Ver0.0.1:
-                    hx-zsj, 2018/08/06, 初始化版本\n 
-*/
-
-//TaskHandle_t my_tcp_connect_Handle = NULL;
-void wifi_init_softap(void)
-{
-    tcp_event_group = xEventGroupCreate();
-    start_AP = 1;
-    ESP_ERROR_CHECK(esp_wifi_stop());
-    wifi_config_t wifi_config = {
-        .ap = {
-            .ssid = SOFT_AP_SSID, // SOFT_AP_SSID,
-            .password = SOFT_AP_PAS,
-            .ssid_len = 0,
-            .max_connection = SOFT_AP_MAX_CONNECT,
-            .authmode = WIFI_AUTH_WPA_WPA2_PSK}};
-    if (strlen(SOFT_AP_PAS) == 0)
-    {
-        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-    }
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-    ESP_LOGI(TAG, "SoftAP set finish,SSID:%s password:%s \n",
-             wifi_config.ap.ssid, wifi_config.ap.password);
-
-    //my_tcp_connect_Handle = NULL;
-    xTaskCreate(&my_tcp_connect_task, "my_tcp_connect_task", 4096, NULL, 5, &my_tcp_connect_Handle);
-}
-
-/*
-* WIFI作为AP+STA的初始化
-* @param[in]   void  		       :无
-* @retval      void                :无
-* @note        修改日志 
-*               Ver0.0.1:
-
-*/
-void wifi_init_apsta(void)
-{
-    wifi_event_group = xEventGroupCreate();
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    wifi_config_t sta_wifi_config;
-    ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &sta_wifi_config));
-
-    wifi_config_t ap_wifi_config =
-        {
-            .ap = {
-                .ssid = "esp32_ap",
-                .password = "",
-                //     .authmode = WIFI_AUTH_WPA_WPA2_PSK,
-                .max_connection = 1,
-            },
-        };
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 void stop_user_wifi(void)
 {
-    if (wifi_work_sta == turn_on)
+    if ((xEventGroupGetBits(Net_sta_group) & WIFI_S_BIT) == WIFI_S_BIT)
     {
-        ESP_ERROR_CHECK(esp_wifi_stop());
-        wifi_work_sta = turn_off;
-        printf("turn off WIFI! \n");
+        xEventGroupClearBits(Net_sta_group, WIFI_S_BIT);
+        esp_err_t err = esp_wifi_stop();
+        if (err == ESP_ERR_WIFI_NOT_INIT)
+        {
+            return;
+        }
+        ESP_ERROR_CHECK(err);
+        ESP_LOGI(TAG, "turn off WIFI! \n");
+    }
+    else
+    {
+        ESP_LOGI(TAG, "WIFI not start! \n");
     }
 }
 
 void start_user_wifi(void)
 {
-    if (wifi_work_sta == turn_off && bl_flag == 0)
+    if ((xEventGroupGetBits(Net_sta_group) & WIFI_S_BIT) == WIFI_S_BIT)
     {
-        ESP_ERROR_CHECK(esp_wifi_start());
-        esp_wifi_connect();
+        esp_err_t err = esp_wifi_stop();
+        if (err == ESP_ERR_WIFI_NOT_INIT)
+        {
+            return;
+        }
+        ESP_ERROR_CHECK(err);
+    }
+    xEventGroupSetBits(Net_sta_group, WIFI_S_BIT);
+    wifi_config_t s_staconf;
+    memset(&s_staconf.sta, 0, sizeof(s_staconf));
+    strcpy((char *)s_staconf.sta.ssid, wifi_data.wifi_ssid);
+    strcpy((char *)s_staconf.sta.password, wifi_data.wifi_pwd);
+    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &s_staconf));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_LOGI(TAG, "turn on WIFI! \n");
+}
 
-        wifi_work_sta = turn_on;
-        printf("turn on WIFI! \n");
+//网络状态转换任务
+void Net_Switch(void)
+{
+    xEventGroupClearBits(Net_sta_group, ACTIVED_BIT);
+    xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
+    ESP_LOGI("Net_Switch", "net_mode=%d", net_mode);
+    switch (net_mode)
+    {
+    case NET_WIFI:
+        start_user_wifi();
+        Start_W_Mqtt();
+
+        break;
+
+    case NET_LAN:
+        stop_user_wifi();
+        Start_Eth_Net();
+        Stop_W_Mqtt();
+
+        // if (eTaskGetState(EC20_Task_Handle) == eSuspended)
+        // {
+        //     vTaskResume(EC20_Task_Handle);
+        // }
+
+        break;
+
+    default:
+        break;
     }
 }
+
+#define DEFAULT_SCAN_LIST_SIZE 5
+void Scan_Wifi(void)
+{
+    uint16_t number = DEFAULT_SCAN_LIST_SIZE;
+    wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE];
+    uint16_t ap_count = 0;
+    memset(ap_info, 0, sizeof(ap_info));
+    scan_flag = true;
+    start_user_wifi();
+
+    if (esp_wifi_scan_start(NULL, true) != ESP_OK)
+    {
+        ESP_LOGE(TAG, "esp_wifi_scan_start FAIL");
+        scan_flag = false;
+        return;
+    }
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+    ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
+    for (int i = 0; (i < DEFAULT_SCAN_LIST_SIZE) && (i < ap_count); i++)
+    {
+        // ESP_LOGI(TAG, "SSID \t\t%s", ap_info[i].ssid);
+        // ESP_LOGI(TAG, "RSSI \t\t%d", ap_info[i].rssi);
+        // ESP_LOGI(TAG, "Channel \t\t%d\n", ap_info[i].primary);
+        printf("{\"SSID\":\"%s\",\"rssi\":%d}\n\r", ap_info[i].ssid, ap_info[i].rssi);
+    }
+
+    scan_flag = false;
+    if (net_mode == NET_WIFI)
+    {
+        start_user_wifi();
+    }
+    else
+    {
+        stop_user_wifi();
+    }
+}
+
+// /*
+// * WIFI作为AP的初始化
+// * @param[in]   void  		       :无
+// * @retval      void                :无
+// * @note        修改日志
+// *               Ver0.0.1:
+//                     hx-zsj, 2018/08/06, 初始化版本\n
+// */
+
+// //TaskHandle_t my_tcp_connect_Handle = NULL;
+// void wifi_init_softap(void)
+// {
+//     tcp_event_group = xEventGroupCreate();
+//     start_AP = 1;
+//     Led_Status = LED_STA_AP;
+//     ESP_ERROR_CHECK(esp_wifi_stop());
+//     wifi_config_t wifi_config = {
+//         .ap = {
+//             .ssid = SOFT_AP_SSID, // SOFT_AP_SSID,
+//             .password = SOFT_AP_PAS,
+//             .ssid_len = 0,
+//             .max_connection = SOFT_AP_MAX_CONNECT,
+//             .authmode = WIFI_AUTH_WPA_WPA2_PSK}};
+//     if (strlen(SOFT_AP_PAS) == 0)
+//     {
+//         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+//     }
+//     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+//     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
+//     ESP_ERROR_CHECK(esp_wifi_start());
+//     ESP_LOGI(TAG, "SoftAP set finish,SSID:%s password:%s \n",
+//              wifi_config.ap.ssid, wifi_config.ap.password);
+
+//     //my_tcp_connect_Handle = NULL;
+//     xTaskCreate(&my_tcp_connect_task, "my_tcp_connect_task", 4096, NULL, 5, &my_tcp_connect_Handle);
+// }
+
+// /*
+// * WIFI作为AP+STA的初始化
+// * @param[in]   void  		       :无
+// * @retval      void                :无
+// * @note        修改日志
+// *               Ver0.0.1:
+
+// */
+// void wifi_init_apsta(void)
+// {
+//     Net_sta_group = xEventGroupCreate();
+//     tcpip_adapter_init();
+//     ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
+//     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+//     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+//     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+//     wifi_config_t sta_wifi_config;
+//     ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &sta_wifi_config));
+
+//     wifi_config_t ap_wifi_config =
+//         {
+//             .ap = {
+//                 .ssid = "esp32_ap",
+//                 .password = "",
+//                 //     .authmode = WIFI_AUTH_WPA_WPA2_PSK,
+//                 .max_connection = 1,
+//             },
+//         };
+
+//     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+//     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_wifi_config));
+//     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &ap_wifi_config));
+//     ESP_ERROR_CHECK(esp_wifi_start());
+// }

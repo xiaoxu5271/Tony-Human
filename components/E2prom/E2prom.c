@@ -4,12 +4,20 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
-#include "E2prom.h"
+#include "Json_parse.h"
+#include "Http.h"
+#include "user_key.h"
 #include "Led.h"
+#include "crc8_16.h"
+#include "ota.h"
 
-#define TAG "EEPROM"
+#include "E2prom.h"
 
-void eeprom_check(void);
+static const char *TAG = "EEPROM";
+SemaphoreHandle_t At24_Mutex = NULL;
+
+static bool AT24CXX_Check(void);
+static void E2prom_read_defaul(void);
 
 void E2prom_Init(void)
 {
@@ -26,17 +34,26 @@ void E2prom_Init(void)
                        I2C_MASTER_RX_BUF_DISABLE,
                        I2C_MASTER_TX_BUF_DISABLE, 0);
 
-    eeprom_check();
+    At24_Mutex = xSemaphoreCreateMutex();
+
+    while (AT24CXX_Check() != true)
+    {
+        vTaskDelay(1000 / portTICK_RATE_MS);
+        ESP_LOGE(TAG, "eeprom err !");
+        E2P_FLAG = false;
+        return;
+    }
+    E2P_FLAG = true;
 }
 
-esp_err_t EE_byte_Write(uint8_t page, uint8_t reg_addr, uint8_t dat)
+esp_err_t AT24CXX_WriteOneByte(uint16_t reg_addr, uint8_t dat)
 {
+    xSemaphoreTake(At24_Mutex, -1);
     int ret;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, page, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
-
+    i2c_master_write_byte(cmd, (DEV_ADD + ((reg_addr / 256) << 1)), ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, (reg_addr % 256), ACK_CHECK_EN);
     i2c_master_write_byte(cmd, dat, ACK_CHECK_EN);
 
     i2c_master_stop(cmd);
@@ -44,490 +61,483 @@ esp_err_t EE_byte_Write(uint8_t page, uint8_t reg_addr, uint8_t dat)
     i2c_cmd_link_delete(cmd);
 
     vTaskDelay(20 / portTICK_RATE_MS);
-
+    xSemaphoreGive(At24_Mutex);
     return ret;
 }
-
-esp_err_t EE_byte_Read(uint8_t page, uint8_t reg_addr, uint8_t *dat)
+esp_err_t AT24CXX_Write(uint16_t reg_addr, uint8_t *dat, uint16_t len)
 {
+    while (len)
+    {
+        AT24CXX_WriteOneByte(reg_addr, *dat);
+        reg_addr++;
+        dat++;
+        len--;
+    }
+    return ESP_OK;
+}
+
+uint8_t AT24CXX_ReadOneByte(uint16_t reg_addr)
+{
+    xSemaphoreTake(At24_Mutex, -1);
+    uint8_t temp = 0;
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (DEV_ADD + ((reg_addr / 256) << 1)), ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, (reg_addr % 256), ACK_CHECK_EN);
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, DEV_ADD + 1, ACK_CHECK_EN);
+
+    i2c_master_read_byte(cmd, &temp, NACK_VAL); //只读1 byte 不需要应答
+
+    i2c_master_stop(cmd);
+    i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+
+    vTaskDelay(20 / portTICK_RATE_MS);
+    xSemaphoreGive(At24_Mutex);
+    return temp;
+}
+esp_err_t AT24CXX_Read(uint16_t reg_addr, uint8_t *dat, uint16_t len)
+{
+    while (len)
+    {
+        *dat = AT24CXX_ReadOneByte(reg_addr);
+        reg_addr++;
+        dat++;
+        len--;
+    }
+    return ESP_OK;
+}
+
+esp_err_t FM24C_Write(uint16_t reg_addr, uint8_t *dat, uint16_t len)
+{
+    xSemaphoreTake(At24_Mutex, -1);
     int ret;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, page, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
 
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, page + 1, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, DEV_ADD, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, (reg_addr & 0xff00) >> 8, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, reg_addr & 0xff, ACK_CHECK_EN);
 
-    i2c_master_read_byte(cmd, dat, NACK_VAL); //只读1 byte 不需要应答
+    while (len)
+    {
+        i2c_master_write_byte(cmd, *dat, ACK_CHECK_EN); //send data value
+        dat++;
+        len--;
+    }
 
     i2c_master_stop(cmd);
     ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
 
-    vTaskDelay(20 / portTICK_RATE_MS);
+    xSemaphoreGive(At24_Mutex);
     return ret;
 }
 
-static esp_err_t EE_Page_Write(uint8_t page, uint8_t reg_addr, uint8_t *dat, int length)
+esp_err_t FM24C_Read(uint16_t reg_addr, uint8_t *dat, uint16_t len)
 {
-    int ret;
-    int i;
+    xSemaphoreTake(At24_Mutex, -1);
+    int ret, i;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, page, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
-    for (i = 0; i < length; i++)
+
+    i2c_master_write_byte(cmd, DEV_ADD, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, (reg_addr & 0xff00) >> 8, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, reg_addr & 0xff, ACK_CHECK_EN);
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, DEV_ADD + 1, ACK_CHECK_EN);
+
+    for (i = 0; i < len; i++)
     {
-        i2c_master_write_byte(cmd, *dat, ACK_CHECK_EN);
+        if (i == len - 1)
+        {
+            i2c_master_read_byte(cmd, dat, NACK_VAL); //只读1 byte 不需要应答;  //read a byte no ack
+        }
+        else
+        {
+            i2c_master_read_byte(cmd, dat, ACK_VAL); //read a byte ack
+        }
         dat++;
     }
+
     i2c_master_stop(cmd);
     ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
+
+    xSemaphoreGive(At24_Mutex);
     return ret;
 }
 
-static esp_err_t EE_Page_Read(uint8_t page, uint8_t reg_addr, uint8_t *dat, int length)
+esp_err_t FM24C_Empty(uint16_t len)
 {
+    xSemaphoreTake(At24_Mutex, -1);
     int ret;
-    int i;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, page, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
 
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, page + 1, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, DEV_ADD, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, (0 & 0xff00) >> 8, ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, 0 & 0xff, ACK_CHECK_EN);
 
-    for (i = 0; i < length; i++)
+    while (len)
     {
-        if (i != length - 1)
-        {
-            i2c_master_read_byte(cmd, dat, ACK_VAL);
-            dat++;
-        }
-        else
-        {
-            i2c_master_read_byte(cmd, dat, NACK_VAL);
-        }
+        i2c_master_write_byte(cmd, 0, ACK_CHECK_EN); //send data value
+        len--;
     }
+
     i2c_master_stop(cmd);
     ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
+
+    xSemaphoreGive(At24_Mutex);
     return ret;
 }
 
-int E2prom_BluWrite(uint8_t addr, uint8_t *data_write, int len)
+esp_err_t E2P_WriteOneByte(uint16_t reg_addr, uint8_t dat)
 {
-    if ((addr % 16) != 0)
+    int ret = ESP_OK;
+    uint8_t check_temp[2];
+    uint8_t data_buff[2];
+    while (1)
     {
-        ESP_LOGE(TAG, "Addr Mast Multiple 16!");
-        return 0;
-    }
-    if (len > 256)
-    {
-        ESP_LOGE(TAG, "bludata len must <= 256 byte");
-        return 0;
-    }
-    int ret = 0;
-    int i = 0, j = 0;
-    i = len / 16;
-    j = len % 16;
-    uint8_t *data_write_temp = data_write;
-    while (i > 0)
-    {
-        ret = EE_Page_Write(ADDR_PAGE1, addr, data_write, 16);
-        if (ret == ESP_ERR_TIMEOUT)
+        data_buff[0] = dat;
+        data_buff[1] = Get_Crc8(data_buff, 1);
+#ifdef FM24
+
+        FM24C_Write(reg_addr, data_buff, 2);
+        FM24C_Read(reg_addr, check_temp, 2);
+        if (memcmp(check_temp, data_buff, 2) == 0)
         {
-            ESP_LOGE(TAG, "Write timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Write ok");
+            break;
         }
         else
         {
-            ESP_LOGE(TAG, "Write No ack, chip not connected");
-            return ret;
+            ESP_LOGE(TAG, "E2P_WriteOneByte err!!!");
         }
-        data_write += 16;
-        addr += 16;
-        i--;
-        vTaskDelay(20 / portTICK_RATE_MS);
-    }
-
-    if (j > 0)
-    {
-        ret = EE_Page_Write(ADDR_PAGE1, addr, data_write, j);
-        if (ret == ESP_ERR_TIMEOUT)
+#else
+        AT24CXX_Write(reg_addr, data_buff, 2);
+        AT24CXX_Read(reg_addr, check_temp, 2);
+        if (memcmp(check_temp, data_buff, 2) == 0)
         {
-            ESP_LOGE(TAG, "Write timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Write ok");
+            break;
         }
         else
         {
-            ESP_LOGE(TAG, "Write No ack, chip not connected");
-            return ret;
+            ESP_LOGE(TAG, "E2P_WriteOneByte err!!!");
         }
-        j = 0;
+#endif
     }
-    data_write = data_write_temp;
-    vTaskDelay(20 / portTICK_RATE_MS);
-    return ret;
-}
-
-int E2prom_Write(uint8_t addr, uint8_t *data_write, int len)
-{
-    if ((addr % 16) != 0)
-    {
-        ESP_LOGE(TAG, "Addr Mast Multiple 16!");
-        return 0;
-    }
-    int ret = 0;
-    int i = 0, j = 0;
-    i = len / 16;
-    j = len % 16;
-    uint8_t *data_write_temp = data_write;
-    while (i > 0)
-    {
-        ret = EE_Page_Write(ADDR_PAGE0, addr, data_write, 16);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Write timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Write ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Write No ack, chip not connected");
-            return ret;
-        }
-        data_write += 16;
-        addr += 16;
-        i--;
-        vTaskDelay(20 / portTICK_RATE_MS);
-    }
-
-    if (j > 0)
-    {
-        ret = EE_Page_Write(ADDR_PAGE0, addr, data_write, j);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Write timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Write ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Write No ack, chip not connected");
-            return ret;
-        }
-        j = 0;
-    }
-    data_write = data_write_temp;
-    vTaskDelay(20 / portTICK_RATE_MS);
-    return ret;
-}
-
-int E2prom_Read(uint8_t addr, uint8_t *data_read, int len)
-{
-    if ((addr % 16) != 0)
-    {
-        ESP_LOGE(TAG, "Addr Mast Multiple 16!");
-        return 0;
-    }
-    int ret = 0;
-    int i = 0, j = 0;
-    i = len / 16;
-    j = len % 16;
-    uint8_t *data_read_temp = data_read;
-    while (i > 0)
-    {
-        ret = EE_Page_Read(ADDR_PAGE0, addr, data_read, 16);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Read timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Read ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Read No ack, chip not connected");
-            return ret;
-        }
-        i--;
-        addr += 16;
-        data_read += 16;
-        vTaskDelay(20 / portTICK_RATE_MS);
-    }
-
-    if (j > 0)
-    {
-        ret = EE_Page_Read(ADDR_PAGE0, addr, data_read, j);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Read timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Read ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Read No ack, chip not connected");
-            return ret;
-        }
-    }
-
-    data_read = data_read_temp;
-    vTaskDelay(20 / portTICK_RATE_MS);
-    return ret;
-}
-
-int E2prom_BluRead(uint8_t addr, uint8_t *data_read, int len)
-{
-    if ((addr % 16) != 0)
-    {
-        ESP_LOGE(TAG, "Addr Mast Multiple 16!");
-        return 0;
-    }
-    int ret = 0;
-    int i = 0, j = 0;
-    i = len / 16;
-    j = len % 16;
-    uint8_t *data_read_temp = data_read;
-    while (i > 0)
-    {
-        ret = EE_Page_Read(ADDR_PAGE1, addr, data_read, 16);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Read timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Read ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Read No ack, chip not connected");
-            return ret;
-        }
-        i--;
-        addr += 16;
-        data_read += 16;
-        vTaskDelay(20 / portTICK_RATE_MS);
-    }
-
-    if (j > 0)
-    {
-        ret = EE_Page_Read(ADDR_PAGE1, addr, data_read, j);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Read timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Read ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Read No ack, chip not connected");
-            return ret;
-        }
-    }
-
-    data_read = data_read_temp;
-    vTaskDelay(20 / portTICK_RATE_MS);
-    return ret;
-}
-
-//用于存放OTA升级所需数据
-
-int E2prom_page_Write(uint8_t addr, uint8_t *data_write, int len)
-{
-    if ((addr % 16) != 0)
-    {
-        ESP_LOGE(TAG, "Addr Mast Multiple 16!");
-        return 0;
-    }
-    if (len > 256)
-    {
-        ESP_LOGE(TAG, "bludata len must <= 256 byte");
-        return 0;
-    }
-    int ret = 0;
-    int i = 0, j = 0;
-    i = len / 16;
-    j = len % 16;
-    uint8_t *data_write_temp = data_write;
-    while (i > 0)
-    {
-        ret = EE_Page_Write(ADDR_PAGE3, addr, data_write, 16);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Write timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Write ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Write No ack, chip not connected");
-            return ret;
-        }
-        data_write += 16;
-        addr += 16;
-        i--;
-        vTaskDelay(20 / portTICK_RATE_MS);
-    }
-
-    if (j > 0)
-    {
-        ret = EE_Page_Write(ADDR_PAGE3, addr, data_write, j);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Write timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Write ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Write No ack, chip not connected");
-            return ret;
-        }
-        j = 0;
-    }
-    data_write = data_write_temp;
-    vTaskDelay(20 / portTICK_RATE_MS);
-    return ret;
-}
-
-int E2prom_page_Read(uint8_t addr, uint8_t *data_read, int len)
-{
-    if ((addr % 16) != 0)
-    {
-        ESP_LOGE(TAG, "Addr Mast Multiple 16!");
-        return 0;
-    }
-    int ret = 0;
-    int i = 0, j = 0;
-    i = len / 16;
-    j = len % 16;
-    uint8_t *data_read_temp = data_read;
-    while (i > 0)
-    {
-        ret = EE_Page_Read(ADDR_PAGE3, addr, data_read, 16);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Read timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Read ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Read No ack, chip not connected");
-            return ret;
-        }
-        i--;
-        addr += 16;
-        data_read += 16;
-        vTaskDelay(20 / portTICK_RATE_MS);
-    }
-
-    if (j > 0)
-    {
-        ret = EE_Page_Read(ADDR_PAGE3, addr, data_read, j);
-        if (ret == ESP_ERR_TIMEOUT)
-        {
-            ESP_LOGE(TAG, "Read timeout");
-            return ret;
-        }
-        else if (ret == ESP_OK)
-        {
-            ESP_LOGD(TAG, "Read ok");
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Read No ack, chip not connected");
-            return ret;
-        }
-    }
-
-    data_read = data_read_temp;
-    vTaskDelay(20 / portTICK_RATE_MS);
-    return ret;
-}
-
-int E2prom_empty_all(void)
-{
-    int ret = 0;
-    char zero_data[256];
-    bzero(zero_data, sizeof(zero_data));
-    ret = E2prom_Write(0x00, (uint8_t *)zero_data, 256);
-    if (ret != 0)
-        return ret;
-    ret = E2prom_BluWrite(0x00, (uint8_t *)zero_data, 256);
-    if (ret != 0)
-        return ret;
-    ret = E2prom_page_Write(0x00, (uint8_t *)zero_data, 256); //清空
-    if (ret != 0)
-        return ret;
 
     return ret;
 }
 
-void eeprom_check(void)
+uint8_t E2P_ReadOneByte(uint16_t reg_addr)
 {
+    uint8_t temp = 0;
+    uint8_t temp_buf[2];
+
+    // FM24C_Read(reg_addr, temp_buf, 2);
+    // temp = temp_buf[0];
+    for (uint8_t i = 0; i < 10; i++)
+    {
+#ifdef FM24
+        FM24C_Read(reg_addr, temp_buf, 2);
+
+        if (temp_buf[1] == Get_Crc8(temp_buf, 1))
+        {
+            temp = temp_buf[0];
+            break;
+        }
+        else
+        {
+            ESP_LOGE(TAG, "E2P_ReadOneByte err");
+        }
+#else
+        AT24CXX_Read(reg_addr, temp_buf, 2);
+
+        if (temp_buf[1] == Get_Crc8(temp_buf, 1))
+        {
+            temp = temp_buf[0];
+            break;
+        }
+        else
+        {
+            ESP_LOGE(TAG, "E2P_ReadOneByte err");
+        }
+#endif
+    }
+
+    return temp;
+}
+
+//在AT24CXX里面的指定地址开始写入长度为Len的数据
+//该函数用于写入16bit或者32bit的数据.
+//WriteAddr  :开始写入的地址
+//DataToWrite:数据数组首地址
+//Len        :要写入数据的长度2,4
+void E2P_WriteLenByte(uint16_t WriteAddr, uint32_t DataToWrite, uint8_t Len)
+{
+    uint8_t *check_temp;
+    uint8_t t;
+    uint8_t *data_temp;
+
+    data_temp = (uint8_t *)malloc(Len + 1);
+    check_temp = (uint8_t *)malloc(Len + 1);
+
+    while (1)
+    {
+
+        memset(data_temp, 0, Len + 1);
+        memset(check_temp, 0, Len + 1);
+        for (t = 0; t < Len; t++)
+        {
+            data_temp[t] = (DataToWrite >> (8 * t)) & 0xff;
+        }
+        data_temp[Len] = Get_Crc8(data_temp, Len);
+#ifdef FM24
+        FM24C_Write(WriteAddr, data_temp, Len + 1);
+        FM24C_Read(WriteAddr, check_temp, Len + 1);
+#else
+        AT24CXX_Write(WriteAddr, data_temp, Len + 1);
+        AT24CXX_Read(WriteAddr, check_temp, Len + 1);
+#endif
+        if (memcmp(data_temp, check_temp, Len + 1) == 0)
+        {
+            break;
+        }
+        else
+        {
+            esp_log_buffer_hex(TAG, data_temp, Len + 1);
+            esp_log_buffer_hex(TAG, check_temp, Len + 1);
+            ESP_LOGE(TAG, "E2P_WriteLenByte err!!!");
+        }
+    }
+    free(data_temp);
+    free(check_temp);
+}
+
+//在AT24CXX里面的指定地址开始读出长度为Len的数据
+//该函数用于读出16bit或者32bit的数据.
+//ReadAddr   :开始读出的地址
+//返回值     :数据
+//Len        :要读出数据的长度2,4
+uint32_t E2P_ReadLenByte(uint16_t ReadAddr, uint8_t Len)
+{
+    uint8_t t;
+    uint32_t temp = 0;
+    uint8_t *data_temp;
+    data_temp = (uint8_t *)malloc(Len + 1);
+
+    for (uint8_t i = 0; i < 10; i++)
+    {
+#ifdef FM24
+
+        FM24C_Read(ReadAddr, data_temp, Len + 1);
+#else
+        AT24CXX_Read(ReadAddr, data_temp, Len + 1);
+#endif
+        if (data_temp[Len] == Get_Crc8(data_temp, Len)) //校验正确
+        {
+            for (t = 0; t < Len; t++)
+            {
+                temp += (data_temp[t] << (8 * t));
+            }
+            break;
+        }
+        else
+        {
+            esp_log_buffer_hex(TAG, data_temp, Len + 1);
+            ESP_LOGE(TAG, "E2P_ReadLenByte err!!!");
+        }
+    }
+
+    free(data_temp);
+    return temp;
+}
+
+//在AT24CXX里面的指定地址开始读出指定个数的数据
+//ReadAddr :开始读出的地址 对24c08为0~1023
+//pBuffer  :数据数组首地址
+//NumToRead:要读出数据的个数
+void E2P_Read(uint16_t ReadAddr, uint8_t *pBuffer, uint16_t NumToRead)
+{
+    uint8_t *check_buff;
+    check_buff = (uint8_t *)malloc(NumToRead + 1);
+
+    for (uint8_t i = 0; i < 10; i++)
+    {
+#ifdef FM24
+        FM24C_Read(ReadAddr, check_buff, NumToRead + 1);
+#else
+        AT24CXX_Read(ReadAddr, check_buff, NumToRead + 1);
+#endif
+        if (check_buff[NumToRead] == Get_Crc8(check_buff, NumToRead))
+        {
+            memcpy(pBuffer, check_buff, NumToRead);
+            break;
+        }
+        else
+        {
+            ESP_LOGE(TAG, "E2P_Read err!!!");
+        }
+    }
+    free(check_buff);
+}
+//在AT24CXX里面的指定地址开始写入指定个数的数据
+//WriteAddr :开始写入的地址 对24c08为0~1023
+//pBuffer   :数据数组首地址
+//NumToWrite:要写入数据的个数
+void E2P_Write(uint16_t WriteAddr, uint8_t *pBuffer, uint16_t NumToWrite)
+{
+    uint8_t *check_buff;
+    uint8_t *write_buff;
+    check_buff = (uint8_t *)malloc(NumToWrite + 1);
+    write_buff = (uint8_t *)malloc(NumToWrite + 1);
+
+    while (1)
+    {
+
+        memset(check_buff, 0, NumToWrite + 1);
+        memset(write_buff, 0, NumToWrite + 1);
+
+        memcpy(write_buff, pBuffer, NumToWrite);
+        write_buff[NumToWrite] = Get_Crc8(pBuffer, NumToWrite);
+#ifdef FM24
+        FM24C_Write(WriteAddr, write_buff, NumToWrite + 1);
+        FM24C_Read(WriteAddr, check_buff, NumToWrite + 1);
+#else
+        AT24CXX_Write(WriteAddr, write_buff, NumToWrite + 1);
+        AT24CXX_Read(WriteAddr, check_buff, NumToWrite + 1);
+#endif
+        if (memcmp(write_buff, check_buff, NumToWrite + 1) == 0)
+        {
+            break;
+        }
+        else
+        {
+            ESP_LOGE(TAG, "E2P_Write err!!!");
+        }
+    }
+    free(check_buff);
+    free(write_buff);
+}
+
+void E2prom_empty_all(void)
+{
+    ESP_LOGI(TAG, "\nempty all set\n");
+
+#ifdef FM24
+    FM24C_Empty(E2P_SIZE / 8);
+#else
+    for (uint16_t i = 0; i < 1024; i++)
+    {
+        AT24CXX_WriteOneByte(i, 0);
+    }
+#endif
+}
+
+static void E2prom_read_defaul(void)
+{
+    ESP_LOGI(TAG, "\nread defaul\n");
+
+    E2P_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SERISE_NUM_LEN);
+    E2P_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, PRODUCT_ID_LEN);
+    E2P_Read(WEB_HOST_ADD, (uint8_t *)WEB_SERVER, WEB_HOST_LEN);
+    E2P_Read(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
+}
+//清空并写入默认值
+//flag =1 写入序列号相关
+//flag =0 不写入序列号相关
+void E2prom_set_defaul(bool flag)
+{
+    E2prom_read_defaul();
+    E2prom_empty_all();
+    //写入默认值
+    ESP_LOGI(TAG, "set defaul\n");
+
+    if (flag == true)
+    {
+        E2P_Write(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SERISE_NUM_LEN);
+        E2P_Write(PRODUCT_ID_ADDR, (uint8_t *)ProductId, PRODUCT_ID_LEN);
+        E2P_Write(WEB_HOST_ADD, (uint8_t *)WEB_SERVER, WEB_HOST_LEN);
+        E2P_Write(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
+    }
+
+    E2P_WriteLenByte(FN_DP_ADD, fn_dp, 4);
+}
+
+//检查AT24CXX是否正常,以及是否为新EEPROM
+//这里用了24XX的最后一个地址(1023)来存储标志字.
+//如果用其他24C系列,这个地址要修改
+
+static bool AT24CXX_Check(void)
+{
+    uint8_t Check_dat = 0x55;
     uint8_t temp;
-    EE_byte_Read(ADDR_PAGE3, 255, &temp);
-    if (temp == 0xff)
+// temp = E2P_ReadOneByte(E2P_SIZE - 1);
+#ifdef FM24
+    FM24C_Read((E2P_SIZE - 1), &temp, 1);
+
+    if (temp == 0XFF)
     {
-        EE_byte_Read(ADDR_PAGE2, 255, &temp);
-        if (temp == 0xff)
+        // temp = E2P_ReadOneByte(E2P_SIZE - 2);
+        FM24C_Read((E2P_SIZE - 10), &temp, 1);
+        if (temp == 0XFF)
         {
             ESP_LOGI(TAG, "\nnew eeprom\n");
-            E2prom_empty_all();
-            EE_byte_Write(ADDR_PAGE2, dhcp_mode_add, 1); //写入DHCP模式，默认开启
+            E2prom_set_defaul(false);
         }
     }
 
-    EE_byte_Write(ADDR_PAGE3, 255, 0x55);
-    EE_byte_Read(ADDR_PAGE3, 255, &temp);
-    if (temp != 0x55)
+    if (temp == Check_dat)
     {
-        while (1)
+        ESP_LOGI(TAG, "eeprom check ok!\n");
+        return true;
+    }
+    else //排除第一次初始化的情况
+    {
+        FM24C_Write(E2P_SIZE - 1, &Check_dat, 1);
+        FM24C_Read((E2P_SIZE - 1), &temp, 1);
+        if (temp == Check_dat)
         {
-            E2P_FLAG = false;
-            ESP_LOGE(TAG, "eeprom error!\n");
-            vTaskDelay(500 / portTICK_RATE_MS);
+            ESP_LOGI(TAG, "eeprom check ok!\n");
+            return true;
         }
     }
-    E2P_FLAG = true;
-    ESP_LOGI(TAG, "eeprom check ok!\n");
+    ESP_LOGI(TAG, "eeprom check fail!\n");
+
+#else
+    temp = AT24CXX_ReadOneByte(E2P_SIZE - 1);
+    if (temp == 0XFF)
+    {
+        temp = AT24CXX_ReadOneByte(E2P_SIZE - 10);
+        if (temp == 0XFF)
+        {
+            ESP_LOGI(TAG, "\nnew eeprom\n");
+            E2prom_set_defaul(false);
+        }
+    }
+
+    if (temp == Check_dat)
+    {
+        ESP_LOGI(TAG, "eeprom check ok!\n");
+        return true;
+    }
+    else //排除第一次初始化的情况
+    {
+        AT24CXX_WriteOneByte((E2P_SIZE - 1), Check_dat);
+        temp = AT24CXX_ReadOneByte(E2P_SIZE - 1);
+        if (temp == Check_dat)
+        {
+            ESP_LOGI(TAG, "eeprom check ok!\n");
+            return true;
+        }
+    }
+    ESP_LOGI(TAG, "eeprom check fail!\n");
+#endif
+
+    return false;
 }

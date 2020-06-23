@@ -87,10 +87,9 @@ void long_pressed_cb(uint8_t key_num, uint8_t *long_pressed_counts)
     switch (key_num)
     {
     case BOARD_BUTTON:
-        ESP_LOGI("long_pressed_cb", "long press!!!\n");
-
+        // ESP_LOGI("long_pressed_cb", "long press!!!\n");
         Set_defaul_flag = true;
-        E2prom_set_defaul();
+        E2prom_set_defaul(true);
         vTaskDelay(5000 / portTICK_PERIOD_MS);
         esp_restart();
 

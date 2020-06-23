@@ -57,11 +57,19 @@
 #define W5500_DNS_FAIL -3
 #define NO_RJ45_ACCESS -4
 
+enum
+{
+  RJ45_INIT = 1,
+  RJ45_WORK,
+  RJ45_QUIT
+} RJ45_MODE;
+
 extern uint8_t RJ45_STATUS;
 extern uint8_t LAN_DNS_STATUS;
 extern uint8_t user_dhcp_mode;
 extern uint8_t http_dns_host_ip[4];
-extern char current_net_ip[20]; //当前内网IP，用于上传
+extern char current_net_ip[20];  //当前内网IP，用于上传
+extern uint8_t netinfo_buff[16]; //IP 设置参数
 extern uint16_t LAN_ERR_CODE;
 
 /*-------------------------------- Includes ----------------------------------*/
@@ -71,6 +79,7 @@ void W5500_Network_Init(void);
 int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip);
 int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size);
 int8_t W5500_DHCP_Init(void);
+void Start_Eth_Net(void);
 
 #endif
 /*******************************************************************************
