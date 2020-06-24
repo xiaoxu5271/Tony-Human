@@ -22,6 +22,7 @@
 #include "Mqtt.h"
 #include "Http.h"
 #include "w5500_driver.h"
+#include "lan_mqtt.h"
 
 #include "Smartconfig.h"
 #define TAG "NET_CFG"
@@ -150,21 +151,16 @@ void Net_Switch(void)
     switch (net_mode)
     {
     case NET_WIFI:
+        stop_lan_mqtt();
         start_user_wifi();
         Start_W_Mqtt();
-
         break;
 
     case NET_LAN:
         stop_user_wifi();
-        Start_Eth_Net();
         Stop_W_Mqtt();
-
-        // if (eTaskGetState(EC20_Task_Handle) == eSuspended)
-        // {
-        //     vTaskResume(EC20_Task_Handle);
-        // }
-
+        Start_Eth_Net();
+        start_lan_mqtt();
         break;
 
     default:

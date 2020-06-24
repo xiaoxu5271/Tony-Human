@@ -32,17 +32,7 @@ static int transport_getdata(uint8_t *buf, int count)
 {
     return lan_recv(MQTT_SOCKET, buf, count);
 }
-void lan_mqtt_init(void)
-{
-    user_MQTTPacket_ConnectData.cleansession = 1;
-    user_MQTTPacket_ConnectData.keepAliveInterval = 60;
-    user_MQTTPacket_ConnectData.MQTTVersion = 3;    //mqtt version
-    user_MQTTPacket_ConnectData.struct_version = 0; //must be 0
-    user_MQTTPacket_ConnectData.username.cstring = mqtt_usr;
-    user_MQTTPacket_ConnectData.password.cstring = mqtt_pwd;
-    // user_MQTTPacket_ConnectData.clientID.cstring = MQTT_CLIEND_ID;
-    // xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 3, &lan_mqtt_Handle); //开启 LAN_MQTT
-}
+
 uint8_t mqtt_remote_ip[4];
 /*mqtt连接函数
 	参数：空
@@ -63,7 +53,7 @@ static uint8_t mqtt_connect()
             ESP_LOGE(TAG, "MQTT> serialize connect packet error: %d.\r\n", rc);
             return 0;
         }
-        ESP_LOGI(TAG, "MQTT> serialize packet length : %d.\r\n", rc);
+        ESP_LOGI(TAG, "MQTT> serialize packet length:%d,%s", rc, mqtt_buff);
         ret = lan_send(MQTT_SOCKET, mqtt_buff, rc);
         if (ret != rc)
         {
@@ -212,22 +202,12 @@ static int8_t mqtt()
     {
         ESP_LOGI(TAG, "MQTT> connected.\r\n");
         memset(mqtt_buff, 0, sizeof(mqtt_buff));
-
-        if (mqtt_subscribe(topic_p)) //订阅
+        MQTT_E_STA = true;
+        if (mqtt_subscribe(topic_s)) //订阅
         {
             ESP_LOGI(TAG, "MQTT> subscribe success.\r\n");
             while (1) //开始接收数据，阻塞任务
             {
-                // HighWaterMark = uxTaskGetStackHighWaterMark(NULL);
-                // printf("MQTT-TASK runing\n");
-                // no_mqtt_msg_exchange = 0;
-
-                if (LAN_DNS_STATUS == 0)
-                {
-                    ESP_LOGE(TAG, "Lan Disconnect.\r\n");
-                    return 0;
-                }
-
                 //延时阻塞接收数据
                 while ((ret = getSn_RX_RSR(MQTT_SOCKET)) == 0)
                 {
@@ -243,29 +223,25 @@ static int8_t mqtt()
                 //判断是否收到数据
                 if (ret > 0)
                 {
-                    printf("getSn_RX_RSR = %d \n", ret);
-
                     memset(mqtt_buff, 0, sizeof(mqtt_buff));
                     ret = MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata);
                     if (ret == PUBLISH)
                     {
-                        printf("Recved !\n");
                         MQTTDeserialize_publish(&dup, &qos, &retained, &mssageid, &topoc,
                                                 &payload_in, &payloadlen_in, mqtt_buff, sizeof(mqtt_buff));
 
                         strcpy((char *)msg_rev_buf, (const char *)payload_in);
-                        printf("message arrived %d: %s\n\r", payloadlen_in, (char *)msg_rev_buf);
+                        ESP_LOGI(TAG, "message arrived %d: %s\n\r", payloadlen_in, (char *)msg_rev_buf);
                         parse_objects_mqtt((char *)msg_rev_buf, false); //收到平台MQTT数据并解析
 
-                        HighWaterMark = uxTaskGetStackHighWaterMark(NULL);
-                        printf("MQTT-TASK HighWaterMark=%d \n", HighWaterMark);
-
+                        // HighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+                        // printf("MQTT-TASK HighWaterMark=%d \n", HighWaterMark);
                         //心跳计时清零
                         ping_timeout = 0;
                     }
                     else if (ret == -1)
                     {
-                        printf("MQTTPacket_read ERR : %d\n", ret);
+                        ESP_LOGE(TAG, "MQTTPacket_read ERR : %d\n", ret);
                         return -1;
                     }
                 }
@@ -299,27 +275,43 @@ static int8_t mqtt()
 
 void lan_mqtt_task(void *pvParameter)
 {
+    xEventGroupSetBits(Net_sta_group, MQTT_E_S_BIT);
+
     int8_t ret;
     // uint8_t mqtt_state = 1;
     int32_t rc;
     uint8_t fail_num = 0;
     uint8_t MQTT_IP[4];
-    if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)MQTT_SERVER, MQTT_IP) == FAILURE)
+
+    user_MQTTPacket_ConnectData.cleansession = 1;
+    user_MQTTPacket_ConnectData.keepAliveInterval = 60;
+    user_MQTTPacket_ConnectData.MQTTVersion = 3;    //mqtt version
+    user_MQTTPacket_ConnectData.struct_version = 0; //must be 0
+    user_MQTTPacket_ConnectData.username.cstring = mqtt_usr;
+    user_MQTTPacket_ConnectData.password.cstring = mqtt_pwd;
+    user_MQTTPacket_ConnectData.clientID.cstring = MQTT_CLIEND_ID;
+    ESP_LOGI(TAG, "mqtt_usr:%s,mqtt_usr:%s", user_MQTTPacket_ConnectData.username.cstring, user_MQTTPacket_ConnectData.password.cstring);
+
+    if (lan_dns_resolve((uint8_t *)MQTT_SERVER, MQTT_IP) == false)
     {
         ESP_LOGE(TAG, "lan dns resolve FAIL!\r\n");
         vTaskDelete(NULL); //网线断开，删除任务
     }
+    ESP_LOGI(TAG, "MQTT_IP:%d.%d.%d.%d\r\n", MQTT_IP[0], MQTT_IP[1], MQTT_IP[2], MQTT_IP[3]);
     while (1)
     {
+        xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT, false, true, -1); //等待网络连接
+        xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1);   //等待网络连接
         switch (getSn_SR(MQTT_SOCKET))
         {
         case SOCK_CLOSED:
             ESP_LOGI(TAG, "MQTT> SOCK_CLOSE.\r\n");
-            if (LAN_DNS_STATUS == 0)
+            if (net_mode != NET_LAN)
             {
-                MQTT_E_STA = 0;
+                MQTT_E_STA = false;
                 ESP_LOGI(TAG, "vTaskDelete LAN_MQTT!\r\n");
-                vTaskDelete(NULL); //网线断开，删除任务
+                xEventGroupClearBits(Net_sta_group, MQTT_E_S_BIT);
+                vTaskDelete(NULL);
             }
             else if ((ret = lan_socket(MQTT_SOCKET, Sn_MR_TCP, 3000, 0)) != MQTT_SOCKET)
             {
@@ -331,10 +323,12 @@ void lan_mqtt_task(void *pvParameter)
             ESP_LOGI(TAG, "MQTT> tcp connnect.\r\n");
             //MQTT 连接封包
             rc = mqtt(); //阻塞任务，除非mqtt过程出现异常
+            MQTT_E_STA = false;
             if (rc == 0)
             {
                 ESP_LOGE(TAG, "MQTT> ERROR.reopen socket.\r\n");
             }
+            lan_close(MQTT_SOCKET);
             fail_num = 0;
             break;
         case SOCK_CLOSE_WAIT:
@@ -343,7 +337,7 @@ void lan_mqtt_task(void *pvParameter)
             break;
         case SOCK_INIT:
             ESP_LOGI(TAG, "MQTT> socket state SOCK_INIT.\r\n");
-            if ((ret = (uint32_t)lan_connect(MQTT_SOCKET, MQTT_IP, MQTT_PORT)) != SOCK_OK)
+            if ((ret = (uint32_t)lan_connect(MQTT_SOCKET, MQTT_IP, (uint16_t)strtoul(MQTT_PORT, 0, 10))) != SOCK_OK)
             {
                 ESP_LOGE(TAG, "MQTT> socket connect faile : %d.\r\n", ret);
                 break;
@@ -367,24 +361,18 @@ void lan_mqtt_task(void *pvParameter)
 
 void start_lan_mqtt(void)
 {
-
     if ((xEventGroupGetBits(Net_sta_group) & (MQTT_E_S_BIT | MQTT_INITED_BIT)) == MQTT_INITED_BIT) //设备激活过，但MQTT未启动
     {
         ESP_LOGI(TAG, "start_lan_mqtt!\n");
-        MQTT_E_STA = 1;
         xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 10, NULL);
-        xEventGroupSetBits(Net_sta_group, MQTT_E_S_BIT);
     }
 }
 
 void stop_lan_mqtt(void)
 {
-
     if ((xEventGroupGetBits(Net_sta_group) & MQTT_E_S_BIT) == MQTT_E_S_BIT)
     {
         ESP_LOGI(TAG, "stop lan mqtt!\n");
         lan_close(MQTT_SOCKET);
-        MQTT_E_STA = false;
-        xEventGroupClearBits(Net_sta_group, MQTT_E_S_BIT);
     }
 }

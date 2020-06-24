@@ -76,7 +76,7 @@ extern uint16_t LAN_ERR_CODE;
 //extern short Ethernet_http_application(uint8_t mode);
 int8_t w5500_user_int(void);
 void W5500_Network_Init(void);
-int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip);
+bool lan_dns_resolve(uint8_t *web_url, uint8_t *dns_host_ip);
 int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size);
 int8_t W5500_DHCP_Init(void);
 void Start_Eth_Net(void);

@@ -310,7 +310,7 @@ void lan_ota_task(void *arg)
 
     printf("ota_url=%s", ota_url);
 
-    lan_dns_resolve(SOCK_OTA, (uint8_t *)ota_sever, ota_dns_host_ip);
+    lan_dns_resolve((uint8_t *)ota_sever, ota_dns_host_ip);
 
     esp_err_t err;
     /* update handle : set by esp_ota_begin(), must be freed via esp_ota_end() */
@@ -344,8 +344,8 @@ void lan_ota_task(void *arg)
             if (con_ret <= 0)
             {
                 printf("INIT FAIL CODE : %d\n", con_ret);
-                lan_dns_resolve(SOCK_OTA, (uint8_t *)ota_sever, ota_dns_host_ip);
-                lan_close(SOCK_OTA);
+                lan_dns_resolve( (uint8_t *)ota_sever, ota_dns_host_ip);
+                lan_close(SOCK_DNS);
                 // return con_ret;
             }
             break;

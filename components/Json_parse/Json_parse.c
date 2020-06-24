@@ -234,6 +234,7 @@ esp_err_t parse_objects_http_active(char *http_json_data)
 
             //写入API-KEY
             sprintf(ApiKey, "%s%c", json_data_parse_channel_channel_write_key->valuestring, '\0');
+            E2P_Write(API_KEY_ADD, (uint8_t *)ApiKey, API_KEY_LEN);
             //写入channelid
             sprintf(ChannelId, "%s%c", json_data_parse_channel_channel_id_value->valuestring, '\0');
             E2P_Write(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
@@ -345,7 +346,6 @@ esp_err_t parse_objects_heart(char *json_data)
 esp_err_t parse_objects_mqtt(char *mqtt_json_data, bool sw_flag)
 {
     cJSON *json_data_parse = NULL;
-
     char *resp_val = NULL;
     resp_val = strstr(mqtt_json_data, "{\"command_id\":");
     if (resp_val == NULL)
@@ -474,7 +474,7 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     cJSON *next = cJSON_CreateObject();
     cJSON *fe_body = cJSON_CreateArray();
     uint8_t mac_sys[6] = {0};
-    char mac_buff[32] = {0};
+    char mac_buff[100] = {0};
     char ssid64_buff[64] = {0};
 
     strncpy(http_json_c.http_time, Server_Timer_SEND(), 24);

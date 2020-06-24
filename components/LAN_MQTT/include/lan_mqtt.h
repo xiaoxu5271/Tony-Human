@@ -10,7 +10,8 @@
 // #define MQTT_USER mqtt_usr    //
 // #define MQTT_PASS mqtt_pwd    //
 // #define MQTT_Topic mqtt_topic //
-#define KEEPLIVE_TIME 10 //
+#define KEEPLIVE_TIME 10                                  //
+#define MQTT_CLIEND_ID "d8034f7509c44389b30194d4c373f09c" //ID
 
 #else
 #define MQTT_SOCKET 2

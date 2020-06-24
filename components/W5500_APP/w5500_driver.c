@@ -66,6 +66,7 @@ wiz_PhyConf gWIZPHYCONF;
 wiz_PhyConf gWIZPHYCONF_READ;
 
 SemaphoreHandle_t xMutex_W5500_SPI;
+SemaphoreHandle_t xMutex_W5500_DNS;
 
 /*******************************************************************************
 // Reset w5500 chip with w5500 RST pin                                
@@ -194,30 +195,27 @@ void my_ip_conflict(void)
 }
 
 /****************解析DNS*****************/
-int8_t lan_dns_resolve(uint8_t sock, uint8_t *web_url, uint8_t *dns_host_ip)
+bool lan_dns_resolve(uint8_t *web_url, uint8_t *dns_host_ip)
 {
-
-    DNS_init(sock, ethernet_buf);
+    xSemaphoreTake(xMutex_W5500_DNS, -1);
+    bool ret;
+    DNS_init(SOCK_DNS, ethernet_buf);
     ESP_LOGI(TAG, "url : %s\n", web_url);
 
     if (DNS_run(gWIZNETINFO.dns, web_url, dns_host_ip) > 0)
     {
-
-        ESP_LOGI(TAG, "host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
-
-        return SUCCESS;
+        ret = true;
     }
     else if (DNS_run(standby_dns, web_url, dns_host_ip) > 0)
     {
-
-        ESP_LOGI(TAG, "s_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
-
-        return SUCCESS;
+        ret = true;
     }
-
-    ESP_LOGI(TAG, "n_host ip: %d.%d.%d.%d\r\n", dns_host_ip[0], dns_host_ip[1], dns_host_ip[2], dns_host_ip[3]);
-
-    return FAILURE;
+    else
+    {
+        ret = false;
+    }
+    xSemaphoreGive(xMutex_W5500_DNS);
+    return ret;
 }
 
 /*******************************************************************************
@@ -305,20 +303,6 @@ void W5500_Network_Init(void)
         reg_dhcp_cbfunc(my_ip_assign, my_ip_assign, my_ip_conflict);
         DHCP_init(SOCK_DHCP, ethernet_buf);
     }
-
-    ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO_READ);
-
-    memset(current_net_ip, 0, sizeof(current_net_ip));
-    sprintf(current_net_ip, "&IP=%d.%d.%d.%d", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
-    ESP_LOGI(TAG, "%s \n", current_net_ip);
-
-    ESP_LOGI(TAG, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO_READ.mac[0], gWIZNETINFO_READ.mac[1], gWIZNETINFO_READ.mac[2], gWIZNETINFO_READ.mac[3], gWIZNETINFO_READ.mac[4], gWIZNETINFO_READ.mac[5]);
-    ESP_LOGI(TAG, "SIP: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.ip[0], gWIZNETINFO_READ.ip[1], gWIZNETINFO_READ.ip[2], gWIZNETINFO_READ.ip[3]);
-    ESP_LOGI(TAG, "GAR: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.gw[0], gWIZNETINFO_READ.gw[1], gWIZNETINFO_READ.gw[2], gWIZNETINFO_READ.gw[3]);
-    ESP_LOGI(TAG, "SUB: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.sn[0], gWIZNETINFO_READ.sn[1], gWIZNETINFO_READ.sn[2], gWIZNETINFO_READ.sn[3]);
-    ESP_LOGI(TAG, "DNS: %d.%d.%d.%d\r\n", gWIZNETINFO_READ.dns[0], gWIZNETINFO_READ.dns[1], gWIZNETINFO_READ.dns[2], gWIZNETINFO_READ.dns[3]);
-
-    // bl_flag = 0;
     ESP_LOGI(TAG, "Network_init success!!!\n");
 }
 
@@ -379,7 +363,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
     uint16_t size = 0;
     uint8_t fail_num = 0;
     uint8_t temp;
-    if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)WEB_SERVER, http_dns_host_ip) == FAILURE)
+    if (lan_dns_resolve((uint8_t *)WEB_SERVER, http_dns_host_ip) == false)
     {
         LAN_DNS_STATUS = 0;
         ESP_LOGI(TAG, "IW5500_DNS_FAIL\n");
@@ -496,12 +480,12 @@ void RJ45_Task(void *arg)
                         break;
 
                     default:
+                        ESP_LOGI(TAG, "DHCP:%d", ret_dhcp);
                         Net_sta_flag = false;
                         Net_ErrCode = 402;
                         xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
                         Start_Active();
 
-                        ESP_LOGI(TAG, "DHCP:%d", ret_dhcp);
                         break;
                     }
                 }
@@ -512,6 +496,7 @@ void RJ45_Task(void *arg)
             }
             else
             {
+                DHCP_init(SOCK_DHCP, ethernet_buf);
                 Net_sta_flag = false;
                 Net_ErrCode = 401;
                 xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
@@ -532,10 +517,9 @@ void RJ45_Task(void *arg)
 int8_t w5500_user_int(void)
 {
     xMutex_W5500_SPI = xSemaphoreCreateMutex(); //创建W5500 SPI 发送互斥信号
+    xMutex_W5500_DNS = xSemaphoreCreateMutex();
 
     w5500_spi_init();
-    lan_mqtt_init();
-
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_OUTPUT;

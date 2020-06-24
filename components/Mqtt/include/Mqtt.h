@@ -8,7 +8,6 @@ void Start_W_Mqtt(void);
 void Stop_W_Mqtt(void);
 uint8_t Send_Mqtt(uint8_t *data_buff, uint16_t data_len);
 // extern esp_mqtt_client_handle_t client;
-extern char topic_p[100];
 
 QueueHandle_t Send_Mqtt_Queue;
 #define MQTT_BUFF_LEN 521
@@ -21,6 +20,8 @@ typedef struct
 extern bool MQTT_W_STA;
 extern bool MQTT_E_STA;
 
+char topic_s[100];
+char topic_p[100];
 char mqtt_pwd[42];
 char mqtt_usr[23];
 char mqtt_uri[64];

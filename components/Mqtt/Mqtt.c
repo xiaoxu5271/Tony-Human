@@ -36,9 +36,6 @@ bool MQTT_W_STA = false;
 bool MQTT_E_STA = false;
 // TaskHandle_t Binary_mqtt = NULL;
 
-char topic_s[100] = {0};
-char topic_p[100] = {0};
-
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 {
     esp_mqtt_client_handle_t client = event->client;
