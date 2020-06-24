@@ -108,4 +108,6 @@ int32_t user_key_init(key_config_t *key_config,
                       user_key_function_callback_t long_pressed_cb,
                       user_key_function_callback_t short_pressed_cb);
 
+bool Check_First_Key(void);
+
 #endif /* UER_KEY_H_ */

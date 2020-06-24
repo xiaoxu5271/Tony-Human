@@ -52,8 +52,8 @@ struct
 
 typedef struct
 {
-    char creat_json_b[256];
-    int creat_json_c;
+    char creat_json_buff[512];
+    uint16_t creat_json_len;
 } creat_json;
 
 //creat_json *create_http_json(uint8_t post_status);

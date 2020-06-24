@@ -485,32 +485,29 @@ void RJ45_Task(void *arg)
         case RJ45_WORK:
             if (check_rj45_status() == ESP_OK)
             {
-                if ((xEventGroupGetBits(Net_sta_group) & CONNECTED_BIT) != CONNECTED_BIT)
+                if (gWIZNETINFO.dhcp == NETINFO_DHCP)
                 {
-                    if (gWIZNETINFO.dhcp == NETINFO_DHCP)
+                    ret_dhcp = DHCP_run();
+                    switch (ret_dhcp)
                     {
-                        ret_dhcp = DHCP_run();
-                        switch (ret_dhcp)
-                        {
-                        case DHCP_IP_LEASED:
-                            ESP_LOGI(TAG, "DHCP LEASED TIME : %d Sec\r\n", getDHCPLeasetime());
-                            xEventGroupSetBits(Net_sta_group, CONNECTED_BIT);
-                            break;
-
-                        default:
-                            Net_sta_flag = false;
-                            Net_ErrCode = 402;
-                            xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
-                            Start_Active();
-
-                            ESP_LOGI(TAG, "DHCP:%d", ret_dhcp);
-                            break;
-                        }
-                    }
-                    else
-                    {
+                    case DHCP_IP_LEASED:
+                        // ESP_LOGI(TAG, "DHCP LEASED TIME : %d Sec\r\n", getDHCPLeasetime());
                         xEventGroupSetBits(Net_sta_group, CONNECTED_BIT);
+                        break;
+
+                    default:
+                        Net_sta_flag = false;
+                        Net_ErrCode = 402;
+                        xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
+                        Start_Active();
+
+                        ESP_LOGI(TAG, "DHCP:%d", ret_dhcp);
+                        break;
                     }
+                }
+                else
+                {
+                    xEventGroupSetBits(Net_sta_group, CONNECTED_BIT);
                 }
             }
             else

@@ -544,11 +544,11 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     cjson_printunformat = cJSON_PrintUnformatted(root); //将整个 json 转换成字符串 ，有格式
     //printf("status_creat_json= %s\r\n", cjson_printunformat);
 
-    pCreat_json->creat_json_c = strlen(cjson_printunformat); //  creat_json_c 是整个json 所占的长度
+    pCreat_json->creat_json_len = strlen(cjson_printunformat); //  creat_json_c 是整个json 所占的长度
     //pCreat_json->creat_json_b=cjson_printunformat;
     //pCreat_json->creat_json_b=malloc(pCreat_json->creat_json_c);
-    bzero(pCreat_json->creat_json_b, sizeof(pCreat_json->creat_json_b)); //  creat_json_b 是整个json 包
-    memcpy(pCreat_json->creat_json_b, cjson_printunformat, pCreat_json->creat_json_c);
+    bzero(pCreat_json->creat_json_buff, sizeof(pCreat_json->creat_json_buff)); //  creat_json_b 是整个json 包
+    memcpy(pCreat_json->creat_json_buff, cjson_printunformat, pCreat_json->creat_json_len);
     //printf("http_json=%s\n",pCreat_json->creat_json_b);
     free(cjson_printunformat);
     cJSON_Delete(root);

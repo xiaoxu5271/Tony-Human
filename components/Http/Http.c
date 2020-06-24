@@ -22,6 +22,8 @@
 #include "freertos/event_groups.h"
 #include "w5500_driver.h"
 #include "my_base64.h"
+#include "Mqtt.h"
+
 #include "Http.h"
 
 TaskHandle_t Binary_Heart_Send = NULL;
@@ -178,46 +180,34 @@ void http_send_mes(void)
     char recv_buf[1024] = {0};
     char build_po_url[512] = {0};
     char build_po_url_json[1024] = {0};
-    char NET_INFO[64] = {0};
-
-    if (LAN_DNS_STATUS == 1)
-    {
-        sprintf(NET_INFO, "&net=ethernet");
-    }
 
     creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
     //创建POST的json格式
     create_http_json(pCreat_json1, fn_dp_flag);
     fn_dp_flag = false;
 
+    // xQueueOverwrite(Send_Mqtt_Queue, (void *)&pCreat_json1);
+
     if (post_status == POST_NOCOMMAND) //无commID
     {
-        sprintf(build_po_url, "POST http://%s/update.json?api_key=%s&metadata=true&firmware=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n",
-                WEB_SERVER,
+        sprintf(build_po_url, "POST /update.json?api_key=%s&metadata=true&execute=true&firmware=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
                 ApiKey,
                 FIRMWARE,
                 WEB_SERVER,
-                pCreat_json1->creat_json_c);
-        // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_FIRMWARE, FIRMWARE, http.POST_URL_SSID, NET_NAME,
-        //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
+                pCreat_json1->creat_json_len);
     }
     else
     {
         post_status = POST_NOCOMMAND;
-
-        sprintf(build_po_url, "POST http://%s/update.json?api_key=%s&metadata=true&firmware=%s&command_id=%s HTTP/1.1\r\nHost: %s\r\nUser-Agent: dalian urban ILS1\r\nContent-Length:%d\r\n\r\n",
-                WEB_SERVER,
+        sprintf(build_po_url, "POST /update.json?api_key=%s&metadata=true&firmware=%s&command_id=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
                 ApiKey,
                 FIRMWARE,
                 mqtt_json_s.mqtt_command_id,
                 WEB_SERVER,
-                pCreat_json1->creat_json_c);
-
-        // sprintf(build_po_url, "%s%s%s%s%s%s%s%s%s%s%s%s%d%s", http.POST, http.POST_URL1, ApiKey, http.POST_URL_METADATA, http.POST_URL_SSID, NET_NAME, http.POST_URL_COMMAND_ID, mqtt_json_s.mqtt_command_id,
-        //         http.HTTP_VERSION11, http.HOST, http.USER_AHENT, http.CONTENT_LENGTH, pCreat_json1->creat_json_c, http.ENTER);
+                pCreat_json1->creat_json_len);
     }
 
-    sprintf(build_po_url_json, "%s%s", build_po_url, pCreat_json1->creat_json_b);
+    sprintf(build_po_url_json, "%s%s", build_po_url, pCreat_json1->creat_json_buff);
 
     // printf("JSON_test = : %s\n", pCreat_json1->creat_json_b);
 

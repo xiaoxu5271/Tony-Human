@@ -15,24 +15,26 @@
 #include "Mqtt.h"
 #include "Bluetooth.h"
 #include "Json_parse.h"
-
 #include "Human.h"
 #include "Uart0.h"
-
 #include "Led.h"
 #include "E2prom.h"
-
 #include "RtcUsr.h"
-
 #include "sht30dis.h"
 #include "user_app.h"
 #include "ota.h"
+#include "user_key.h"
 
 void app_main(void)
 {
+    if (Check_First_Key())
+    {
+        ota_back();
+    }
+
     Net_sta_group = xEventGroupCreate();
     xMutex_Http_Send = xSemaphoreCreateMutex(); //创建HTTP发送互斥信号
-    Send_Mqtt_Queue = xQueueCreate(1, sizeof(Mqtt_Msg));
+    Send_Mqtt_Queue = xQueueCreate(1, sizeof(creat_json));
 
     Led_Init();
     user_app_key_init();

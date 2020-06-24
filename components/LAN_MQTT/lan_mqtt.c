@@ -20,6 +20,7 @@
 #include "Smartconfig.h"
 #include "Http.h"
 #include "Mqtt.h"
+#include "E2prom.h"
 
 #include "lan_mqtt.h"
 #define TAG "LAN_MQTT"
@@ -303,8 +304,7 @@ void lan_mqtt_task(void *pvParameter)
     int32_t rc;
     uint8_t fail_num = 0;
     uint8_t MQTT_IP[4];
-    const char mqtt_sever[] = "mqtt.ubibot.cn";
-    if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)mqtt_sever, MQTT_IP) == FAILURE)
+    if (lan_dns_resolve(SOCK_TCPS, (uint8_t *)MQTT_SERVER, MQTT_IP) == FAILURE)
     {
         ESP_LOGE(TAG, "lan dns resolve FAIL!\r\n");
         vTaskDelete(NULL); //网线断开，删除任务
@@ -321,7 +321,7 @@ void lan_mqtt_task(void *pvParameter)
                 ESP_LOGI(TAG, "vTaskDelete LAN_MQTT!\r\n");
                 vTaskDelete(NULL); //网线断开，删除任务
             }
-            else if ((ret = lan_socket(MQTT_SOCKET, Sn_MR_TCP, 4000, 0)) != MQTT_SOCKET)
+            else if ((ret = lan_socket(MQTT_SOCKET, Sn_MR_TCP, 3000, 0)) != MQTT_SOCKET)
             {
                 ESP_LOGE(TAG, "MQTT> socket open failed : %d.\r\n", ret);
                 break;
