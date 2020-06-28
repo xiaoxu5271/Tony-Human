@@ -222,10 +222,12 @@ esp_err_t E2P_WriteOneByte(uint16_t reg_addr, uint8_t dat)
         AT24CXX_Read(reg_addr, check_temp, 2);
         if (memcmp(check_temp, data_buff, 2) == 0)
         {
+            E2P_FLAG = true;
             break;
         }
         else
         {
+            E2P_FLAG = false;
             ESP_LOGE(TAG, "E2P_WriteOneByte err!!!");
         }
 #endif
@@ -260,11 +262,13 @@ uint8_t E2P_ReadOneByte(uint16_t reg_addr)
 
         if (temp_buf[1] == Get_Crc8(temp_buf, 1))
         {
+            E2P_FLAG = true;
             temp = temp_buf[0];
             break;
         }
         else
         {
+            E2P_FLAG = false;
             ESP_LOGE(TAG, "E2P_ReadOneByte err");
         }
 #endif
@@ -306,12 +310,14 @@ void E2P_WriteLenByte(uint16_t WriteAddr, uint32_t DataToWrite, uint8_t Len)
 #endif
         if (memcmp(data_temp, check_temp, Len + 1) == 0)
         {
+            E2P_FLAG = true;
             break;
         }
         else
         {
-            esp_log_buffer_hex(TAG, data_temp, Len + 1);
-            esp_log_buffer_hex(TAG, check_temp, Len + 1);
+            E2P_FLAG = false;
+            // esp_log_buffer_hex(TAG, data_temp, Len + 1);
+            // esp_log_buffer_hex(TAG, check_temp, Len + 1);
             ESP_LOGE(TAG, "E2P_WriteLenByte err!!!");
         }
     }
@@ -345,11 +351,13 @@ uint32_t E2P_ReadLenByte(uint16_t ReadAddr, uint8_t Len)
             {
                 temp += (data_temp[t] << (8 * t));
             }
+            E2P_FLAG = true;
             break;
         }
         else
         {
-            esp_log_buffer_hex(TAG, data_temp, Len + 1);
+            E2P_FLAG = false;
+            // esp_log_buffer_hex(TAG, data_temp, Len + 1);
             ESP_LOGE(TAG, "E2P_ReadLenByte err!!!");
         }
     }
@@ -377,10 +385,12 @@ void E2P_Read(uint16_t ReadAddr, uint8_t *pBuffer, uint16_t NumToRead)
         if (check_buff[NumToRead] == Get_Crc8(check_buff, NumToRead))
         {
             memcpy(pBuffer, check_buff, NumToRead);
+            E2P_FLAG = true;
             break;
         }
         else
         {
+            E2P_FLAG = false;
             ESP_LOGE(TAG, "E2P_Read err!!!");
         }
     }
@@ -414,10 +424,12 @@ void E2P_Write(uint16_t WriteAddr, uint8_t *pBuffer, uint16_t NumToWrite)
 #endif
         if (memcmp(write_buff, check_buff, NumToWrite + 1) == 0)
         {
+            E2P_FLAG = true;
             break;
         }
         else
         {
+            E2P_FLAG = false;
             ESP_LOGE(TAG, "E2P_Write err!!!");
         }
     }

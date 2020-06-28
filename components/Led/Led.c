@@ -15,7 +15,7 @@
 #define GPIO_LED_B 21
 #define GPIO_LED_G (22)
 
-#define LEDC_TEST_FADE_TIME 1000
+#define LEDC_TEST_FADE_TIME 1500
 
 #else
 
@@ -25,8 +25,9 @@
 
 #endif
 
-bool E2P_FLAG = false;
-bool ETH_FLAG = false;
+bool E2P_FLAG = true;
+bool ETH_FLAG = true;
+bool INT_FLAG = true;
 
 bool Set_defaul_flag = false;
 bool Net_sta_flag = false;
@@ -52,13 +53,10 @@ ledc_channel_config_t ledc_channel = {.channel = LEDC_CHANNEL_0,
 *******************************************/
 static void Led_Task(void *arg)
 {
-    Led_Off();
-    Led_G_On();
-    xEventGroupWaitBits(Net_sta_group, HUMAN_I_BIT, false, true, -1);
     while (1)
     {
         //硬件错误
-        if (E2P_FLAG == false)
+        if ((E2P_FLAG == false) || (ETH_FLAG == false))
         {
             Led_Off();
             vTaskDelay(500 / portTICK_RATE_MS);
@@ -81,6 +79,14 @@ static void Led_Task(void *arg)
             Led_R_On();
             vTaskDelay(500 / portTICK_RATE_MS);
         }
+        //初始化
+        else if (INT_FLAG == true)
+        {
+            Led_Off();
+            Led_G_On();
+            vTaskDelay(100 / portTICK_RATE_MS);
+        }
+
         //网络错误
         else if (Net_sta_flag == false)
         {
@@ -146,9 +152,11 @@ void Led_Init(void)
 
 void Led_G_Off(void)
 {
-    ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 1023);
-    ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
+    ledc_set_duty_and_update(ledc_channel.speed_mode, ledc_channel.channel, 1023, 0);
+    // ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 1023);
+    // ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
 }
+
 void Led_R_On(void)
 {
     gpio_set_level(GPIO_LED_R, 0);
@@ -156,8 +164,9 @@ void Led_R_On(void)
 
 void Led_G_On(void)
 {
-    ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 0);
-    ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
+    ledc_set_duty_and_update(ledc_channel.speed_mode, ledc_channel.channel, 0, 0);
+    // ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 0);
+    // ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
 }
 
 void Led_B_On(void)
@@ -174,17 +183,9 @@ void Led_Off(void)
 
 void Led_R_fade_Off(void)
 {
-    ledc_set_fade_with_time(ledc_channel.speed_mode,
-                            ledc_channel.channel, 1023, LEDC_TEST_FADE_TIME);
-    ledc_fade_start(ledc_channel.speed_mode,
-                    ledc_channel.channel, LEDC_FADE_NO_WAIT);
-    vTaskDelay(LEDC_TEST_FADE_TIME / portTICK_PERIOD_MS);
+    ledc_set_fade_time_and_start(ledc_channel.speed_mode, ledc_channel.channel, 1023, LEDC_TEST_FADE_TIME, LEDC_FADE_WAIT_DONE);
 }
 void Led_R_fade_On(void)
 {
-    ledc_set_fade_with_time(ledc_channel.speed_mode,
-                            ledc_channel.channel, 0, LEDC_TEST_FADE_TIME);
-    ledc_fade_start(ledc_channel.speed_mode,
-                    ledc_channel.channel, LEDC_FADE_NO_WAIT);
-    vTaskDelay(LEDC_TEST_FADE_TIME / portTICK_PERIOD_MS);
+    ledc_set_fade_time_and_start(ledc_channel.speed_mode, ledc_channel.channel, 0, LEDC_TEST_FADE_TIME, LEDC_FADE_WAIT_DONE);
 }

@@ -78,6 +78,27 @@ static uint8_t mqtt_connect()
         return 1;
     }
 }
+
+/*mqtt发布主题
+	参数：主题
+	返回：1:成功,0:失败
+*/
+
+/**************************************************/
+static uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len)
+{
+    uint8_t mqtt_buff[2048];
+    unsigned char topic[100];
+    int msglen = strlen(msg);
+    MQTTString topicString = MQTTString_initializer;
+    memset(topic, 0, sizeof(topic));
+    memcpy(topic, Topic, strlen(Topic));
+    topicString.cstring = (char *)topic;
+    MQTTSerialize_publish(mqtt_buff, sizeof(mqtt_buff), 0, 2, 0, 0, topicString, (unsigned char *)msg, msglen);
+
+    return 1;
+}
+
 /*mqtt订阅主题
 	参数：主题
 	返回：1:成功,0:失败

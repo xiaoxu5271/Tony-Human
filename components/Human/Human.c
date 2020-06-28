@@ -106,7 +106,9 @@ void Human_Init(void)
 void Human_Task(void *arg)
 {
     human_status = false;
+    INT_FLAG = true;
     vTaskDelay(30 * 1000 / portTICK_RATE_MS); //电路稳定时间，根据手册，最大30s
+    INT_FLAG = false;
     xEventGroupSetBits(Net_sta_group, HUMAN_I_BIT);
     while (1)
     {

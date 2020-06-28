@@ -1,9 +1,4 @@
-/*
-LED驱动程序
-创建日期：2018年10月29日
-作者：孙浩
 
-*/
 #ifndef _LED_H_
 #define _LED_H_
 
@@ -16,24 +11,12 @@ uint8_t Led_Status;
 
 extern bool E2P_FLAG;
 extern bool ETH_FLAG;
+extern bool INT_FLAG;
 
 extern bool Set_defaul_flag;
 extern bool Net_sta_flag;
 extern bool Cnof_net_flag;
 extern bool No_ser_flag;
-
-enum led_sta
-{
-    LED_STA_INIT = 0x00, //初始化
-    LED_STA_AP,          //配网
-    LED_STA_WIFIERR,     //网络错误
-    LED_STA_NOSER,       //无序列号
-    LED_STA_WORK,        //正常工作
-    LED_STA_SEND,        //发送数据
-    LED_STA_ACTIVE_ERR,  //激活失败
-    LED_STA_HEARD_ERR,   //硬件错误
-    LED_STA_OTA          //OTA ING
-};
 
 void Led_R_On(void);
 void Led_G_On(void);
