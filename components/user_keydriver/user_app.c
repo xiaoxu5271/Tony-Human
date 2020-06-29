@@ -90,7 +90,7 @@ void long_pressed_cb(uint8_t key_num, uint8_t *long_pressed_counts)
         // ESP_LOGI("long_pressed_cb", "long press!!!\n");
         Set_defaul_flag = true;
         E2prom_set_defaul(true);
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        // vTaskDelay(5000 / portTICK_PERIOD_MS);
         esp_restart();
 
         break;

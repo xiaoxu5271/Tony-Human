@@ -9,22 +9,6 @@
 
 #include "Led.h"
 
-#if 1
-
-#define GPIO_LED_R 17
-#define GPIO_LED_B 21
-#define GPIO_LED_G (22)
-
-#define LEDC_TEST_FADE_TIME 1500
-
-#else
-
-#define GPIO_LED_B 21
-#define GPIO_LED_G 22
-#define GPIO_LED_R 23
-
-#endif
-
 bool E2P_FLAG = true;
 bool ETH_FLAG = true;
 bool INT_FLAG = true;

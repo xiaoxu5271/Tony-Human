@@ -83,18 +83,51 @@ static uint8_t mqtt_connect()
 	参数：主题
 	返回：1:成功,0:失败
 */
-
-/**************************************************/
-static uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len)
+uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len)
 {
     uint8_t mqtt_buff[2048];
     unsigned char topic[100];
     int msglen = strlen(msg);
+    int32_t rc, ret;
+    int qos = 1; //设置成1 可以正常收发
+    uint8_t count = 0;
     MQTTString topicString = MQTTString_initializer;
     memset(topic, 0, sizeof(topic));
     memcpy(topic, Topic, strlen(Topic));
     topicString.cstring = (char *)topic;
-    MQTTSerialize_publish(mqtt_buff, sizeof(mqtt_buff), 0, 2, 0, 0, topicString, (unsigned char *)msg, msglen);
+    rc = MQTTSerialize_publish(mqtt_buff, sizeof(mqtt_buff), 0, qos, 0, 0, topicString, (unsigned char *)msg, msglen);
+    if (rc < 0)
+    {
+        ESP_LOGE(TAG, "%d", __LINE__);
+        return 0;
+    }
+
+    ret = lan_send(MQTT_SOCKET, mqtt_buff, rc);
+    if (ret != rc)
+    {
+        ESP_LOGE(TAG, "%d", __LINE__);
+        return 0;
+    }
+
+    //阻塞等待接收数据 1s超时
+    while (getSn_RX_RSR(MQTT_SOCKET) == 0)
+    {
+        count++;
+        if (count > 100)
+        {
+            count = 0;
+            ESP_LOGE(TAG, "MQTT> publish recv error.\r\n");
+
+            return -2;
+        }
+        vTaskDelay(10 / portTICK_RATE_MS);
+    }
+
+    if ((ret = MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata)) != PUBACK)
+    {
+        ESP_LOGE(TAG, "publish recv %d", ret);
+        return -3;
+    }
 
     return 1;
 }
@@ -214,11 +247,10 @@ static int8_t mqtt()
     int qos, payloadlen_in;
     MQTTString topoc;
     uint8_t msg_rev_buf[1024];
-    uint32_t HighWaterMark;
     uint32_t ping_timeout = 0;
-    uint32_t recv_timeout = 0;
-    // uint8_t no_mqtt_msg_exchange = 0;
-    //topoc.cstring = "fdj/iot/control/12345";
+
+    creat_json Http_Post_Buff;
+
     if (mqtt_connect()) //连接服务器
     {
         ESP_LOGI(TAG, "MQTT> connected.\r\n");
@@ -230,16 +262,7 @@ static int8_t mqtt()
             while (1) //开始接收数据，阻塞任务
             {
                 //延时阻塞接收数据
-                while ((ret = getSn_RX_RSR(MQTT_SOCKET)) == 0)
-                {
-                    recv_timeout++;
-                    if (recv_timeout > 100)
-                    {
-                        recv_timeout = 0;
-                        break;
-                    }
-                    vTaskDelay(10 / portTICK_RATE_MS);
-                }
+                ret = getSn_RX_RSR(MQTT_SOCKET);
 
                 //判断是否收到数据
                 if (ret > 0)
@@ -267,7 +290,7 @@ static int8_t mqtt()
                     }
                 }
                 //定时发送心跳包，单位S
-                if (ping_timeout > KEEPLIVE_TIME)
+                else if (ping_timeout > KEEPLIVE_TIME)
                 {
                     ping_timeout = 0;
                     //发送心跳包
@@ -277,8 +300,17 @@ static int8_t mqtt()
                         return 0;
                     }
                 }
+                else
+                {
+                    if (xQueueReceive(Send_Mqtt_Queue, &Http_Post_Buff, 0) == pdPASS)
+                    {
+                        ESP_LOGI(TAG, "%d", __LINE__);
+                        mqtt_publish(topic_p, Http_Post_Buff.creat_json_buff, Http_Post_Buff.creat_json_len);
+                    }
+                }
+
                 ping_timeout++;
-                // vTaskDelay(100 / portTICK_RATE_MS);
+                vTaskDelay(10 / portTICK_RATE_MS);
             }
         }
         else
@@ -312,6 +344,8 @@ void lan_mqtt_task(void *pvParameter)
     user_MQTTPacket_ConnectData.password.cstring = mqtt_pwd;
     user_MQTTPacket_ConnectData.clientID.cstring = MQTT_CLIEND_ID;
     ESP_LOGI(TAG, "mqtt_usr:%s,mqtt_usr:%s", user_MQTTPacket_ConnectData.username.cstring, user_MQTTPacket_ConnectData.password.cstring);
+
+    xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT, false, true, -1); //等待网络连接
 
     if (lan_dns_resolve((uint8_t *)MQTT_SERVER, MQTT_IP) == false)
     {

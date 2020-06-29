@@ -28,8 +28,7 @@
 #include "Mqtt.h"
 
 static const char *TAG = "MQTT";
-QueueHandle_t Send_Mqtt_Queue;
-void Send_Mqtt_Task(void *arg);
+void Mqtt_Int_Task(void *arg);
 
 esp_mqtt_client_handle_t client = NULL;
 bool MQTT_W_STA = false;
@@ -88,7 +87,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
 void initialise_mqtt(void)
 {
-    xTaskCreate(Send_Mqtt_Task, "Send Mqtt", 4096, NULL, 10, NULL);
+    xTaskCreate(Mqtt_Int_Task, "Int Mqtt", 4096, NULL, 10, NULL);
 }
 
 void Start_W_Mqtt(void)
@@ -111,10 +110,8 @@ void Stop_W_Mqtt(void)
 }
 
 #define MQTT_STATUS_BUFF_LEN 150
-void Send_Mqtt_Task(void *arg)
+void Mqtt_Int_Task(void *arg)
 {
-    creat_json *Http_Post_Buff;
-
     xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1); //等待激活
 
     sprintf(topic_s, "%s%s%s%s%s%c", "/product/", ProductId, "/channel/", ChannelId, "/control", '\0');
@@ -142,16 +139,25 @@ void Send_Mqtt_Task(void *arg)
     {
         start_lan_mqtt();
     }
+    vTaskDelete(NULL);
 
-    while (1)
-    {
-        xQueueReceive(Send_Mqtt_Queue, &Http_Post_Buff, -1);
-        if (MQTT_W_STA == true)
-        {
-            // esp_mqtt_client_publish(client, topic_p, Http_Post_Buff->creat_json_buff, 0, 1, 0);
-        }
-        else if (MQTT_E_STA == true)
-        {
-        }
-    }
+    // while (1)
+    // {
+    //     memset(Http_Post_Buff.creat_json_buff, 0, sizeof(Http_Post_Buff.creat_json_buff));
+    //     xQueueReceive(Send_Mqtt_Queue, &Http_Post_Buff, -1);
+    //     if (MQTT_W_STA == true)
+    //     {
+    //         esp_mqtt_client_publish(client, topic_p, Http_Post_Buff.creat_json_buff, 0, 1, 0);
+    //     }
+    //     else if (MQTT_E_STA == true)
+    //     {
+    //         mqtt_publish(topic_p, Http_Post_Buff.creat_json_buff, Http_Post_Buff.creat_json_len);
+    //     }
+    // }
+}
+
+//
+void W_Mqtt_Publish(char *msg)
+{
+    esp_mqtt_client_publish(client, topic_p, msg, 0, 1, 0);
 }

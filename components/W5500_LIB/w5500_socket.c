@@ -437,6 +437,7 @@ int32_t lan_send(uint8_t sn, uint8_t *buf, uint16_t len)
 
 int32_t lan_recv(uint8_t sn, uint8_t *buf, uint16_t len)
 {
+    uint16_t count = 0;
     uint8_t tmp = 0;
     uint16_t recvsize = 0;
 //A20150601 : For integarating with W5300
@@ -486,6 +487,13 @@ int32_t lan_recv(uint8_t sn, uint8_t *buf, uint16_t len)
                 return SOCK_BUSY;
             if (recvsize != 0)
                 break;
+
+            count++;
+            if (count > 500)
+            {
+                return SOCKERR_TIMEOUT;
+            }
+            vTaskDelay(10 / portTICK_PERIOD_MS);
         };
 #if _WIZCHIP_ == 5300
     }

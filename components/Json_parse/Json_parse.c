@@ -826,16 +826,60 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             cJSON_Delete(root); //delete pJson
             free(json_temp);
         }
+        //{"command":"CheckSensors"}
         else if (!strcmp((char const *)pSub->valuestring, "CheckSensors")) //Command:ReadProduct
         {
-            if (human_chack == 1)
+            cJSON *root = cJSON_CreateObject();
+            char *json_temp;
+
+            bool result_flag = true;
+
+            if ((E2P_FLAG & ETH_FLAG & HUM_FLAG) != true)
             {
-                printf("{\"result\":\"OK\",\"human\":\"OK\"}\n");
+                result_flag = false;
+            }
+
+            //构建返回结果
+            if (result_flag == true)
+            {
+                cJSON_AddStringToObject(root, "result", "OK");
             }
             else
             {
-                printf("{\"result\":\"ERROR\",\"human\":\"ERROR\"}\n");
+                cJSON_AddStringToObject(root, "result", "ERROR");
             }
+            //e2prom
+            if (E2P_FLAG == true)
+            {
+                cJSON_AddStringToObject(root, "e2prom", "OK");
+            }
+            else
+            {
+                cJSON_AddStringToObject(root, "e2prom", "ERROR");
+            }
+            //W5500
+            if (ETH_FLAG == true)
+            {
+                cJSON_AddStringToObject(root, "W5500", "OK");
+            }
+            else
+            {
+                cJSON_AddStringToObject(root, "W5500", "ERROR");
+            }
+            //HUMAN
+            if (HUM_FLAG == true)
+            {
+                cJSON_AddStringToObject(root, "Human", "OK");
+            }
+            else
+            {
+                cJSON_AddStringToObject(root, "Human", "ERROR");
+            }
+
+            json_temp = cJSON_PrintUnformatted(root);
+            printf("%s\n", json_temp);
+            cJSON_Delete(root); //delete pJson
+            free(json_temp);
         }
         //{"command":"ScanWifiList"}
         else if (!strcmp((char const *)pSub->valuestring, "ScanWifiList"))

@@ -14,7 +14,7 @@
 
 #define TAG "HUMAN"
 
-uint8_t human_chack = 0;
+bool HUM_FLAG = false;
 uint64_t human_intr_num = 0;
 bool human_status = false;
 
@@ -48,11 +48,11 @@ human_gpio_intr_handler(void *arg)
             xSemaphoreGive(human_binary_handle);
         }
         //传感器判断
-        if (human_chack == 0)
+        if (HUM_FLAG == false)
         {
             if (change_num > 5)
             {
-                human_chack = 1; //传感器OK
+                HUM_FLAG = true; //传感器OK
             }
             else
             {

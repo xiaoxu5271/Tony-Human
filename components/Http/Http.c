@@ -181,12 +181,19 @@ void http_send_mes(void)
     char build_po_url[512] = {0};
     char build_po_url_json[1024] = {0};
 
-    creat_json *pCreat_json1 = malloc(sizeof(creat_json)); //为 pCreat_json1 分配内存  动态内存分配，与free() 配合使用
+    creat_json pCreat_json1; //
     //创建POST的json格式
-    create_http_json(pCreat_json1, fn_dp_flag);
+    create_http_json(&pCreat_json1, fn_dp_flag);
     fn_dp_flag = false;
 
-    // xQueueOverwrite(Send_Mqtt_Queue, (void *)&pCreat_json1);
+    if (MQTT_W_STA == true)
+    {
+        W_Mqtt_Publish(pCreat_json1.creat_json_buff);
+    }
+    else if (MQTT_E_STA == true)
+    {
+        xQueueOverwrite(Send_Mqtt_Queue, (void *)&pCreat_json1);
+    }
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
@@ -194,7 +201,7 @@ void http_send_mes(void)
                 ApiKey,
                 FIRMWARE,
                 WEB_SERVER,
-                pCreat_json1->creat_json_len);
+                pCreat_json1.creat_json_len);
     }
     else
     {
@@ -204,14 +211,11 @@ void http_send_mes(void)
                 FIRMWARE,
                 mqtt_json_s.mqtt_command_id,
                 WEB_SERVER,
-                pCreat_json1->creat_json_len);
+                pCreat_json1.creat_json_len);
     }
 
-    sprintf(build_po_url_json, "%s%s", build_po_url, pCreat_json1->creat_json_buff);
+    sprintf(build_po_url_json, "%s%s", build_po_url, pCreat_json1.creat_json_buff);
 
-    // printf("JSON_test = : %s\n", pCreat_json1->creat_json_b);
-
-    free(pCreat_json1);
     ESP_LOGI(TAG, "POST:\n%s", build_po_url_json);
 
     //发送并解析返回数据

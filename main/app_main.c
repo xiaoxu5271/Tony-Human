@@ -27,6 +27,7 @@
 
 void app_main(void)
 {
+
     if (Check_First_Key())
     {
         ota_back();
@@ -35,7 +36,6 @@ void app_main(void)
     Net_sta_group = xEventGroupCreate();
     xMutex_Http_Send = xSemaphoreCreateMutex(); //创建HTTP发送互斥信号
     Send_Mqtt_Queue = xQueueCreate(1, sizeof(creat_json));
-
     Led_Init();
     user_app_key_init();
     E2prom_Init();

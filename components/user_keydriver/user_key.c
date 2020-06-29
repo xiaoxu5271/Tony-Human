@@ -21,6 +21,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "sys/time.h"
+#include "Led.h"
 
 /*
 ===========================
@@ -345,16 +346,21 @@ int32_t user_key_init(key_config_t *key_config,
 bool Check_First_Key(void)
 {
     uint16_t i = 0;
+    bool ret = false;
     gpio_set_direction(BOARD_BUTTON, GPIO_MODE_INPUT);
     while (!gpio_get_level(BOARD_BUTTON))
     {
         i++;
         if (i > 500) //按住按键5s
         {
-            printf("\nNow Go Back!!!\n");
-            return true;
+            i = 0;
+            gpio_set_direction(GPIO_LED_B, GPIO_MODE_OUTPUT);
+            gpio_set_level(GPIO_LED_B, 0);
+            printf("\nGo Back!!!\n");
+            ret = true;
         }
         vTaskDelay(10 / portTICK_RATE_MS);
     }
-    return false;
+
+    return ret;
 }

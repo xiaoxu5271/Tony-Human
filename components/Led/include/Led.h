@@ -3,8 +3,27 @@
 #define _LED_H_
 
 #include "freertos/FreeRTOS.h"
-TaskHandle_t Led_Task_Handle;
 
+#if 1
+#define GPIO_R_NUM GPIO_NUM_17
+#define GPIO_G_NUM GPIO_NUM_22
+#define GPIO_B_NUM GPIO_NUM_21
+
+#define GPIO_LED_R GPIO_ID_PIN(GPIO_R_NUM)
+#define GPIO_LED_B GPIO_ID_PIN(GPIO_B_NUM)
+#define GPIO_LED_G GPIO_ID_PIN(GPIO_G_NUM)
+
+#define LEDC_TEST_FADE_TIME 1500
+
+#else
+
+#define GPIO_LED_B 21
+#define GPIO_LED_G 22
+#define GPIO_LED_R 23
+
+#endif
+
+TaskHandle_t Led_Task_Handle;
 extern void Led_Init(void);
 
 uint8_t Led_Status;

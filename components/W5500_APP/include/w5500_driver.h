@@ -30,11 +30,13 @@
 #define VERSIONR_ID 0x04
 
 #define MAX_SOCK_NUM 8
-#define SOCK_DHCP 3
+
 #define SOCK_TCPS 0
-#define SOCK_OTA 2
 #define MQTT_SOCKET 1
+#define SOCK_OTA 2
+#define SOCK_DHCP 3
 #define SOCK_DNS 4
+#define SOCK_MQTT_P 5
 
 #define HTTP_HOST_PORT 80
 #define ETHERNET_DATA_BUF_SIZE 4096
