@@ -76,23 +76,24 @@ static short Parse_metadata(char *ptrptr)
         return 0;
     }
 
-    cJSON *pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_th"); //"fn_th"
-    if (NULL != pSubSubSub)
-    {
-        // if ((uint32_t)pSubSubSub->valueint != fn_th)
-        // {
-        //     fn_th = (uint32_t)pSubSubSub->valueint;
-        //     printf("fn_th = %d\n", fn_th);
-        // }
-    }
+    // cJSON *pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_th"); //"fn_th"
+    // if (NULL != pSubSubSub)
+    // {
+    //     if ((uint32_t)pSubSubSub->valueint != fn_th)
+    //     {
+    //         fn_th = (uint32_t)pSubSubSub->valueint;
+    //         printf("fn_th = %d\n", fn_th);
+    //     }
+    // }
 
-    pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_dp"); //"fn_dp"
+    cJSON *pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_dp"); //"fn_dp"
     if (NULL != pSubSubSub)
     {
 
         if ((uint32_t)pSubSubSub->valueint != fn_dp)
         {
             fn_dp = (uint32_t)pSubSubSub->valueint;
+            E2P_WriteLenByte(FN_DP_ADD, fn_dp, 4);
             printf("fn_dp = %d\n", fn_dp);
         }
     }
@@ -104,6 +105,7 @@ static short Parse_metadata(char *ptrptr)
         if ((uint32_t)pSubSubSub->valueint != fn_sen)
         {
             fn_sen = (uint32_t)pSubSubSub->valueint;
+            E2P_WriteLenByte(FN_SEN_ADD, fn_sen, 4);
             printf("fn_sen = %d\n", fn_sen);
         }
     }
@@ -115,6 +117,7 @@ static short Parse_metadata(char *ptrptr)
         if ((uint8_t)pSubSubSub->valueint != cg_data_led)
         {
             cg_data_led = (uint8_t)pSubSubSub->valueint;
+            E2P_WriteLenByte(CG_DATA_LED_ADD, cg_data_led, 1);
             printf("cg_data_led = %d\n", cg_data_led);
         }
     }
@@ -477,7 +480,8 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     char mac_buff[100] = {0};
     char ssid64_buff[64] = {0};
 
-    strncpy(http_json_c.http_time, Server_Timer_SEND(), 24);
+    char *time_buff = (char *)malloc(24);
+    Server_Timer_SEND(time_buff);
     wifi_ap_record_t wifidata;
 
     //printf("status_creat_json %s\r\n", status_creat_json);
@@ -485,7 +489,7 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     // cJSON_AddItemToArray(fe_body, item);
     // cJSON_AddItemToObject(item, "created_at", cJSON_CreateString(http_json_c.http_time));
     cJSON_AddItemToArray(fe_body, next);
-    cJSON_AddItemToObject(next, "created_at", cJSON_CreateString(http_json_c.http_time));
+    cJSON_AddItemToObject(next, "created_at", cJSON_CreateString(time_buff));
     // cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_tem)); //温度
     // cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_hum)); //湿度
 
@@ -551,6 +555,7 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     memcpy(pCreat_json->creat_json_buff, cjson_printunformat, pCreat_json->creat_json_len);
     //printf("http_json=%s\n",pCreat_json->creat_json_b);
     free(cjson_printunformat);
+    free(time_buff);
     cJSON_Delete(root);
     //return pCreat_json;
 }

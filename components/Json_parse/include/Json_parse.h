@@ -45,10 +45,6 @@ struct
     char wifi_pwd[64];
 } wifi_data;
 
-struct
-{
-    char http_time[24];
-} http_json_c;
 
 typedef struct
 {

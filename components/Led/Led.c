@@ -71,19 +71,19 @@ static void Led_Task(void *arg)
             vTaskDelay(100 / portTICK_RATE_MS);
         }
 
-        //网络错误
-        else if (Net_sta_flag == false)
-        {
-            Led_Off();
-            Led_R_On();
-            vTaskDelay(100 / portTICK_RATE_MS);
-        }
         else
         {
             //开启LED指示
             if (cg_data_led == 1)
             {
-                if (human_status == true)
+                //网络错误
+                if (Net_sta_flag == false)
+                {
+                    Led_Off();
+                    Led_R_On();
+                    vTaskDelay(100 / portTICK_RATE_MS);
+                }
+                else if (human_status == true)
                 {
                     Led_Off();
                     Led_R_fade_On();
