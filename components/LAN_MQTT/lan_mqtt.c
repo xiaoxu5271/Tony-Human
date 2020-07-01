@@ -400,12 +400,13 @@ void lan_mqtt_task(void *pvParameter)
             break;
 
         default:
-            ESP_LOGI(TAG, "MQTT> unknow mqtt socke SR:%x.\r\n", getSn_SR(MQTT_SOCKET));
+            ESP_LOGE(TAG, "MQTT> unknow mqtt socke SR:%x.\r\n", getSn_SR(MQTT_SOCKET));
             fail_num++;
             if (fail_num >= 10)
             {
                 fail_num = 0;
-                printf("fail time out getSn_SR=0x%02x\n", getSn_SR(MQTT_SOCKET));
+                RJ45_MODE = RJ45_INIT;
+                ESP_LOGE(TAG, "fail time out getSn_SR=0x%02x\n", getSn_SR(MQTT_SOCKET));
                 lan_close(MQTT_SOCKET);
             }
             break;

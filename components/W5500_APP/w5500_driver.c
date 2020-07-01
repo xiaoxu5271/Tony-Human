@@ -462,6 +462,8 @@ void RJ45_Task(void *arg)
         switch (RJ45_MODE)
         {
         case RJ45_INIT:
+            xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
+            Start_Active();
             W5500_Network_Init();
             RJ45_MODE = RJ45_WORK;
             break;
@@ -507,7 +509,7 @@ void RJ45_Task(void *arg)
         default:
             break;
         }
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(50 / portTICK_PERIOD_MS);
     }
     xEventGroupClearBits(Net_sta_group, ETH_Task_BIT);
     vTaskDelete(NULL);
