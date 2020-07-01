@@ -46,7 +46,7 @@ TaskHandle_t RJ45_Task_Handle;
 uint32_t socker_port = 3000; //本地端口 不可变
 uint8_t ethernet_buf[ETHERNET_DATA_BUF_SIZE];
 uint8_t http_dns_host_ip[4];
-
+bool DHCP_INIT = false;         //重新初始化DHCP 标志，
 char current_net_ip[20];        //当前内网IP，用于上传
 uint8_t netinfo_buff[16] = {0}; //IP 设置参数
 uint8_t server_port = 80;
@@ -469,7 +469,7 @@ void RJ45_Task(void *arg)
             break;
 
         case RJ45_WORK:
-            if (check_rj45_status() == ESP_OK)
+            if ((check_rj45_status() == ESP_OK) && (DHCP_INIT == false))
             {
                 if (gWIZNETINFO.dhcp == NETINFO_DHCP)
                 {
@@ -498,6 +498,7 @@ void RJ45_Task(void *arg)
             }
             else
             {
+                DHCP_INIT = false;
                 DHCP_init(SOCK_DHCP, ethernet_buf);
                 Net_sta_flag = false;
                 Net_ErrCode = 401;

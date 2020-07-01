@@ -405,7 +405,7 @@ void lan_mqtt_task(void *pvParameter)
             if (fail_num >= 10)
             {
                 fail_num = 0;
-                RJ45_MODE = RJ45_INIT;
+                DHCP_INIT = true;
                 ESP_LOGE(TAG, "fail time out getSn_SR=0x%02x\n", getSn_SR(MQTT_SOCKET));
                 lan_close(MQTT_SOCKET);
             }

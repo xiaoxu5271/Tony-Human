@@ -73,6 +73,7 @@ extern uint8_t http_dns_host_ip[4];
 extern char current_net_ip[20];  //当前内网IP，用于上传
 extern uint8_t netinfo_buff[16]; //IP 设置参数
 extern uint16_t LAN_ERR_CODE;
+extern bool DHCP_INIT;
 
 /*-------------------------------- Includes ----------------------------------*/
 //extern short Ethernet_http_application(uint8_t mode);
