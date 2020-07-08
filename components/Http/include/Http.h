@@ -6,7 +6,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
 
-#define FIRMWARE "HUM1-V0.2.15"
+#define FIRMWARE "HUM1-V0.2.16"
 
 #define POST_NORMAL 0X00
 #define POST_HEIGHT_ADD 0X01
@@ -28,6 +28,15 @@
 
 #define HTTP_RECV_BUFF_LEN 2048
 
+typedef enum
+{
+    NET_OK = 0,
+    NET_DIS,
+    NET_410,
+    NET_400,
+    NET_402,
+} Net_Err;
+
 SemaphoreHandle_t xMutex_Http_Send;
 
 //需要发送的二值信号量
@@ -40,7 +49,6 @@ extern uint8_t post_status;
 extern uint8_t Last_Led_Status;
 
 void initialise_http(void);
-void http_send_mes(void);
 void Start_Active(void);
 int32_t http_post_init(uint32_t Content_Length);
 int8_t http_send_post(int32_t s, char *post_buf, bool end_flag);

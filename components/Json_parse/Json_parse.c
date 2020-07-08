@@ -204,21 +204,6 @@ esp_err_t parse_objects_http_active(char *http_json_data)
     }
     else
     {
-        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "result");
-        if (!(strcmp(json_data_parse_value->valuestring, "success")))
-        {
-            printf("active:success\r\n");
-
-            json_data_parse_time_value = cJSON_GetObjectItem(json_data_parse, "server_time");
-            Server_Timer_GET(json_data_parse_time_value->valuestring);
-        }
-        else
-        {
-            printf("active:error\r\n");
-            cJSON_Delete(json_data_parse);
-            return 0;
-        }
-
         if (cJSON_GetObjectItem(json_data_parse, "channel") != NULL)
         {
             json_data_parse_channel_value = cJSON_GetObjectItem(json_data_parse, "channel");

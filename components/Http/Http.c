@@ -38,6 +38,7 @@ bool fn_dp_flag = true;
 
 esp_timer_handle_t http_timer_suspend_p = NULL;
 
+Net_Err http_send_mes(void);
 void timer_heart_cb(void *arg);
 esp_timer_handle_t timer_heart_handle = NULL; //定时器句柄
 esp_timer_create_args_t timer_heart_arg = {
@@ -164,24 +165,33 @@ int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uin
 
 void http_get_task(void *pvParameters)
 {
-
+    Net_Err ret;
     while (1)
     {
-        xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1);
-        http_send_mes();
-
+        while ((ret = http_send_mes()) != NET_OK)
+        {
+            if (ret != NET_DIS)
+            {
+                ESP_LOGI(TAG, "%d", __LINE__);
+                Start_Active();
+                break;
+            }
+            vTaskDelay(500 / portTICK_PERIOD_MS);
+        }
         ulTaskNotifyTake(pdTRUE, -1);
     }
 }
 
-void http_send_mes(void)
+Net_Err http_send_mes(void)
 {
-    int ret = 0;
+    Net_Err ret = NET_OK;
     char recv_buf[1024] = {0};
     char build_po_url[512] = {0};
     char build_po_url_json[1024] = {0};
 
     creat_json pCreat_json1; //
+
+    xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1);
     //创建POST的json格式
     create_http_json(&pCreat_json1, fn_dp_flag);
     fn_dp_flag = false;
@@ -218,35 +228,35 @@ void http_send_mes(void)
 
     ESP_LOGI(TAG, "POST:\n%s", build_po_url_json);
 
-    //发送并解析返回数据
-    /***********調用函數發送***********/
-
     if (http_send_buff(build_po_url_json, 1024, recv_buf, 1024) > 0)
     {
         // printf("解析返回数据！\n");
-        ESP_LOGI(TAG, "mes recv:%s", recv_buf);
         if (parse_objects_http_respond(recv_buf))
         {
             Net_sta_flag = true;
+            ret = NET_OK;
         }
         else
         {
+            ESP_LOGE(TAG, "mes recv:%s", recv_buf);
             Net_sta_flag = false;
+            ret = NET_400;
         }
     }
     else
     {
         Net_sta_flag = false;
-        printf("send return : %d \n", ret);
+        ret = NET_DIS;
     }
+    return ret;
 }
 
 //发送心跳包
-bool Send_herat(void)
+Net_Err Send_herat(void)
 {
     char *build_heart_url;
     char *recv_buf;
-    bool ret = false;
+    Net_Err ret = NET_OK;
     xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1); //等网络连接
 
     build_heart_url = (char *)malloc(256);
@@ -261,19 +271,19 @@ bool Send_herat(void)
         if (parse_objects_heart(recv_buf))
         {
             //successed
-            ret = true;
+            ret = NET_OK;
             Net_sta_flag = true;
         }
         else
         {
             ESP_LOGE(TAG, "hart recv:%s", recv_buf);
-            ret = false;
+            ret = NET_400;
             Net_sta_flag = false;
         }
     }
     else
     {
-        ret = false;
+        ret = NET_DIS;
         Net_sta_flag = false;
         ESP_LOGE(TAG, "hart recv 0!\r\n");
     }
@@ -285,15 +295,22 @@ bool Send_herat(void)
 
 void send_heart_task(void *arg)
 {
+    Net_Err ret;
     while (1)
     {
         ESP_LOGW("heart_memroy check", " INTERNAL RAM left %dKB，free Heap:%d",
                  heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024,
                  esp_get_free_heap_size());
 
-        while (Send_herat() == false)
+        while ((ret = Send_herat()) != NET_OK)
         {
-            vTaskDelay(2000 / portTICK_PERIOD_MS);
+            if (ret != NET_DIS) //非网络错误，需重新激活
+            {
+                ESP_LOGI(TAG, "%d", __LINE__);
+                Start_Active();
+                break;
+            }
+            vTaskDelay(10000 / portTICK_PERIOD_MS);
         }
 
         ulTaskNotifyTake(pdTRUE, -1);
@@ -338,6 +355,7 @@ uint16_t http_activate(void)
 
 void Active_Task(void *arg)
 {
+    uint8_t Retry_num = 0;
     xEventGroupSetBits(Net_sta_group, ACTIVE_S_BIT);
     while (1)
     {
@@ -345,8 +363,22 @@ void Active_Task(void *arg)
         while ((Net_ErrCode = http_activate()) != 1) //激活
         {
             ESP_LOGE(TAG, "activate fail\n");
-            vTaskDelay(2000 / portTICK_PERIOD_MS);
+            if (Net_ErrCode == 302)
+            {
+                Retry_num++;
+                if (Retry_num > 60)
+                {
+                    xEventGroupClearBits(Net_sta_group, ACTIVE_S_BIT);
+                    vTaskDelete(NULL);
+                }
+                vTaskDelay(10000 / portTICK_PERIOD_MS);
+            }
+            else
+            {
+                vTaskDelay(2000 / portTICK_PERIOD_MS);
+            }
         }
+        ESP_LOGI(TAG, "activate OK\n");
         xEventGroupSetBits(Net_sta_group, ACTIVED_BIT);
         break;
     }
