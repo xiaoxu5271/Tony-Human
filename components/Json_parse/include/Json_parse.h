@@ -45,7 +45,6 @@ struct
     char wifi_pwd[64];
 } wifi_data;
 
-
 typedef struct
 {
     char creat_json_buff[512];
@@ -57,11 +56,14 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag);
 uint16_t Create_Status_Json(char *status_buff, bool filed_flag);
 
 /************metadata 参数***********/
-extern uint32_t fn_dp;      //数据发送频率
-extern uint32_t fn_th;      //温湿度频率
-extern uint32_t fn_sen;     //人感灵敏度
-extern uint8_t cg_data_led; //发送数据 LED状态 0关闭，1打开
-extern uint8_t net_mode;    //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
+extern uint32_t fn_dp;        //数据发送频率
+extern uint32_t fn_th;        //温湿度频率
+extern uint32_t fn_sen;       //人感灵敏度
+extern uint32_t fn_sen_cycle; //人感灵敏度 周期，单位ms
+extern uint32_t fn_sen_res;   //人感状态重置周期，单位ms
+extern uint32_t fn_sen_sta;   //人感原始值统计周期，单位s
+extern uint8_t cg_data_led;   //发送数据 LED状态 0关闭，1打开
+extern uint8_t net_mode;      //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
 /************************************/
 
 extern char SerialNum[SERISE_NUM_LEN];

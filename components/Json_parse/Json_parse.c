@@ -28,11 +28,14 @@
 
 #define TAG "Json-parese"
 
-uint32_t fn_dp = 0;      //数据发送频率
-uint32_t fn_th = 0;      //温湿度频率
-uint32_t fn_sen = 1;     //人感灵敏度，1对应100ms
-uint8_t cg_data_led = 1; //发送数据 LED状态 0：不闪烁 1：闪烁
-uint8_t net_mode = 0;    //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
+uint32_t fn_dp = 0;           //数据发送频率
+uint32_t fn_th = 0;           //温湿度频率
+uint32_t fn_sen = 950;        //人感灵敏度 阈值，单位ms
+uint32_t fn_sen_cycle = 1000; //人感灵敏度 周期，单位ms
+uint32_t fn_sen_res = 10000;  //人感状态重置周期，单位ms
+uint32_t fn_sen_sta = 300;    //人感原始值统计周期，单位s
+uint8_t cg_data_led = 1;      //发送数据 LED状态 0：不闪烁 1：闪烁
+uint8_t net_mode = 0;         //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
 
 char SerialNum[SERISE_NUM_LEN] = {0};
 char ProductId[PRODUCT_ID_LEN] = {0};

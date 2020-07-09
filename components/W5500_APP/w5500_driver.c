@@ -444,6 +444,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
             {
                 fail_num = 0;
                 ESP_LOGI(TAG, "fail time out getSn_SR=  0x%02x\n", temp);
+                RJ45_MODE = RJ45_INIT;
                 return -temp;
             }
             break;
