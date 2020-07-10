@@ -64,7 +64,11 @@
 #define ETHERNET_IP_ADD WIFI_PASSWORD_ADD + 64 + 1 //20
 #define ETHERNET_DHCP_ADD ETHERNET_IP_ADD + 20 + 1 //1
 
-#define E2P_USAGED ETHERNET_DHCP_ADD
+#define FN_SEN_CYCLE_ADD ETHERNET_DHCP_ADD + 1 + 1 //fn_sen_cycle 4
+#define FN_SEN_RES_ADD FN_SEN_CYCLE_ADD + 4 + 1    //fn_sen_res 4
+#define FN_SEN_STA_ADD FN_SEN_RES_ADD + 4 + 1      //fn_sen_sta 4
+
+#define E2P_USAGED FN_SEN_STA_ADD
 
 void E2prom_Init(void);
 esp_err_t E2P_WriteOneByte(uint16_t reg_addr, uint8_t dat);

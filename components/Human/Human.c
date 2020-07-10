@@ -45,7 +45,10 @@ static void huamn_timer_cb(void *arg)
     if (Timer2_flag == false)
     {
         Timer2_flag = true;
-        esp_timer_start_once(human_timer2_handle, fn_sen_res * 1000);
+        if (fn_sen_res != 0)
+        {
+            esp_timer_start_once(human_timer2_handle, fn_sen_res * 1000);
+        }
     }
     // ESP_LOGI(TAG, "human_intr_num=%lld", human_intr_num);
 }
@@ -113,8 +116,11 @@ void Human_Init(void)
 
     esp_timer_create(&human_timer_arg, &human_timer_handle);
     esp_timer_create(&human_timer2_arg, &human_timer2_handle);
+    if (fn_sen_cycle == 0)
+    {
+        fn_sen_cycle = 500;
+    }
     esp_timer_start_periodic(human_timer_handle, fn_sen_cycle * 1000);
-
     xTaskCreate(Human_Task, "Human_Task", 4096, NULL, 4, &Human_Handle);
 }
 
@@ -147,7 +153,7 @@ void Human_Task(void *arg)
             // ESP_LOGI(TAG, "One_Risi_Time:%lld", One_Risi_Time);
             if (One_Risi_Time > (uint64_t)(1000 * fn_sen)) //fn_sen*100ms
             {
-                ESP_LOGI(TAG, "One_Risi_Time:%lld,fn_sen:%lld", One_Risi_Time, (uint64_t)(1000 * fn_sen));
+                // ESP_LOGI(TAG, "One_Risi_Time:%lld,fn_sen:%lld", One_Risi_Time, (uint64_t)(1000 * fn_sen));
                 if (Timer2_flag == true)
                 {
                     esp_timer_stop(human_timer2_handle);

@@ -79,16 +79,6 @@ static short Parse_metadata(char *ptrptr)
         return 0;
     }
 
-    // cJSON *pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_th"); //"fn_th"
-    // if (NULL != pSubSubSub)
-    // {
-    //     if ((uint32_t)pSubSubSub->valueint != fn_th)
-    //     {
-    //         fn_th = (uint32_t)pSubSubSub->valueint;
-    //         printf("fn_th = %d\n", fn_th);
-    //     }
-    // }
-
     cJSON *pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_dp"); //"fn_dp"
     if (NULL != pSubSubSub)
     {
@@ -105,11 +95,44 @@ static short Parse_metadata(char *ptrptr)
     if (NULL != pSubSubSub)
     {
 
-        if ((uint32_t)pSubSubSub->valueint != fn_sen)
+        if ((uint32_t)pSubSubSub->valueint != fn_sen && (uint32_t)pSubSubSub->valueint > 0)
         {
             fn_sen = (uint32_t)pSubSubSub->valueint;
             E2P_WriteLenByte(FN_SEN_ADD, fn_sen, 4);
             printf("fn_sen = %d\n", fn_sen);
+        }
+    }
+
+    pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_sen_cycle"); //"fn_sen"
+    if (NULL != pSubSubSub)
+    {
+        if ((uint32_t)pSubSubSub->valueint != fn_sen_cycle && (uint32_t)pSubSubSub->valueint > 0)
+        {
+            fn_sen_cycle = (uint32_t)pSubSubSub->valueint;
+            E2P_WriteLenByte(FN_SEN_CYCLE_ADD, fn_sen_cycle, 4);
+            printf("fn_sen_cycle = %d\n", fn_sen_cycle);
+        }
+    }
+
+    pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_sen_res"); //"fn_sen"
+    if (NULL != pSubSubSub)
+    {
+        if ((uint32_t)pSubSubSub->valueint != fn_sen_res && (uint32_t)pSubSubSub->valueint > 0)
+        {
+            fn_sen_res = (uint32_t)pSubSubSub->valueint;
+            E2P_WriteLenByte(FN_SEN_RES_ADD, fn_sen_res, 4);
+            printf("fn_sen_res = %d\n", fn_sen_res);
+        }
+    }
+
+    pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_sen_sta"); //"fn_sen"
+    if (NULL != pSubSubSub)
+    {
+        if ((uint32_t)pSubSubSub->valueint != fn_sen_sta && (uint32_t)pSubSubSub->valueint > 0)
+        {
+            fn_sen_sta = (uint32_t)pSubSubSub->valueint;
+            E2P_WriteLenByte(FN_SEN_STA_ADD, fn_sen_sta, 4);
+            printf("fn_sen_sta = %d\n", fn_sen_sta);
         }
     }
 
@@ -178,8 +201,6 @@ int32_t parse_objects_bluetooth(char *blu_json_data)
 esp_err_t parse_objects_http_active(char *http_json_data)
 {
     cJSON *json_data_parse = NULL;
-    cJSON *json_data_parse_value = NULL;
-    cJSON *json_data_parse_time_value = NULL;
     cJSON *json_data_parse_channel_channel_write_key = NULL;
     cJSON *json_data_parse_channel_channel_id_value = NULL;
     cJSON *json_data_parse_channel_metadata = NULL;
@@ -489,46 +510,45 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     {
         cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
     }
-    //构建附属信息
-    if (flag == 1)
+    //构建人感变动量
+    if (flag == true)
     {
-        if (net_mode == NET_WIFI) //wifi
-        {
-            if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
-            {
-                itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
-            }
-            esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
-            sprintf(mac_buff,
-                    "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                    mac_sys[0],
-                    mac_sys[1],
-                    mac_sys[2],
-                    mac_sys[3],
-                    mac_sys[4],
-                    mac_sys[5]);
-            base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-            cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
-            cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
-            cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
-        }
-        else //以太网
-        {
-            esp_read_mac(mac_sys, 3); //获取芯片内部默认出厂MAC，
-            sprintf(mac_buff,
-                    "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                    mac_sys[0],
-                    mac_sys[1],
-                    mac_sys[2],
-                    mac_sys[3],
-                    mac_sys[4],
-                    mac_sys[5]);
-            base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-            cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
-        }
-
         cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
         human_intr_num = 0;
+    }
+    if (net_mode == NET_WIFI) //wifi
+    {
+        if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+        {
+            itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
+        }
+        esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
+        sprintf(mac_buff,
+                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                mac_sys[0],
+                mac_sys[1],
+                mac_sys[2],
+                mac_sys[3],
+                mac_sys[4],
+                mac_sys[5]);
+        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
+        cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
+        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
+        cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
+    }
+    else //以太网
+    {
+        esp_read_mac(mac_sys, 3); //获取芯片内部默认出厂MAC，
+        sprintf(mac_buff,
+                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                mac_sys[0],
+                mac_sys[1],
+                mac_sys[2],
+                mac_sys[3],
+                mac_sys[4],
+                mac_sys[5]);
+        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
+        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
     }
 
     char *cjson_printunformat;
@@ -900,14 +920,38 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
 void Read_Metadate_E2p(void)
 {
 
-    fn_dp = E2P_ReadLenByte(FN_DP_ADD, 4);          //数据发送频率
-    fn_sen = E2P_ReadLenByte(FN_SEN_ADD, 4);        //人感灵敏度
-    cg_data_led = E2P_ReadOneByte(CG_DATA_LED_ADD); //发送数据 LED状态 0关闭，1打开
-    net_mode = E2P_ReadOneByte(NET_MODE_ADD);       //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
+    fn_dp = E2P_ReadLenByte(FN_DP_ADD, 4);               //数据发送频率
+    fn_sen = E2P_ReadLenByte(FN_SEN_ADD, 4);             //人感灵敏度
+    fn_sen_cycle = E2P_ReadLenByte(FN_SEN_CYCLE_ADD, 4); //
+    fn_sen_res = E2P_ReadLenByte(FN_SEN_RES_ADD, 4);     //
+    fn_sen_sta = E2P_ReadLenByte(FN_SEN_STA_ADD, 4);     //
+    cg_data_led = E2P_ReadOneByte(CG_DATA_LED_ADD);      //发送数据 LED状态 0关闭，1打开
+    net_mode = E2P_ReadOneByte(NET_MODE_ADD);            //上网模式选择 0：自动模式 1：lan模式 2：wifi模式
+
+    if (fn_sen == 0)
+    {
+        fn_sen = 100;
+    }
+    if (fn_sen_cycle == 0)
+    {
+        fn_sen_cycle = 1000;
+    }
+    if (fn_sen_res == 0)
+    {
+        fn_sen_res = 30000;
+    }
+    if (fn_sen_sta == 0)
+    {
+        fn_sen_sta = 300;
+    }
 
     printf("E2P USAGE:%d\n", E2P_USAGED);
 
     printf("fn_dp:%d\n", fn_dp);
+    printf("fn_sen:%d\n", fn_sen);
+    printf("fn_sen_cycle:%d\n", fn_sen_cycle);
+    printf("fn_sen_res:%d\n", fn_sen_res);
+    printf("fn_sen_sta:%d\n", fn_sen_sta);
     printf("cg_data_led:%d\n", cg_data_led);
     printf("net_mode:%d\n", net_mode);
 }
