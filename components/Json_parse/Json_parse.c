@@ -75,7 +75,6 @@ static short Parse_metadata(char *ptrptr)
     if (NULL == pJsonJson)
     {
         cJSON_Delete(pJsonJson); //delete pJson
-
         return 0;
     }
 
@@ -912,7 +911,6 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
     }
 
     cJSON_Delete(pJson); //delete pJson
-
     return ESP_FAIL;
 }
 
