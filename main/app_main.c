@@ -56,8 +56,18 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
 
     ble_app_init();
+
+    if (memcmp(ProductId, "ubibot-ms1p", 12) == 0)
+    {
+        w5500_user_int();
+    }
+    else
+    {
+        net_mode = NET_WIFI;
+        E2P_WriteOneByte(NET_MODE_ADD, net_mode); //写入net_mode
+    }
+
     init_wifi();
-    w5500_user_int();
     initialise_http();
     initialise_mqtt();
 
