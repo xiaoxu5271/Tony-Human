@@ -25,6 +25,7 @@
 #include "tcp_bsp.h"
 #include "my_base64.h"
 #include "Human.h"
+#include "sound_level.h"
 
 #define TAG "Json-parese"
 
@@ -492,29 +493,54 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     Server_Timer_SEND(time_buff);
     wifi_ap_record_t wifidata;
 
-    //printf("status_creat_json %s\r\n", status_creat_json);
     cJSON_AddItemToObject(root, "feeds", fe_body);
-    // cJSON_AddItemToArray(fe_body, item);
-    // cJSON_AddItemToObject(item, "created_at", cJSON_CreateString(http_json_c.http_time));
     cJSON_AddItemToArray(fe_body, next);
     cJSON_AddItemToObject(next, "created_at", cJSON_CreateString(time_buff));
-    // cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_tem)); //温度
-    // cJSON_AddItemToObject(next, "field3", cJSON_CreateString(mqtt_json_s.mqtt_hum)); //湿度
 
-    if (human_status == false)
+    if (strcmp(ProductId, "ubibot-ms1") == 0 || strcmp(ProductId, "ubibot-ms1p") == 0)
     {
-        cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
+        if (human_status == false)
+        {
+            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
+        }
+        else if (human_status == true)
+        {
+            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
+        }
+        //构建人感变动量
+        if (flag == true)
+        {
+            cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
+            human_intr_num = 0;
+        }
     }
-    else if (human_status == true)
+
+    else if (strcmp(ProductId, "ubibot-ns1p") == 0 || strcmp(ProductId, "ubibot-ns1") == 0)
     {
-        cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
+        //构建分贝值
+        cJSON_AddItemToObject(next, "field4", cJSON_CreateNumber(value_voice));
     }
-    //构建人感变动量
-    if (flag == true)
+
+    else if (strcmp(ProductId, "ubibot-mns1p") == 0 || strcmp(ProductId, "ubibot-mns1") == 0)
     {
-        cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
-        human_intr_num = 0;
+        if (human_status == false)
+        {
+            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
+        }
+        else if (human_status == true)
+        {
+            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
+        }
+        //构建人感变动量
+        if (flag == true)
+        {
+            cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
+            human_intr_num = 0;
+        }
+        //构建分贝值
+        cJSON_AddItemToObject(next, "field4", cJSON_CreateNumber(value_voice));
     }
+
     if (net_mode == NET_WIFI) //wifi
     {
         if (esp_wifi_sta_get_ap_info(&wifidata) == 0)

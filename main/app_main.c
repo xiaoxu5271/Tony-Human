@@ -25,9 +25,10 @@
 #include "ota.h"
 #include "user_key.h"
 
+#include "sound_level.h"
+
 void app_main(void)
 {
-
     if (Check_First_Key())
     {
         ota_back();
@@ -42,9 +43,45 @@ void app_main(void)
     Read_Metadate_E2p();
     Read_Product_E2p();
     Uart0_Init();
-    Human_Init();
 
     printf("FIRMWARE=%s\n", FIRMWARE);
+
+    //选择版本
+    if (strcmp(ProductId, "ubibot-ms1") == 0)
+    {
+        Human_Init();
+        net_mode = NET_WIFI;
+        E2P_WriteOneByte(NET_MODE_ADD, net_mode); //写入net_mode
+    }
+    else if (strcmp(ProductId, "ubibot-ms1p") == 0)
+    {
+        Human_Init();
+        w5500_user_int();
+    }
+    else if (strcmp(ProductId, "ubibot-ns1p") == 0)
+    {
+        Sound_Init();
+        w5500_user_int();
+    }
+    else if (strcmp(ProductId, "ubibot-ns1") == 0)
+    {
+        Sound_Init();
+        net_mode = NET_WIFI;
+        E2P_WriteOneByte(NET_MODE_ADD, net_mode); //写入net_mode
+    }
+    else if (strcmp(ProductId, "ubibot-mns1p") == 0)
+    {
+        Human_Init();
+        Sound_Init();
+        w5500_user_int();
+    }
+    else if (strcmp(ProductId, "ubibot-mns1") == 0)
+    {
+        Human_Init();
+        Sound_Init();
+        net_mode = NET_WIFI;
+        E2P_WriteOneByte(NET_MODE_ADD, net_mode); //写入net_mode
+    }
 
     esp_err_t ret;
     ret = nvs_flash_init();
@@ -54,19 +91,7 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-
     ble_app_init();
-
-    if (memcmp(ProductId, "ubibot-ms1p", 12) == 0)
-    {
-        w5500_user_int();
-    }
-    else
-    {
-        net_mode = NET_WIFI;
-        E2P_WriteOneByte(NET_MODE_ADD, net_mode); //写入net_mode
-    }
-
     init_wifi();
     initialise_http();
     initialise_mqtt();
@@ -78,7 +103,7 @@ void app_main(void)
         {
             ESP_LOGE("Init", "no SerialNum or product id!");
             No_ser_flag = true;
-            vTaskDelay(1000 / portTICK_RATE_MS);
+            vTaskDelay(10000 / portTICK_RATE_MS);
         }
     }
 }
