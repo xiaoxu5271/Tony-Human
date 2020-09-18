@@ -90,7 +90,7 @@ uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len)
     int msglen = strlen(msg);
     int32_t rc, ret;
     int qos = 1; //设置成1 可以正常收发
-    uint8_t count = 0;
+    uint16_t count = 0;
     MQTTString topicString = MQTTString_initializer;
     memset(topic, 0, sizeof(topic));
     memcpy(topic, Topic, strlen(Topic));
@@ -109,11 +109,11 @@ uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len)
         return 0;
     }
 
-    //阻塞等待接收数据 1s超时
+    //阻塞等待接收数据 5s超时
     while (getSn_RX_RSR(MQTT_SOCKET) == 0)
     {
         count++;
-        if (count > 100)
+        if (count > 500)
         {
             count = 0;
             ESP_LOGE(TAG, "MQTT> publish recv error.\r\n");
@@ -209,7 +209,7 @@ static int8_t mqtt_ping()
     while (getSn_RX_RSR(MQTT_SOCKET) == 0)
     {
         count++;
-        if (count > 100)
+        if (count > 500)
         {
             count = 0;
             ESP_LOGE(TAG, "MQTT> ping recv error.\r\n");

@@ -376,7 +376,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
         switch (temp = getSn_SR(SOCK_TCPS))
         {
         case SOCK_INIT:
-            // ESP_LOGI(TAG,"SOCK_INIT!!!\n");
+            // ESP_LOGI(TAG, "SOCK_INIT, server_ip:%d.%d.%d.%d!!!\n", http_dns_host_ip[0], http_dns_host_ip[1], http_dns_host_ip[2], http_dns_host_ip[3]);
             con_ret = lan_connect(SOCK_TCPS, http_dns_host_ip, server_port);
             if (con_ret != SOCK_OK)
             {
@@ -392,13 +392,20 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
                 setSn_IR(SOCK_TCPS, Sn_IR_CON);
             }
             fail_num = 0;
-            // ESP_LOGI(TAG,"send_buff   : %s, size :%d \n", (char *)send_buff, send_size);
+            // ESP_LOGI(TAG, "send_buff   : %s, size :%d \n", (char *)send_buff, send_size);
             lan_send(SOCK_TCPS, (uint8_t *)send_buff, send_size);
 
-            vTaskDelay(100 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
+            //等待平台返回
+            for (uint16_t i = 0; i < 500; i++)
+            {
+                vTaskDelay(10 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
+                if ((size = getSn_RX_RSR(SOCK_TCPS)) != 0)
+                {
+                    ESP_LOGI(TAG, "recv_size = %d\n", size);
+                    break;
+                }
+            }
 
-            size = getSn_RX_RSR(SOCK_TCPS);
-            // ESP_LOGI(TAG,"recv_size = %d\n", size);
             if (size > 0)
             {
                 if (size > ETHERNET_DATA_BUF_SIZE)
@@ -409,7 +416,7 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
                 rec_ret = lan_recv(SOCK_TCPS, (uint8_t *)recv_buff, size);
                 if (rec_ret < 0)
                 {
-                    ESP_LOGI(TAG, "w5500 recv failed! %d\n", rec_ret);
+                    // ESP_LOGI(TAG, "w5500 recv failed! %d\n", rec_ret);
                     return rec_ret;
                     //break;
                 }

@@ -344,7 +344,7 @@ void lan_ota_task(void *arg)
             if (con_ret <= 0)
             {
                 printf("INIT FAIL CODE : %d\n", con_ret);
-                lan_dns_resolve( (uint8_t *)ota_sever, ota_dns_host_ip);
+                lan_dns_resolve((uint8_t *)ota_sever, ota_dns_host_ip);
                 lan_close(SOCK_DNS);
                 // return con_ret;
             }
@@ -358,8 +358,6 @@ void lan_ota_task(void *arg)
             }
             printf("send_buff: %s \n", ota_url);
             lan_send(SOCK_OTA, (uint8_t *)ota_url, sizeof(ota_url));
-
-            vTaskDelay(500 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
 
             //获取当前系统下一个（紧邻当前使用的OTA_X分区）可用于烧录升级固件的Flash分区
             update_partition = esp_ota_get_next_update_partition(NULL);
@@ -378,8 +376,17 @@ void lan_ota_task(void *arg)
             ESP_LOGI(TAG, "esp_ota_begin succeeded");
 
             bool resp_body_start = false;
-            //包头
-            if (getSn_RX_RSR(SOCK_OTA) > 0)
+            for (uint16_t i = 0; i < 500; i++)
+            {
+                vTaskDelay(10 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
+                if ((size = getSn_RX_RSR(SOCK_OTA)) != 0)
+                {
+                    ESP_LOGI(TAG, "recv_size = %d\n", size);
+                    break;
+                }
+            }
+
+            if (size > 0)
             {
                 //写入之前清0
                 memset(text, 0, TEXT_BUFFSIZE);
