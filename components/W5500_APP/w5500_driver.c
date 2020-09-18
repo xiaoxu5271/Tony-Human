@@ -492,7 +492,7 @@ void RJ45_Task(void *arg)
                     default:
                         ESP_LOGI(TAG, "DHCP:%d", ret_dhcp);
                         Net_sta_flag = false;
-                        Net_ErrCode = 402;
+                        Net_ErrCode = 502;
                         xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
                         Start_Active();
 
@@ -509,7 +509,7 @@ void RJ45_Task(void *arg)
                 DHCP_INIT = false;
                 DHCP_init(SOCK_DHCP, ethernet_buf);
                 Net_sta_flag = false;
-                Net_ErrCode = 401;
+                Net_ErrCode = 501;
                 xEventGroupClearBits(Net_sta_group, CONNECTED_BIT);
                 Start_Active();
             }
