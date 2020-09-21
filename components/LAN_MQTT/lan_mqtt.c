@@ -343,6 +343,7 @@ void lan_mqtt_task(void *pvParameter)
     user_MQTTPacket_ConnectData.username.cstring = mqtt_usr;
     user_MQTTPacket_ConnectData.password.cstring = mqtt_pwd;
     user_MQTTPacket_ConnectData.clientID.cstring = MQTT_CLIEND_ID;
+    // user_MQTTPacket_ConnectData.cleansession = 1;
     ESP_LOGI(TAG, "mqtt_usr:%s,mqtt_usr:%s", user_MQTTPacket_ConnectData.username.cstring, user_MQTTPacket_ConnectData.password.cstring);
 
     xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT, false, true, -1); //等待网络连接

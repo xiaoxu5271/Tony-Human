@@ -6,7 +6,7 @@
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
 
-#define FIRMWARE "HUM1-V0.2.22"
+#define FIRMWARE "HUM1-V0.2.23"
 
 #define POST_NORMAL 0X00
 #define POST_HEIGHT_ADD 0X01

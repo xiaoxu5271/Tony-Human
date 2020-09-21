@@ -380,10 +380,10 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data, bool sw_flag)
         memset(mqtt_json_s.mqtt_command_id, 0, sizeof(mqtt_json_s.mqtt_command_id));
         strncpy(mqtt_json_s.mqtt_command_id, pSubSubSub->valuestring, strlen(pSubSubSub->valuestring));
         post_status = POST_NORMAL;
-        // if (Binary_dp != NULL)
-        // {
-        //     xTaskNotifyGive(Binary_dp);
-        // }
+        if (Binary_dp != NULL)
+        {
+            xTaskNotifyGive(Binary_dp);
+        }
     }
 
     pSubSubSub = cJSON_GetObjectItem(json_data_parse, "command_string"); //
