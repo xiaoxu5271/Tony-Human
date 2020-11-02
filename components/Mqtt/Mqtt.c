@@ -114,12 +114,12 @@ void Mqtt_Int_Task(void *arg)
 {
     xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1); //等待激活
 
-    sprintf(topic_s, "%s%s%s%s%s%c", "/product/", ProductId, "/channel/", ChannelId, "/control", '\0');
-    sprintf(topic_p, "%s%s%s%s%s%c", "/product/", ProductId, "/channel/", ChannelId, "/status", '\0');
+    snprintf(topic_s, sizeof(topic_s), "%s%s%s%s%s%c", "/product/", ProductId, "/channel/", ChannelId, "/control", '\0');
+    snprintf(topic_p, sizeof(topic_p), "%s%s%s%s%s%c", "/product/", ProductId, "/channel/", ChannelId, "/status", '\0');
 
-    sprintf(mqtt_pwd, "%s%s%c", "api_key=", ApiKey, '\0');
-    sprintf(mqtt_usr, "%s%s%c", "c_id=", ChannelId, '\0');
-    sprintf(mqtt_uri, "mqtt://%s", MQTT_SERVER);
+    snprintf(mqtt_pwd, sizeof(mqtt_pwd), "%s%s%c", "api_key=", ApiKey, '\0');
+    snprintf(mqtt_usr, sizeof(mqtt_usr), "%s%s%c", "c_id=", ChannelId, '\0');
+    snprintf(mqtt_uri, sizeof(mqtt_uri), "mqtt://%s", MQTT_SERVER);
     const esp_mqtt_client_config_t mqtt_cfg = {
         .uri = mqtt_uri,
         .username = mqtt_usr,

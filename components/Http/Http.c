@@ -213,24 +213,24 @@ Net_Err http_send_mes(void)
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
-        sprintf(build_po_url, "POST /update.json?api_key=%s&metadata=true&execute=true&firmware=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
-                ApiKey,
-                FIRMWARE,
-                WEB_SERVER,
-                pCreat_json1.creat_json_len);
+        snprintf(build_po_url, sizeof(build_po_url), "POST /update.json?api_key=%s&metadata=true&execute=true&firmware=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
+                 ApiKey,
+                 FIRMWARE,
+                 WEB_SERVER,
+                 pCreat_json1.creat_json_len);
     }
     else
     {
         post_status = POST_NOCOMMAND;
-        sprintf(build_po_url, "POST /update.json?api_key=%s&metadata=true&firmware=%s&command_id=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
-                ApiKey,
-                FIRMWARE,
-                mqtt_json_s.mqtt_command_id,
-                WEB_SERVER,
-                pCreat_json1.creat_json_len);
+        snprintf(build_po_url, sizeof(build_po_url), "POST /update.json?api_key=%s&metadata=true&firmware=%s&command_id=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
+                 ApiKey,
+                 FIRMWARE,
+                 mqtt_json_s.mqtt_command_id,
+                 WEB_SERVER,
+                 pCreat_json1.creat_json_len);
     }
 
-    sprintf(build_po_url_json, "%s%s", build_po_url, pCreat_json1.creat_json_buff);
+    snprintf(build_po_url_json, sizeof(build_po_url_json), "%s%s", build_po_url, pCreat_json1.creat_json_buff);
 
     ESP_LOGI(TAG, "POST:\n%s", build_po_url_json);
 
@@ -268,9 +268,9 @@ Net_Err Send_herat(void)
     build_heart_url = (char *)malloc(256);
     recv_buf = (char *)malloc(HTTP_RECV_BUFF_LEN);
 
-    sprintf(build_heart_url, "GET /heartbeat?api_key=%s HTTP/1.1\r\nHost: %s\r\n\r\n",
-            ApiKey,
-            WEB_SERVER);
+    snprintf(build_heart_url, 256, "GET /heartbeat?api_key=%s HTTP/1.1\r\nHost: %s\r\n\r\n",
+             ApiKey,
+             WEB_SERVER);
 
     if ((http_send_buff(build_heart_url, 256, recv_buf, HTTP_RECV_BUFF_LEN)) > 0)
     {
@@ -331,8 +331,7 @@ uint16_t http_activate(void)
     uint16_t ret = 0;
 
     xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT, false, true, -1); //等网络连接
-
-    sprintf(build_http, "GET /products/%s/devices/%s/activate HTTP/1.1\r\nHost: %s\r\n\r\n", ProductId, SerialNum, WEB_SERVER);
+    snprintf(build_http, HTTP_RECV_BUFF_LEN, "GET /products/%s/devices/%s/activate HTTP/1.1\r\nHost: %s\r\n\r\n", ProductId, SerialNum, WEB_SERVER);
     ESP_LOGI(TAG, "%s", build_http);
     if (http_send_buff(build_http, 256, recv_buf, HTTP_RECV_BUFF_LEN) < 0)
     {

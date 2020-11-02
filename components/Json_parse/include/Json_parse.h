@@ -42,7 +42,7 @@ typedef struct
 
 //creat_json *create_http_json(uint8_t post_status);
 void create_http_json(creat_json *pCreat_json, uint8_t flag);
-uint16_t Create_Status_Json(char *status_buff, bool filed_flag);
+// uint16_t Create_Status_Json(char *status_buff, bool filed_flag);
 
 /************metadata 参数***********/
 extern uint32_t fn_dp;        //数据发送频率

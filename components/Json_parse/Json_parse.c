@@ -82,7 +82,6 @@ static short Parse_metadata(char *ptrptr)
     cJSON *pSubSubSub = cJSON_GetObjectItem(pJsonJson, "fn_dp"); //"fn_dp"
     if (NULL != pSubSubSub)
     {
-
         if ((uint32_t)pSubSubSub->valueint != fn_dp)
         {
             fn_dp = (uint32_t)pSubSubSub->valueint;
@@ -201,14 +200,14 @@ int32_t parse_objects_bluetooth(char *blu_json_data)
 esp_err_t parse_objects_http_active(char *http_json_data)
 {
     cJSON *json_data_parse = NULL;
-    cJSON *json_data_parse_channel_channel_write_key = NULL;
-    cJSON *json_data_parse_channel_channel_id_value = NULL;
-    cJSON *json_data_parse_channel_metadata = NULL;
-    cJSON *json_data_parse_channel_value = NULL;
-    cJSON *json_data_parse_channel_user_id = NULL;
+    cJSON *pSubSubSub = NULL;
+    // cJSON *json_data_parse_channel_channel_write_key = NULL;
+    // cJSON *json_data_parse_channel_channel_id_value = NULL;
+    // cJSON *json_data_parse_channel_metadata = NULL;
+
     //char *json_print;
 
-    // printf("start_parse_active_http_json\r\n");
+    // printf("ACTIVE：%s\r\n", http_json_data);
 
     char *resp_val = NULL;
     resp_val = strstr(http_json_data, "{\"result\":\"success\",");
@@ -230,29 +229,48 @@ esp_err_t parse_objects_http_active(char *http_json_data)
     {
         if (cJSON_GetObjectItem(json_data_parse, "channel") != NULL)
         {
-            json_data_parse_channel_value = cJSON_GetObjectItem(json_data_parse, "channel");
+            json_data_parse = cJSON_GetObjectItem(json_data_parse, "channel");
 
-            //printf("%s\r\n", cJSON_Print(json_data_parse_channel_value));
-
-            json_data_parse_channel_channel_write_key = cJSON_GetObjectItem(json_data_parse_channel_value, "write_key");
-            json_data_parse_channel_channel_id_value = cJSON_GetObjectItem(json_data_parse_channel_value, "channel_id");
-            json_data_parse_channel_metadata = cJSON_GetObjectItem(json_data_parse_channel_value, "metadata");
-            json_data_parse_channel_user_id = cJSON_GetObjectItem(json_data_parse_channel_value, "user_id");
-
-            // printf("metadata: %s\n", json_data_parse_channel_metadata->valuestring);
-            Parse_metadata(json_data_parse_channel_metadata->valuestring);
-            //printf("api key=%s\r\n", json_data_parse_channel_channel_write_key->valuestring);
-            //printf("channel_id=%s\r\n", json_data_parse_channel_channel_id_value->valuestring);
+            //metadata
+            pSubSubSub = cJSON_GetObjectItem(json_data_parse, "metadata");
+            if (pSubSubSub != NULL)
+            {
+                // printf("metadata: %s\n", json_data_parse_channel_metadata->valuestring);
+                Parse_metadata(pSubSubSub->valuestring);
+            }
 
             //写入API-KEY
-            sprintf(ApiKey, "%s%c", json_data_parse_channel_channel_write_key->valuestring, '\0');
-            E2P_Write(API_KEY_ADD, (uint8_t *)ApiKey, API_KEY_LEN);
+            pSubSubSub = cJSON_GetObjectItem(json_data_parse, "write_key");
+            if (pSubSubSub != NULL)
+            {
+                if (strcmp(ApiKey, pSubSubSub->valuestring) != 0)
+                {
+                    memcpy(ApiKey, pSubSubSub->valuestring, API_KEY_LEN);
+                    E2P_Write(API_KEY_ADD, (uint8_t *)ApiKey, API_KEY_LEN);
+                }
+            }
+
             //写入channelid
-            sprintf(ChannelId, "%s%c", json_data_parse_channel_channel_id_value->valuestring, '\0');
-            E2P_Write(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
+            pSubSubSub = cJSON_GetObjectItem(json_data_parse, "channel_id");
+            if (pSubSubSub != NULL)
+            {
+                if (strcmp(ChannelId, pSubSubSub->valuestring) != 0)
+                {
+                    memcpy(ChannelId, pSubSubSub->valuestring, CHANNEL_ID_LEN);
+                    E2P_Write(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
+                }
+            }
+
             //写入user_id
-            sprintf(USER_ID, "%s%c", json_data_parse_channel_user_id->valuestring, '\0');
-            E2P_Write(USER_ID_ADD, (uint8_t *)USER_ID, USER_ID_LEN);
+            pSubSubSub = cJSON_GetObjectItem(json_data_parse, "user_id");
+            if (pSubSubSub != NULL)
+            {
+                if (strcmp(USER_ID, pSubSubSub->valuestring) != 0)
+                {
+                    memcpy(USER_ID, pSubSubSub->valuestring, USER_ID_LEN);
+                    E2P_Write(USER_ID_ADD, (uint8_t *)USER_ID, USER_ID_LEN);
+                }
+            }
         }
     }
     cJSON_Delete(json_data_parse);
@@ -441,42 +459,42 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data, bool sw_flag)
     return 1;
 }
 
-uint16_t Create_Status_Json(char *status_buff, bool filed_flag)
-{
-    uint8_t mac_sys[6] = {0};
-    char *ssid64_buff;
-    esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC
+// uint16_t Create_Status_Json(char *status_buff, bool filed_flag)
+// {
+//     uint8_t mac_sys[6] = {0};
+//     char *ssid64_buff;
+//     esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC
 
-    if (net_mode == NET_WIFI)
-    {
-        ssid64_buff = (char *)malloc(64);
-        memset(ssid64_buff, 0, 64);
-        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, 64);
+//     if (net_mode == NET_WIFI)
+//     {
+//         ssid64_buff = (char *)malloc(64);
+//         memset(ssid64_buff, 0, 64);
+//         base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, 64);
 
-        sprintf(status_buff, "],\"status\":\"mac=%02x:%02x:%02x:%02x:%02x:%02x\",\"ssid_base64\":\"%s\"}",
-                mac_sys[0],
-                mac_sys[1],
-                mac_sys[2],
-                mac_sys[3],
-                mac_sys[4],
-                mac_sys[5],
-                ssid64_buff);
-        free(ssid64_buff);
-    }
-    else
-    {
-        // sprintf(status_buff, "],\"status\":\"mac=%02x:%02x:%02x:%02x:%02x:%02x,ICCID=%s\"}",
-        //         mac_sys[0],
-        //         mac_sys[1],
-        //         mac_sys[2],
-        //         mac_sys[3],
-        //         mac_sys[4],
-        //         mac_sys[5],
-        //         ICCID);
-    }
+//         snprintf(status_buff, sizeof(status_buff), "],\"status\":\"mac=%02x:%02x:%02x:%02x:%02x:%02x\",\"ssid_base64\":\"%s\"}",
+//                  mac_sys[0],
+//                  mac_sys[1],
+//                  mac_sys[2],
+//                  mac_sys[3],
+//                  mac_sys[4],
+//                  mac_sys[5],
+//                  ssid64_buff);
+//         free(ssid64_buff);
+//     }
+//     else
+//     {
+//         // sprintf(status_buff, "],\"status\":\"mac=%02x:%02x:%02x:%02x:%02x:%02x,ICCID=%s\"}",
+//         //         mac_sys[0],
+//         //         mac_sys[1],
+//         //         mac_sys[2],
+//         //         mac_sys[3],
+//         //         mac_sys[4],
+//         //         mac_sys[5],
+//         //         ICCID);
+//     }
 
-    return strlen(status_buff);
-}
+//     return strlen(status_buff);
+// }
 
 void create_http_json(creat_json *pCreat_json, uint8_t flag)
 {
@@ -548,14 +566,15 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
             itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
         }
         esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
-        sprintf(mac_buff,
-                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                mac_sys[0],
-                mac_sys[1],
-                mac_sys[2],
-                mac_sys[3],
-                mac_sys[4],
-                mac_sys[5]);
+        snprintf(mac_buff,
+                 sizeof(mac_buff),
+                 "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                 mac_sys[0],
+                 mac_sys[1],
+                 mac_sys[2],
+                 mac_sys[3],
+                 mac_sys[4],
+                 mac_sys[5]);
         base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
         cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
         cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
@@ -564,14 +583,15 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
     else //以太网
     {
         esp_read_mac(mac_sys, 3); //获取芯片内部默认出厂MAC，
-        sprintf(mac_buff,
-                "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                mac_sys[0],
-                mac_sys[1],
-                mac_sys[2],
-                mac_sys[3],
-                mac_sys[4],
-                mac_sys[5]);
+        snprintf(mac_buff,
+                 sizeof(mac_buff),
+                 "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                 mac_sys[0],
+                 mac_sys[1],
+                 mac_sys[2],
+                 mac_sys[3],
+                 mac_sys[4],
+                 mac_sys[5]);
         base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
         cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
     }
@@ -596,7 +616,7 @@ void create_http_json(creat_json *pCreat_json, uint8_t flag)
 esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
 {
     char send_buf[128] = {0};
-    sprintf(send_buf, "{\"status\":0,\"code\": 0}");
+    snprintf(send_buf, sizeof(send_buf), "{\"status\":0,\"code\": 0}");
     if (NULL == pcCmdBuffer) //null
     {
         return ESP_FAIL;
@@ -841,14 +861,15 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             cJSON *root = cJSON_CreateObject();
 
             esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
-            sprintf(mac_buff,
-                    "%02x:%02x:%02x:%02x:%02x:%02x",
-                    mac_sys[0],
-                    mac_sys[1],
-                    mac_sys[2],
-                    mac_sys[3],
-                    mac_sys[4],
-                    mac_sys[5]);
+            snprintf(mac_buff,
+                     sizeof(mac_buff),
+                     "%02x:%02x:%02x:%02x:%02x:%02x",
+                     mac_sys[0],
+                     mac_sys[1],
+                     mac_sys[2],
+                     mac_sys[3],
+                     mac_sys[4],
+                     mac_sys[5]);
 
             cJSON_AddItemToObject(root, "ProductID", cJSON_CreateString(ProductId));
             cJSON_AddItemToObject(root, "SeriesNumber", cJSON_CreateString(SerialNum));

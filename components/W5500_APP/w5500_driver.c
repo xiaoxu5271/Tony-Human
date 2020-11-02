@@ -178,7 +178,7 @@ void my_ip_assign(void)
 
     ctlnetwork(CN_GET_NETINFO, (void *)&gWIZNETINFO);
     memset(current_net_ip, 0, sizeof(current_net_ip));
-    sprintf(current_net_ip, "&IP=%d.%d.%d.%d", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
+    snprintf(current_net_ip, sizeof(current_net_ip), "&IP=%d.%d.%d.%d", gWIZNETINFO.ip[0], gWIZNETINFO.ip[1], gWIZNETINFO.ip[2], gWIZNETINFO.ip[3]);
     ESP_LOGI(TAG, "%s \n", current_net_ip);
 
     ESP_LOGI(TAG, "MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n", gWIZNETINFO.mac[0], gWIZNETINFO.mac[1], gWIZNETINFO.mac[2], gWIZNETINFO.mac[3], gWIZNETINFO.mac[4], gWIZNETINFO.mac[5]);
