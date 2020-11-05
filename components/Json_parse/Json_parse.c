@@ -647,6 +647,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                     {
                         printf("ProductID= %s, len= %d\n", pSub->valuestring, strlen(pSub->valuestring));
                         E2P_Write(PRODUCT_ID_ADDR, (uint8_t *)pSub->valuestring, PRODUCT_ID_LEN); //save ProductID
+                        // E2P_Write(PRODUCT_ID_ADDR + E2P_SIZE / 2, (uint8_t *)pSub->valuestring, PRODUCT_ID_LEN); //save ProductID
                     }
 
                     pSub = cJSON_GetObjectItem(pJson, "SeriesNumber"); //"SeriesNumber"
@@ -654,6 +655,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                     {
                         printf("SeriesNumber= %s, len=%d\n", pSub->valuestring, strlen(pSub->valuestring));
                         E2P_Write(SERISE_NUM_ADDR, (uint8_t *)pSub->valuestring, SERISE_NUM_LEN); //save
+                        // E2P_Write(SERISE_NUM_ADDR + E2P_SIZE / 2, (uint8_t *)pSub->valuestring, SERISE_NUM_LEN); //save
                     }
 
                     pSub = cJSON_GetObjectItem(pJson, "Host"); //"Host"
@@ -661,6 +663,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                     {
                         printf("Host= %s, len=%d\n", pSub->valuestring, strlen(pSub->valuestring));
                         E2P_Write(WEB_HOST_ADD, (uint8_t *)pSub->valuestring, WEB_HOST_LEN); //save
+                        // E2P_Write(WEB_HOST_ADD + E2P_SIZE / 2, (uint8_t *)pSub->valuestring, WEB_HOST_LEN); //save
                     }
 
                     pSub = cJSON_GetObjectItem(pJson, "Port"); //"WEB PORT"
@@ -669,6 +672,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
 
                         printf("Port= %s, len=%d\n", pSub->valuestring, strlen(pSub->valuestring));
                         E2P_Write(WEB_PORT_ADD, (uint8_t *)pSub->valuestring, 5); //save
+                        // E2P_Write(WEB_PORT_ADD + E2P_SIZE / 2, (uint8_t *)pSub->valuestring, 5); //save
                     }
 
                     pSub = cJSON_GetObjectItem(pJson, "MqttHost"); //"mqtt Host"
@@ -676,6 +680,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                     {
                         printf("MqttHost= %s, len=%d\n", pSub->valuestring, strlen(pSub->valuestring));
                         E2P_Write(MQTT_HOST_ADD, (uint8_t *)pSub->valuestring, WEB_HOST_LEN); //save
+                        // E2P_Write(MQTT_HOST_ADD + E2P_SIZE / 2, (uint8_t *)pSub->valuestring, WEB_HOST_LEN); //save
                     }
 
                     pSub = cJSON_GetObjectItem(pJson, "MqttPort"); //"Host"
@@ -683,6 +688,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                     {
                         printf("MqttPort= %s, len=%d\n", pSub->valuestring, strlen(pSub->valuestring));
                         E2P_Write(MQTT_PORT_ADD, (uint8_t *)pSub->valuestring, 5); //save
+                        // E2P_Write(MQTT_PORT_ADD + E2P_SIZE / 2, (uint8_t *)pSub->valuestring, 5); //save
                     }
 
                     printf("{\"status\":0,\"code\": 0}");

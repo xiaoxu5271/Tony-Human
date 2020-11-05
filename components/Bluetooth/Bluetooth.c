@@ -415,7 +415,6 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
             BleName[0] = BleName[0] - 32;
         }
         ESP_LOGI(GATTS_TAG, "BleName:%s,len=%d,BleName_N:%s,len=%d", BleName, strlen(BleName), BleName_N, strlen((const char *)BleName_N));
-
         esp_err_t set_dev_name_ret = esp_ble_gap_set_device_name(BleName);
         if (set_dev_name_ret)
         {
@@ -634,6 +633,7 @@ static void gatts_profile_a_event_handler(esp_gatts_cb_event_t event, esp_gatt_i
         break;
     case ESP_GATTS_CONNECT_EVT:
     {
+        BLE_CON_FLAG = true;
         esp_ble_conn_update_params_t conn_params = {0};
         memcpy(conn_params.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
         /* For the IOS system, please reference the apple official documents about the ble connection parameters restrictions. */
@@ -720,6 +720,7 @@ void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if, esp
 
 void ble_app_init(void)
 {
+    BLE_CON_FLAG = false;
     esp_err_t ret;
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
 
@@ -844,6 +845,7 @@ void ble_app_start(void)
 
 void ble_app_stop(void)
 {
+    BLE_CON_FLAG = false;
     esp_ble_gap_stop_advertising();
     Cnof_net_flag = false;
     ESP_LOGI(GATTS_TAG, "turn off ble！");

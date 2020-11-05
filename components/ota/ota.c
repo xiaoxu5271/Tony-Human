@@ -71,6 +71,8 @@ static void http_cleanup(esp_http_client_handle_t client)
 static void wifi_ota_task(void *pvParameter)
 {
     esp_err_t err;
+    //进度 百分比
+    uint8_t percentage = 0;
     /* update handle : set by esp_ota_begin(), must be freed via esp_ota_end() */
     esp_ota_handle_t update_handle = 0;
     const esp_partition_t *update_partition = NULL;
@@ -114,13 +116,18 @@ static void wifi_ota_task(void *pvParameter)
     {
         ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
         esp_http_client_cleanup(client);
-        task_fatal_error();
+        vTaskDelete(NULL);
     }
-    esp_http_client_fetch_headers(client);
+    content_len = esp_http_client_fetch_headers(client);
+    if (content_len == 0)
+    {
+        ESP_LOGE(TAG, "ota size is 0!");
+        vTaskDelete(NULL);
+    }
 
     update_partition = esp_ota_get_next_update_partition(NULL);
-    ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
-             update_partition->subtype, update_partition->address);
+    ESP_LOGI(TAG, "content_len:%d,Writing to partition subtype %d at offset 0x%x",
+             content_len, update_partition->subtype, update_partition->address);
     assert(update_partition != NULL);
 
     int binary_file_length = 0;
@@ -168,7 +175,12 @@ static void wifi_ota_task(void *pvParameter)
                 task_fatal_error();
             }
             binary_file_length += data_read;
-            ESP_LOGI(TAG, "Written image length %d", binary_file_length);
+            if (percentage != (int)(binary_file_length * 100 / content_len))
+            {
+                percentage = (int)(binary_file_length * 100 / content_len);
+                ESP_LOGI(TAG, "%d%%\n", percentage);
+            }
+            // ESP_LOGI(TAG, "Written image length %d", binary_file_length);
         }
         else if (data_read == 0)
         {
@@ -194,7 +206,7 @@ static void wifi_ota_task(void *pvParameter)
     }
     ESP_LOGI(TAG, "Prepare to restart system!");
     esp_restart();
-    return;
+    vTaskDelete(NULL);
 }
 
 /*****************OTA***********************/
@@ -288,6 +300,8 @@ void lan_ota_task(void *arg)
     uint16_t no_recv_time = 0;
     char ota_url[1024] = {0};
     char ota_sever[128] = {0};
+    //进度 百分比
+    uint8_t percentage = 0;
 
     // E2prom_page_Read(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
     if (mid(mqtt_json_s.mqtt_ota_url, "://", "/", ota_sever) != 1)
@@ -431,7 +445,12 @@ void lan_ota_task(void *arg)
                             vTaskDelete(NULL);
                         }
                         binary_file_length += buff_len;
-                        ESP_LOGI(TAG, "Have written image length %d", binary_file_length);
+                        if (percentage != (int)(binary_file_length * 100 / content_len))
+                        {
+                            percentage = (int)(binary_file_length * 100 / content_len);
+                            ESP_LOGI(TAG, "%d%%\n", percentage);
+                        }
+                        // ESP_LOGI(TAG, "Have written image length %d", binary_file_length);
                     }
                     else
                     {

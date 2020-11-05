@@ -72,10 +72,10 @@ static void short_pressed_cb(uint8_t pin_no, uint8_t key_action)
     case APP_KEY_PUSH:
         esp_timer_stop(gs_m_key_time_params.short_press_time_handle);
         esp_timer_start_once(gs_m_key_time_params.long_press_time_handle, s_m_key_config->long_pressed_time);
-        ESP_LOGI("short_pressed_cb", "APP_KEY_PUSH\n");
+        // ESP_LOGI("short_pressed_cb", "APP_KEY_PUSH\n");
         break;
     case APP_KEY_RELEASE:
-        ESP_LOGI("short_pressed_cb", "APP_KEY_RELEASE\n");
+        // ESP_LOGI("short_pressed_cb", "APP_KEY_RELEASE\n");
         esp_timer_stop(gs_m_key_time_params.long_press_time_handle);
         /* 如果按键的按下与释放的时间小于MULTI_PRESSED_TIMER则认为是整个短按按键动作完成 */
         // ESP_LOGI("short_pressed_cb", "current_time - last_time is %lld\n", current_time - last_time);

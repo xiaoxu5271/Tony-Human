@@ -437,17 +437,28 @@ void E2P_Write(uint16_t WriteAddr, uint8_t *pBuffer, uint16_t NumToWrite)
     free(write_buff);
 }
 
-void E2prom_empty_all(void)
+void E2prom_empty_all(bool flag)
 {
     ESP_LOGI(TAG, "\nempty all set\n");
 
 #ifdef FM24
     FM24C_Empty(E2P_SIZE / 8);
 #else
-    for (uint16_t i = 0; i < 1024; i++)
+    if (flag)
     {
-        AT24CXX_WriteOneByte(i, 0);
+        for (uint16_t i = FN_SET_FLAG_ADD; i < E2P_USAGED; i++)
+        {
+            AT24CXX_WriteOneByte(i, 0);
+        }
     }
+    else
+    {
+        for (uint16_t i = 0; i < E2P_SIZE; i++)
+        {
+            AT24CXX_WriteOneByte(i, 0);
+        }
+    }
+
 #endif
 }
 
@@ -455,30 +466,33 @@ static void E2prom_read_defaul(void)
 {
     ESP_LOGI(TAG, "\nread defaul\n");
 
-    E2P_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SERISE_NUM_LEN);
+    // E2P_Read(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SERISE_NUM_LEN);
     // E2P_Read(PRODUCT_ID_ADDR, (uint8_t *)ProductId, PRODUCT_ID_LEN);
     // E2P_Read(WEB_HOST_ADD, (uint8_t *)WEB_SERVER, WEB_HOST_LEN);
-    // E2P_Read(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
+    // E2P_Read(WEB_PORT_ADD, (uint8_t *)WEB_PORT, 5);
+    // E2P_Read(MQTT_HOST_ADD, (uint8_t *)MQTT_SERVER, WEB_HOST_LEN);
+    // E2P_Read(MQTT_PORT_ADD, (uint8_t *)MQTT_PORT, 5);
+
+    // //备份
+    // E2P_Write(SERISE_NUM_ADDR + E2P_SIZE / 2, (uint8_t *)SerialNum, SERISE_NUM_LEN);
+    // E2P_Write(PRODUCT_ID_ADDR + E2P_SIZE / 2, (uint8_t *)ProductId, PRODUCT_ID_LEN);
+    // E2P_Write(WEB_HOST_ADD + E2P_SIZE / 2, (uint8_t *)WEB_SERVER, WEB_HOST_LEN);
+    // E2P_Write(WEB_PORT_ADD + E2P_SIZE / 2, (uint8_t *)WEB_PORT, 5);
+    // E2P_Write(MQTT_HOST_ADD + E2P_SIZE / 2, (uint8_t *)MQTT_SERVER, WEB_HOST_LEN);
+    // E2P_Write(MQTT_PORT_ADD + E2P_SIZE / 2, (uint8_t *)MQTT_PORT, 5);
 }
 //清空并写入默认值
 //flag =1 写入序列号相关
 //flag =0 不写入序列号相关
 void E2prom_set_defaul(bool flag)
 {
-    E2prom_read_defaul();
-    E2prom_empty_all();
+    // E2prom_read_defaul();
+    E2prom_empty_all(flag);
     //写入默认值
     ESP_LOGI(TAG, "set defaul\n");
 
-    if (flag == true)
-    {
-        E2P_Write(SERISE_NUM_ADDR, (uint8_t *)SerialNum, SERISE_NUM_LEN);
-        // E2P_Write(PRODUCT_ID_ADDR, (uint8_t *)ProductId, PRODUCT_ID_LEN);
-        // E2P_Write(WEB_HOST_ADD, (uint8_t *)WEB_SERVER, WEB_HOST_LEN);
-        // E2P_Write(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
-    }
-
-    E2P_WriteLenByte(FN_DP_ADD, fn_dp, 4);
+    E2P_WriteLenByte(FN_DP_ADD, 60, 4);
+    E2P_WriteOneByte(CG_DATA_LED_ADD, 1);
 }
 
 //检查AT24CXX是否正常,以及是否为新EEPROM

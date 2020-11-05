@@ -51,6 +51,8 @@ static void Led_Task(void *arg)
         else if (Set_defaul_flag == true)
         {
             Led_B_On();
+            Led_R_On();
+            Led_G_On();
             vTaskDelay(100 / portTICK_RATE_MS);
         }
         //配网

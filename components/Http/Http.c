@@ -49,17 +49,38 @@ esp_timer_create_args_t timer_heart_arg = {
 //1min 定时，用来触发各组数据采集/发送
 void timer_heart_cb(void *arg)
 {
-    vTaskNotifyGiveFromISR(Binary_Heart_Send, NULL);
     static uint64_t min_num = 0;
     min_num++;
+
+    static uint16_t ble_num = 0;
+    //超时关闭蓝牙广播
+    if (Cnof_net_flag == true && BLE_CON_FLAG == false)
+    {
+        ble_num++;
+        if (ble_num >= 60 * 15)
+        {
+            ble_app_stop();
+        }
+    }
+    else
+    {
+        ble_num = 0;
+    }
+
+    //心跳
+    if (min_num % 60 == 0)
+    {
+        vTaskNotifyGiveFromISR(Binary_Heart_Send, NULL);
+    }
+
     if (fn_dp)
-        if (min_num * 60 % fn_dp == 0)
+        if (min_num % fn_dp == 0)
         {
             vTaskNotifyGiveFromISR(Binary_dp, NULL);
         }
 
     if (fn_sen_sta)
-        if (min_num * 60 % fn_sen_sta == 0)
+        if (min_num % fn_sen_sta == 0)
         {
             fn_dp_flag = true;
             vTaskNotifyGiveFromISR(Binary_dp, NULL);
@@ -304,9 +325,9 @@ void send_heart_task(void *arg)
     Net_Err ret;
     while (1)
     {
-        ESP_LOGW("heart_memroy check", " INTERNAL RAM left %dKB，free Heap:%d",
-                 heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024,
-                 esp_get_free_heap_size());
+        printf("\n INTERNAL RAM left %dKB，free Heap:%d\n",
+               heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024,
+               esp_get_free_heap_size());
 
         while ((ret = Send_herat()) != NET_OK)
         {
@@ -404,7 +425,7 @@ void initialise_http(void)
     xTaskCreate(send_heart_task, "send_heart_task", 4096, NULL, 5, &Binary_Heart_Send);
     xTaskCreate(http_get_task, "http_get_task", 8192, NULL, 4, &Binary_dp);
     esp_err_t err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
-    err = esp_timer_start_periodic(timer_heart_handle, 60 * 1000000); //创建定时器，单位us，定时60s
+    err = esp_timer_start_periodic(timer_heart_handle, 1000000); //创建定时器，单位us，定时60s
     if (err != ESP_OK)
     {
         ESP_LOGI(TAG, "timer heart create err code:%d\n", err);

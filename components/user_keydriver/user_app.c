@@ -46,18 +46,24 @@ void short_pressed_cb(uint8_t key_num, uint8_t *short_pressed_counts)
         switch (*short_pressed_counts)
         {
         case 1:
-            ESP_LOGI("short_pressed_cb", "first press!!!\n");
+            // ESP_LOGI("short_pressed_cb", "first press!!!\n");
             Task_key_num = 1;
             break;
         case 2:
-            ESP_LOGI("short_pressed_cb", "double press!!!\n");
-            ble_app_start();
+            // ESP_LOGI("short_pressed_cb", "double press!!!\n");
             break;
         case 3:
-            ESP_LOGI("short_pressed_cb", "trible press!!!\n");
+            // ESP_LOGI("short_pressed_cb", "trible press!!!\n");
+            if (Cnof_net_flag == true)
+            {
+                Set_defaul_flag = true;
+                E2prom_set_defaul(true);
+                vTaskDelay(5000 / portTICK_PERIOD_MS);
+                esp_restart();
+            }
             break;
         case 4:
-            ESP_LOGI("short_pressed_cb", "quatary press!!!\n");
+            // ESP_LOGI("short_pressed_cb", "quatary press!!!\n");
             break;
             // case ....:
             // break;
@@ -87,6 +93,7 @@ void long_pressed_cb(uint8_t key_num, uint8_t *long_pressed_counts)
     switch (key_num)
     {
     case BOARD_BUTTON:
+        ble_app_start();
         // ESP_LOGI("long_pressed_cb", "long press!!!\n");
         // Set_defaul_flag = true;
         // E2prom_set_defaul(true);

@@ -25,6 +25,9 @@
 #include "lan_mqtt.h"
 #define TAG "LAN_MQTT"
 
+#define MQTT_LEN 2048
+#define RECV_LEN 2048
+
 TaskHandle_t lan_mqtt_Handle = NULL;
 MQTTPacket_connectData user_MQTTPacket_ConnectData;
 
@@ -40,16 +43,17 @@ uint8_t mqtt_remote_ip[4];
 */
 static uint8_t mqtt_connect()
 {
-    uint8_t mqtt_buff[2048];
+    uint8_t *mqtt_buff = (uint8_t *)malloc(MQTT_LEN);
     uint8_t SessionFlg, ConnAckFlg;
     uint8_t count = 0;
     int32_t ret;
     int rc;
     while (1)
     {
-        rc = MQTTSerialize_connect(mqtt_buff, sizeof(mqtt_buff), &user_MQTTPacket_ConnectData);
+        rc = MQTTSerialize_connect(mqtt_buff, MQTT_LEN, &user_MQTTPacket_ConnectData);
         if (rc == 0)
         {
+            free(mqtt_buff);
             ESP_LOGE(TAG, "MQTT> serialize connect packet error: %d.\r\n", rc);
             return 0;
         }
@@ -57,13 +61,14 @@ static uint8_t mqtt_connect()
         ret = lan_send(MQTT_SOCKET, mqtt_buff, rc);
         if (ret != rc)
         {
+            free(mqtt_buff);
             ESP_LOGE(TAG, "MQTT> send error:%d.rc:%d.\r\n", ret, rc);
             return 0;
         }
         //等待应答信号
         do
         {
-            while (MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata) != CONNACK)
+            while (MQTTPacket_read(mqtt_buff, MQTT_LEN, transport_getdata) != CONNACK)
             {
                 vTaskDelay(500 / portTICK_RATE_MS);
                 count++;
@@ -71,10 +76,12 @@ static uint8_t mqtt_connect()
                 {
                     count = 0;
                     ESP_LOGE(TAG, "MQTT> connect timerout.\r\n");
+                    free(mqtt_buff);
                     return 0;
                 }
             }
-        } while ((MQTTDeserialize_connack(&SessionFlg, &ConnAckFlg, mqtt_buff, sizeof(mqtt_buff)) != 1 || ConnAckFlg != 0));
+        } while ((MQTTDeserialize_connack(&SessionFlg, &ConnAckFlg, mqtt_buff, MQTT_LEN) != 1 || ConnAckFlg != 0));
+        free(mqtt_buff);
         return 1;
     }
 }
@@ -85,20 +92,19 @@ static uint8_t mqtt_connect()
 */
 uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len)
 {
-    uint8_t mqtt_buff[2048];
-    unsigned char topic[100];
+    uint8_t *mqtt_buff = (uint8_t *)malloc(MQTT_LEN);
     int msglen = strlen(msg);
     int32_t rc, ret;
     int qos = 1; //设置成1 可以正常收发
     uint16_t count = 0;
     MQTTString topicString = MQTTString_initializer;
-    memset(topic, 0, sizeof(topic));
-    memcpy(topic, Topic, strlen(Topic));
-    topicString.cstring = (char *)topic;
-    rc = MQTTSerialize_publish(mqtt_buff, sizeof(mqtt_buff), 0, qos, 0, 0, topicString, (unsigned char *)msg, msglen);
+
+    topicString.cstring = Topic;
+    rc = MQTTSerialize_publish(mqtt_buff, MQTT_LEN, 0, qos, 0, 0, topicString, (unsigned char *)msg, msglen);
     if (rc < 0)
     {
         ESP_LOGE(TAG, "%d", __LINE__);
+        free(mqtt_buff);
         return 0;
     }
 
@@ -106,6 +112,7 @@ uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len)
     if (ret != rc)
     {
         ESP_LOGE(TAG, "%d", __LINE__);
+        free(mqtt_buff);
         return 0;
     }
 
@@ -117,18 +124,19 @@ uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len)
         {
             count = 0;
             ESP_LOGE(TAG, "MQTT> publish recv error.\r\n");
-
+            free(mqtt_buff);
             return -2;
         }
         vTaskDelay(10 / portTICK_RATE_MS);
     }
 
-    if ((ret = MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata)) != PUBACK)
+    if ((ret = MQTTPacket_read(mqtt_buff, MQTT_LEN, transport_getdata)) != PUBACK)
     {
         ESP_LOGE(TAG, "publish recv %d", ret);
+        free(mqtt_buff);
         return -3;
     }
-
+    free(mqtt_buff);
     return 1;
 }
 
@@ -140,7 +148,7 @@ uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len)
 /**************************************************/
 static uint8_t mqtt_subscribe(char *Topic)
 {
-    uint8_t mqtt_buff[2048];
+    uint8_t *mqtt_buff = (uint8_t *)malloc(MQTT_LEN);
     int msgid = 1;
     int req_qos = 0;
     int granted_qos;
@@ -153,11 +161,12 @@ static uint8_t mqtt_subscribe(char *Topic)
 
     topicString.cstring = (char *)Topic;
 
-    rc = MQTTSerialize_subscribe(mqtt_buff, sizeof(mqtt_buff), 0, msgid, 1, &topicString, &req_qos); //构建订阅报文
+    rc = MQTTSerialize_subscribe(mqtt_buff, MQTT_LEN, 0, msgid, 1, &topicString, &req_qos); //构建订阅报文
 
     if (rc < 0)
     {
         ESP_LOGE(TAG, "MQTT> serialize subscribe error.\r\n");
+        free(mqtt_buff);
         return 0;
     }
 
@@ -168,19 +177,21 @@ static uint8_t mqtt_subscribe(char *Topic)
     }
     do
     {
-        while (MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata) != SUBACK)
+        while (MQTTPacket_read(mqtt_buff, MQTT_LEN, transport_getdata) != SUBACK)
         {
             vTaskDelay(1000 / portTICK_RATE_MS);
             if (++count > 30)
             {
                 count = 0;
                 ESP_LOGE(TAG, "MQTT> wait suback timerout.\r\n");
+                free(mqtt_buff);
                 return 0;
             }
         }
         ESP_LOGD(TAG, "MQTT> MQTTPacket read SUBACK.\r\n");
-        rc = MQTTDeserialize_suback(&submsgid, 1, &subcount, &granted_qos, mqtt_buff, sizeof(mqtt_buff));
+        rc = MQTTDeserialize_suback(&submsgid, 1, &subcount, &granted_qos, mqtt_buff, MQTT_LEN);
     } while (granted_qos != 0);
+    free(mqtt_buff);
     return 1;
 }
 
@@ -191,17 +202,19 @@ static uint8_t mqtt_subscribe(char *Topic)
 */
 static int8_t mqtt_ping()
 {
-    uint8_t mqtt_buff[2048];
+    uint8_t *mqtt_buff = (uint8_t *)malloc(MQTT_LEN);
     int rc;
     int32_t ret;
     uint32_t count = 0;
 
-    rc = MQTTSerialize_pingreq(mqtt_buff, sizeof(mqtt_buff));
+    rc = MQTTSerialize_pingreq(mqtt_buff, MQTT_LEN);
     ret = lan_send(MQTT_SOCKET, mqtt_buff, rc);
+
     // printf("rc = %d, ret = %d \n", rc, ret);
     if (rc != ret)
     {
         ESP_LOGE(TAG, "MQTT> ping send error.\r\n");
+        free(mqtt_buff);
         return -1;
     }
 
@@ -213,17 +226,19 @@ static int8_t mqtt_ping()
         {
             count = 0;
             ESP_LOGE(TAG, "MQTT> ping recv error.\r\n");
+            free(mqtt_buff);
             return -2;
         }
         vTaskDelay(10 / portTICK_RATE_MS);
     }
 
-    if (MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata) != PINGRESP)
+    if (MQTTPacket_read(mqtt_buff, MQTT_LEN, transport_getdata) != PINGRESP)
     {
         ESP_LOGE(TAG, "MQTT> ping recv not PINGRESP.\r\n");
+        free(mqtt_buff);
         return -3;
     }
-
+    free(mqtt_buff);
     return 1;
 }
 
@@ -237,16 +252,17 @@ static int8_t mqtt_ping()
 该任务建立在TCP成功连接的基础上：连接mqtt服务器->订阅相关主题->
 返回：正常情况阻塞任务，异常返回错误类型
 */
+
 static int8_t mqtt()
 {
-    uint8_t mqtt_buff[2048];
+    uint8_t *mqtt_buff = (uint8_t *)malloc(MQTT_LEN);
+    uint8_t *msg_rev_buf = (uint8_t *)malloc(RECV_LEN);
     uint8_t *payload_in;
     int ret;
     uint8_t dup, retained;
     uint16_t mssageid;
     int qos, payloadlen_in;
     MQTTString topoc;
-    uint8_t msg_rev_buf[1024];
     uint32_t ping_timeout = 0;
 
     creat_json Http_Post_Buff;
@@ -254,7 +270,7 @@ static int8_t mqtt()
     if (mqtt_connect()) //连接服务器
     {
         ESP_LOGI(TAG, "MQTT> connected.\r\n");
-        memset(mqtt_buff, 0, sizeof(mqtt_buff));
+        memset(mqtt_buff, 0, 2048);
         MQTT_E_STA = true;
         if (mqtt_subscribe(topic_s)) //订阅
         {
@@ -267,12 +283,12 @@ static int8_t mqtt()
                 //判断是否收到数据
                 if (ret > 0)
                 {
-                    memset(mqtt_buff, 0, sizeof(mqtt_buff));
-                    ret = MQTTPacket_read(mqtt_buff, sizeof(mqtt_buff), transport_getdata);
+                    memset(mqtt_buff, 0, MQTT_LEN);
+                    ret = MQTTPacket_read(mqtt_buff, MQTT_LEN, transport_getdata);
                     if (ret == PUBLISH)
                     {
                         MQTTDeserialize_publish(&dup, &qos, &retained, &mssageid, &topoc,
-                                                &payload_in, &payloadlen_in, mqtt_buff, sizeof(mqtt_buff));
+                                                &payload_in, &payloadlen_in, mqtt_buff, MQTT_LEN);
 
                         strcpy((char *)msg_rev_buf, (const char *)payload_in);
                         ESP_LOGI(TAG, "message arrived %d: %s\n\r", payloadlen_in, (char *)msg_rev_buf);
@@ -286,6 +302,8 @@ static int8_t mqtt()
                     else if (ret == -1)
                     {
                         ESP_LOGE(TAG, "MQTTPacket_read ERR : %d\n", ret);
+                        free(msg_rev_buf);
+                        free(mqtt_buff);
                         return -1;
                     }
                 }
@@ -297,6 +315,8 @@ static int8_t mqtt()
                     if ((ret = mqtt_ping()) < 0)
                     {
                         ESP_LOGE(TAG, "MQTT> ping error code:%d.\r\n", ret);
+                        free(msg_rev_buf);
+                        free(mqtt_buff);
                         return 0;
                     }
                 }
@@ -317,11 +337,15 @@ static int8_t mqtt()
         {
             ESP_LOGE(TAG, "MQTT> subscribe failed.\r\n");
         }
+        free(msg_rev_buf);
+        free(mqtt_buff);
         return 0;
     }
     else
     {
         ESP_LOGE(TAG, "MQTT> connect fail.\r\n");
+        free(msg_rev_buf);
+        free(mqtt_buff);
         return 0;
     }
 }
@@ -422,7 +446,7 @@ void start_lan_mqtt(void)
     if ((xEventGroupGetBits(Net_sta_group) & (MQTT_E_S_BIT | MQTT_INITED_BIT)) == MQTT_INITED_BIT) //设备激活过，但MQTT未启动
     {
         ESP_LOGI(TAG, "start_lan_mqtt!\n");
-        xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 8192, NULL, 10, NULL);
+        xTaskCreate(lan_mqtt_task, "lan_mqtt_task", 4096, NULL, 10, NULL);
     }
 }
 
