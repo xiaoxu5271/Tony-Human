@@ -32,6 +32,7 @@
 宏定义
 =========================== 
 */
+#define TAG "SHT30"
 //I2C
 #define I2C_SCL_IO 19              //SCL->IO19
 #define I2C_SDA_IO 18              //SDA->IO18
@@ -189,7 +190,7 @@ int sht30_SS_get_value(void)
     ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 100 / portTICK_RATE_MS); //I2C发送
     if (ret != ESP_OK)
     {
-        printf("i2c_master_cmd_begin ERR : %d\n", ret);
+        ESP_LOGE(TAG, "i2c_master_cmd_begin ERR : %d\n", ret);
         return ret;
     }
     i2c_cmd_link_delete(cmd); //删除I2C句柄
@@ -208,7 +209,7 @@ int sht30_SS_get_value(void)
     ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 100 / portTICK_RATE_MS);    //I2C发送
     if (ret != ESP_OK)
     {
-        printf("i2c_master_cmd_begin ERR2 : %d\n", ret);
+        ESP_LOGE(TAG, "i2c_master_cmd_begin ERR2 : %d\n", ret);
         return ret;
     }
     i2c_cmd_link_delete(cmd); //删除I2C句柄

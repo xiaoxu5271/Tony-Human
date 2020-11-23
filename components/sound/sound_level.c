@@ -10,8 +10,11 @@
 #include "driver/gpio.h"
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
+#include "esp_log.h"
 
 #include "sound_level.h"
+
+#define TAG "SOUND"
 
 #define ADC1_TEST_CHANNEL (6)
 #define DEFAULT_VREF 1100 //Use adc2_vref_to_gpio() to obtain a better estimate
@@ -29,21 +32,21 @@ static void check_efuse(void)
 	//Check TP is burned into eFuse
 	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK)
 	{
-		printf("eFuse Two Point: Supported\n");
+		ESP_LOGI(TAG, "eFuse Two Point: Supported\n");
 	}
 	else
 	{
-		printf("eFuse Two Point: NOT supported\n");
+		ESP_LOGI(TAG, "eFuse Two Point: NOT supported\n");
 	}
 
 	//Check Vref is burned into eFuse
 	if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_VREF) == ESP_OK)
 	{
-		printf("eFuse Vref: Supported\n");
+		ESP_LOGI(TAG, "eFuse Vref: Supported\n");
 	}
 	else
 	{
-		printf("eFuse Vref: NOT supported\n");
+		ESP_LOGI(TAG, "eFuse Vref: NOT supported\n");
 	}
 }
 
@@ -51,15 +54,15 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
 {
 	if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP)
 	{
-		printf("Characterized using Two Point Value\n");
+		ESP_LOGI(TAG, "Characterized using Two Point Value\n");
 	}
 	else if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF)
 	{
-		printf("Characterized using eFuse Vref\n");
+		ESP_LOGI(TAG, "Characterized using eFuse Vref\n");
 	}
 	else
 	{
-		printf("Characterized using Default Vref\n");
+		ESP_LOGI(TAG, "Characterized using Default Vref\n");
 	}
 }
 
@@ -94,7 +97,7 @@ void adc1task(void *arg)
 			value_voice = (20 * log10(value_1 / 0.00039)) - 50;
 		}
 
-		printf("voice:%.1f,%.1f\n", value_voice, voltage);
+		ESP_LOGI(TAG, "voice:%.1f,%.1f\n", value_voice, voltage);
 		/*if ((voltage >= 500) && (voltage < 750))
         {
             value_voice = (voltage) / 1000 * 138;
@@ -118,7 +121,7 @@ void adc1task(void *arg)
             }
         }
 
-        printf(" max: %.1f\n", max);*/
+        ESP_LOGI(TAG, " max: %.1f\n", max);*/
 
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 	}

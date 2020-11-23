@@ -63,6 +63,9 @@
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 #include "freertos/event_groups.h"
+#include "esp_log.h"
+
+#define TAG "W5500_SOCKET"
 
 //M20150401 : Typing Error
 //#define SOCK_ANY_PORT_NUM  0xC000;
@@ -315,7 +318,7 @@ int8_t lan_connect(uint8_t sn, uint8_t *addr, uint16_t port)
     setSn_CR(sn, Sn_CR_CONNECT);
     while (getSn_CR(sn))
     {
-        printf("lan connet getSn_CR\n");
+        ESP_LOGI(TAG, "lan connet getSn_CR\n");
         vTaskDelay(500 / portTICK_PERIOD_MS); //
     }
     if (sock_io_mode & (1 << sn))

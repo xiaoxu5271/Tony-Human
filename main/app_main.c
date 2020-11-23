@@ -44,7 +44,7 @@ void app_main(void)
     Read_Product_E2p();
     Uart0_Init();
 
-    printf("FIRMWARE=%s\n", FIRMWARE);
+    ESP_LOGI("MAIN", "FIRMWARE=%s\n", FIRMWARE);
 
     //选择版本
     if (strcmp(ProductId, "ubibot-ms1") == 0)

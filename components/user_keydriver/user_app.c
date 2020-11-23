@@ -21,6 +21,8 @@
 #include "Json_parse.h"
 #include "Led.h"
 
+#define TAG "USER_KET"
+
 uint8_t Task_key_num = 0;
 
 /* 填充需要配置的按键个数以及对应的相关参数 */
@@ -116,17 +118,17 @@ static void vTask_view_Work(void *pvParameters)
         {
             Task_key_num = 0;
 
-            printf("free Heap:%d\n", esp_get_free_heap_size());
+            ESP_LOGI(TAG, "free Heap:%d\n", esp_get_free_heap_size());
             /* K1键按下 打印任务执行情况 */
 
-            printf("=======================================================\r\n");
-            printf("任务名           任务状态   优先级      剩余栈   任务序号\r\n");
+            ESP_LOGI(TAG, "=======================================================\r\n");
+            ESP_LOGI(TAG, "任务名           任务状态   优先级      剩余栈   任务序号\r\n");
             vTaskList((char *)&pcWriteBuffer);
-            printf("%s\r\n", pcWriteBuffer);
+            ESP_LOGI(TAG, "%s\r\n", pcWriteBuffer);
 
-            printf("\r\n任务名            运行计数              使用率\r\n");
+            ESP_LOGI(TAG, "\r\n任务名            运行计数              使用率\r\n");
             vTaskGetRunTimeStats((char *)&pcWriteBuffer);
-            printf("%s\r\n", pcWriteBuffer);
+            ESP_LOGI(TAG, "%s\r\n", pcWriteBuffer);
 
             /* 其他的键值不处理 */
         }

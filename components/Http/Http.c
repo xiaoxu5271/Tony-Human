@@ -325,9 +325,9 @@ void send_heart_task(void *arg)
     Net_Err ret;
     while (1)
     {
-        printf("\n INTERNAL RAM left %dKB，free Heap:%d\n",
-               heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024,
-               esp_get_free_heap_size());
+        ESP_LOGI(TAG, "\n INTERNAL RAM left %dKB，free Heap:%d\n",
+                 heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024,
+                 esp_get_free_heap_size());
 
         while ((ret = Send_herat()) != NET_OK)
         {

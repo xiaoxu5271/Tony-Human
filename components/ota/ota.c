@@ -137,7 +137,7 @@ static void wifi_ota_task(void *pvParameter)
     {
         // Led_Status = LED_STA_OTA;
         int data_read = esp_http_client_read(client, ota_write_data, BUFFSIZE);
-        // printf("\n ota_write_data=%2x \n", (unsigned int)ota_write_data);
+        //  ESP_LOGI(TAG, "\n ota_write_data=%2x \n", (unsigned int)ota_write_data);
         if (data_read < 0)
         {
             ESP_LOGE(TAG, "Error: SSL data read error");
@@ -246,7 +246,6 @@ static int read_until(char *buffer, char delim, int len)
  * */
 static bool read_past_http_header(char text[], int total_len, esp_ota_handle_t update_handle)
 {
-    printf("\r\n%s\r\n", text);
     /* 获取镜像大小*/
     char sub[20];
     if (mid((char *)text, "Content-Length: ", "\r\n", sub) != 1)
@@ -292,7 +291,7 @@ static bool read_past_http_header(char text[], int total_len, esp_ota_handle_t u
 void lan_ota_task(void *arg)
 {
 
-    printf("lan ota task start \n");
+    ESP_LOGI(TAG, "lan ota task start \n");
 
     int16_t con_ret;
     int32_t size;
@@ -306,7 +305,7 @@ void lan_ota_task(void *arg)
     // E2prom_page_Read(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
     if (mid(mqtt_json_s.mqtt_ota_url, "://", "/", ota_sever) != 1)
     {
-        printf("ota url err!!!\n");
+        ESP_LOGI(TAG, "ota url err!!!\n");
         vTaskDelete(NULL);
     }
 
@@ -322,7 +321,7 @@ void lan_ota_task(void *arg)
 
     );
 
-    printf("ota_url=%s", ota_url);
+    ESP_LOGI(TAG, "ota_url=%s", ota_url);
 
     lan_dns_resolve((uint8_t *)ota_sever, ota_dns_host_ip);
 
@@ -348,16 +347,16 @@ void lan_ota_task(void *arg)
 
     while (1)
     {
-        // printf("while ing !!!\n");
+        //  ESP_LOGI(TAG, "while ing !!!\n");
         uint8_t temp;
         switch (temp = getSn_SR(SOCK_OTA))
         {
         case SOCK_INIT:
-            printf("SOCK_INIT!!!\n");
+            ESP_LOGI(TAG, "SOCK_INIT!!!\n");
             con_ret = lan_connect(SOCK_OTA, ota_dns_host_ip, 80);
             if (con_ret <= 0)
             {
-                printf("INIT FAIL CODE : %d\n", con_ret);
+                ESP_LOGI(TAG, "INIT FAIL CODE : %d\n", con_ret);
                 lan_dns_resolve((uint8_t *)ota_sever, ota_dns_host_ip);
                 lan_close(SOCK_DNS);
                 // return con_ret;
@@ -367,10 +366,10 @@ void lan_ota_task(void *arg)
         case SOCK_ESTABLISHED:
             if (getSn_IR(SOCK_OTA) & Sn_IR_CON)
             {
-                printf("SOCK_ESTABLISHED!!!\n");
+                ESP_LOGI(TAG, "SOCK_ESTABLISHED!!!\n");
                 setSn_IR(SOCK_OTA, Sn_IR_CON);
             }
-            printf("send_buff: %s \n", ota_url);
+            ESP_LOGI(TAG, "send_buff: %s \n", ota_url);
             lan_send(SOCK_OTA, (uint8_t *)ota_url, sizeof(ota_url));
 
             //获取当前系统下一个（紧邻当前使用的OTA_X分区）可用于烧录升级固件的Flash分区
@@ -497,12 +496,12 @@ void lan_ota_task(void *arg)
             break;
 
         case SOCK_CLOSE_WAIT:
-            printf("SOCK_CLOSE_WAIT!!!\n");
+            ESP_LOGI(TAG, "SOCK_CLOSE_WAIT!!!\n");
             lan_close(SOCK_OTA);
             break;
 
         case SOCK_CLOSED:
-            printf("Closed\r\n");
+            ESP_LOGI(TAG, "Closed\r\n");
             lan_socket(SOCK_OTA, Sn_MR_TCP, 8000, 0x00);
             if (LAN_DNS_STATUS != 1)
             {
@@ -511,7 +510,7 @@ void lan_ota_task(void *arg)
             break;
 
         default:
-            printf("send get %2x\n", temp);
+            ESP_LOGI(TAG, "send get %2x\n", temp);
             lan_close(SOCK_OTA); //网线断开重联后会返回 0X22，自动进入UDP模式，所以需要关闭连接。
             break;
         }
