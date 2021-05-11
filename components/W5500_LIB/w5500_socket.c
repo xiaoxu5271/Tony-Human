@@ -56,7 +56,7 @@
 #include "w5500_socket.h"
 
 #include <stdio.h>
-#include "nvs_flash.h"
+// #include "nvs_flash.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
