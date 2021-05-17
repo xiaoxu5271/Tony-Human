@@ -598,7 +598,8 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
     /*argp指向传入的第一个可选参数，msg是最后一个确定的参数*/
     va_start(argp, pcCmdBuffer);
     int sock = 0;
-    int tcp_flag = va_arg(argp, int);
+    int tcp_flag;
+    tcp_flag = va_arg(argp, int);
     if (tcp_flag == 1)
     {
         sock = va_arg(argp, int);
@@ -683,7 +684,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
                         E2P_Write(MQTT_PORT_ADD, (uint8_t *)pSub->valuestring, 5); //save
                         // E2P_Write(MQTT_PORT_ADD + E2P_SIZE / 2, (uint8_t *)pSub->valuestring, 5); //save
                     }
-                    if (tcp_flag)
+                    if (tcp_flag == 1)
                     {
                         Tcp_Send(sock, Ret_OK);
                     }
@@ -699,7 +700,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
                 {
                     ret = ESP_FAIL;
                     //密码错误
-                    if (tcp_flag)
+                    if (tcp_flag == 1)
                     {
                         Tcp_Send(sock, Ret_Fail);
                     }
@@ -729,7 +730,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
                 E2P_Write(WIFI_PASSWORD_ADD, (uint8_t *)wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
                 ESP_LOGI(TAG, "WIFI_PWD = %s\r\n", pSub->valuestring);
             }
-            if (tcp_flag)
+            if (tcp_flag == 1)
             {
                 Tcp_Send(sock, Ret_OK);
                 //AP配置，先关闭蓝牙
@@ -774,7 +775,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
                 E2P_Write(MQTT_PORT_ADD, (uint8_t *)pSub->valuestring, 5); //save
             }
 
-            if (tcp_flag)
+            if (tcp_flag == 1)
             {
                 Tcp_Send(sock, Ret_OK);
             }
@@ -867,7 +868,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
             E2P_WriteOneByte(NET_MODE_ADD, NET_LAN); //写入net_mode
             net_mode = NET_LAN;
 
-            if (tcp_flag)
+            if (tcp_flag == 1)
             {
                 Tcp_Send(sock, Ret_OK);
                 //AP配置，先关闭蓝牙
@@ -913,7 +914,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
             json_temp = cJSON_PrintUnformatted(root);
             if (json_temp != NULL)
             {
-                if (tcp_flag)
+                if (tcp_flag == 1)
                 {
                     Tcp_Send(sock, json_temp);
                 }
@@ -933,18 +934,18 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
             if (ETH_FLAG == true)
             {
                 cJSON_AddStringToObject(root, "result", "OK");
-                cJSON_AddStringToObject(root, "W5500", "OK");
+                cJSON_AddStringToObject(root, "module", "OK");
             }
             else
             {
                 cJSON_AddStringToObject(root, "result", "ERROR");
-                cJSON_AddStringToObject(root, "W5500", "ERROR");
+                cJSON_AddStringToObject(root, "module", "ERROR");
             }
 
             json_temp = cJSON_PrintUnformatted(root);
             if (json_temp != NULL)
             {
-                if (tcp_flag)
+                if (tcp_flag == 1)
                 {
                     Tcp_Send(sock, json_temp);
                 }
@@ -1026,7 +1027,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
             json_temp = cJSON_PrintUnformatted(root);
             if (json_temp != NULL)
             {
-                if (tcp_flag)
+                if (tcp_flag == 1)
                 {
                     Tcp_Send(sock, json_temp);
                 }

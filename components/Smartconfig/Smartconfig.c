@@ -66,7 +66,10 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED)
     {
-        esp_timer_start_once(timer_wifi_handle, 15000 * 1000);
+        if (net_mode == NET_WIFI)
+        {
+            esp_timer_start_once(timer_wifi_handle, 15000 * 1000);
+        }
     }
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
@@ -90,9 +93,12 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
-        esp_timer_stop(timer_wifi_handle);
-        xEventGroupSetBits(Net_sta_group, CONNECTED_BIT);
-        Start_Active();
+        if (net_mode == NET_WIFI)
+        {
+            esp_timer_stop(timer_wifi_handle);
+            xEventGroupSetBits(Net_sta_group, CONNECTED_BIT);
+            Start_Active();
+        }
         // ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         // ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
     }
@@ -297,8 +303,10 @@ bool Check_Wifi(uint8_t *ssid, int8_t *rssi)
     *rssi = ap_info[0].rssi;
 
     scan_flag = false;
-
-    start_user_wifi();
+    if (net_mode == NET_LAN)
+    {
+        stop_user_wifi();
+    }
 
     return ret;
 }
@@ -359,7 +367,7 @@ int Tcp_Send(int sock, char *Send_Buff)
     uint16_t Send_Buff_len = strlen(Send_Buff);
     int to_write = Send_Buff_len;
     int written = 0;
-    // ESP_LOGI(TAG, "Send_Buff:%s,Len:%d,sock:%d", Send_Buff, Send_Buff_len, sock);
+    ESP_LOGI(TAG, "Send_Buff:%s,Len:%d,sock:%d", Send_Buff, Send_Buff_len, sock);
     while (to_write > 0)
     {
         written = send(sock, Send_Buff + (Send_Buff_len - to_write), to_write, 0);

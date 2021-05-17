@@ -44,7 +44,7 @@ void app_main(void)
     E2prom_Init();
     Read_Metadate_E2p();
     Read_Product_E2p();
-    Uart0_Init();
+    // Uart0_Init();
 
     ESP_LOGI("MAIN", "FIRMWARE=%s\n", FIRMWARE);
 
@@ -97,6 +97,7 @@ void app_main(void)
     init_wifi();
     initialise_http();
     initialise_mqtt();
+    Uart0_Init();
 
     /* 判断是否有序列号和product id */
     if ((strlen(SerialNum) == 0) || (strlen(ProductId) == 0) || (strlen(WEB_SERVER) == 0)) //未获取到序列号或productid，未烧写序列号
