@@ -3,7 +3,6 @@
 
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
-#include "Bluetooth.h"
 #include "esp_wifi.h"
 
 void init_wifi(void);
@@ -11,6 +10,9 @@ void start_user_wifi(void);
 void stop_user_wifi(void);
 void Net_Switch(void);
 void Scan_Wifi(void);
+void start_softap(void);
+bool Check_Wifi(uint8_t *ssid, int8_t *rssi);
+int Tcp_Send(int sock, char *Send_Buff);
 
 extern uint8_t wifi_connect_sta; //wifi连接状态
 // extern uint8_t wifi_work_sta;    //wifi开启状态
@@ -36,6 +38,8 @@ EventGroupHandle_t Net_sta_group;
 #define ACTIVE_S_BIT (1 << 15)    //激活中
 #define TIME_CAL_BIT (1 << 16)    //时间校准成功
 #define BLE_RESP_BIT (1 << 17)    //蓝牙超时回复标志
+
+#define TCP_PORT 5001
 
 // static const int CONNECTED_BIT = BIT0;
 // static const int AP_STACONNECTED_BIT = BIT0;

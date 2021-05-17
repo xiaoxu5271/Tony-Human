@@ -10,6 +10,7 @@ void W_Mqtt_Publish(char *msg);
 // extern esp_mqtt_client_handle_t client;
 
 QueueHandle_t Send_Mqtt_Queue;
+QueueHandle_t Send_LAN_Mqtt_Queue;
 #define MQTT_BUFF_LEN 521
 typedef struct
 {

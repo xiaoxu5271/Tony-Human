@@ -265,7 +265,7 @@ static int8_t mqtt()
     MQTTString topoc;
     uint32_t ping_timeout = 0;
 
-    creat_json Http_Post_Buff;
+    Mqtt_Msg Mqtt_Send;
 
     if (mqtt_connect()) //连接服务器
     {
@@ -320,12 +320,13 @@ static int8_t mqtt()
                         return 0;
                     }
                 }
+
                 else
                 {
-                    if (xQueueReceive(Send_Mqtt_Queue, &Http_Post_Buff, 0) == pdPASS)
+                    if (xQueueReceive(Send_LAN_Mqtt_Queue, &Mqtt_Send, 0) == pdPASS)
                     {
                         ESP_LOGI(TAG, "%d", __LINE__);
-                        mqtt_publish(topic_p, Http_Post_Buff.creat_json_buff, Http_Post_Buff.creat_json_len);
+                        mqtt_publish(topic_p, Mqtt_Send.buff, Mqtt_Send.buff_len);
                     }
                 }
 
@@ -457,4 +458,12 @@ void stop_lan_mqtt(void)
         ESP_LOGI(TAG, "stop lan mqtt!\n");
         lan_close(MQTT_SOCKET);
     }
+}
+
+void lan_mqtt_send(char *buff)
+{
+    Mqtt_Msg Mqtt_Send;
+    snprintf(Mqtt_Send.buff, sizeof(Mqtt_Send.buff), buff);
+    Mqtt_Send.buff_len = strlen(Mqtt_Send.buff);
+    xQueueOverwrite(Send_LAN_Mqtt_Queue, (void *)&Mqtt_Send);
 }

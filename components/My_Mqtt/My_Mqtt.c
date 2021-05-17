@@ -112,6 +112,7 @@ void Stop_W_Mqtt(void)
 #define MQTT_STATUS_BUFF_LEN 150
 void Mqtt_Int_Task(void *arg)
 {
+    Mqtt_Msg Mqtt_Send;
     xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1); //等待激活
 
     snprintf(topic_s, sizeof(topic_s), "%s%s%s%s%s%c", "/product/", ProductId, "/channel/", ChannelId, "/control", '\0');
@@ -139,21 +140,34 @@ void Mqtt_Int_Task(void *arg)
     {
         start_lan_mqtt();
     }
-    vTaskDelete(NULL);
 
-    // while (1)
-    // {
-    //     memset(Http_Post_Buff.creat_json_buff, 0, sizeof(Http_Post_Buff.creat_json_buff));
-    //     xQueueReceive(Send_Mqtt_Queue, &Http_Post_Buff, -1);
-    //     if (MQTT_W_STA == true)
-    //     {
-    //         esp_mqtt_client_publish(client, topic_p, Http_Post_Buff.creat_json_buff, 0, 1, 0);
-    //     }
-    //     else if (MQTT_E_STA == true)
-    //     {
-    //         mqtt_publish(topic_p, Http_Post_Buff.creat_json_buff, Http_Post_Buff.creat_json_len);
-    //     }
-    // }
+    while (1)
+    {
+        xQueueReceive(Send_Mqtt_Queue, &Mqtt_Send, -1);
+        xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1); //等待激活
+
+        uint8_t *status_buff = (uint8_t *)malloc(MQTT_STATUS_BUFF_LEN);
+        char *mqtt_buff = (char *)malloc(Mqtt_Send.buff_len + MQTT_STATUS_BUFF_LEN + 10);
+        memset(status_buff, 0, MQTT_STATUS_BUFF_LEN);
+        memset(mqtt_buff, 0, Mqtt_Send.buff_len + MQTT_STATUS_BUFF_LEN + 10);
+        Create_Status_Json((char *)status_buff, MQTT_STATUS_BUFF_LEN, false); //
+        snprintf(mqtt_buff, Mqtt_Send.buff_len + MQTT_STATUS_BUFF_LEN + 10, "{\"feeds\":[%s%s\r\n", Mqtt_Send.buff, status_buff);
+        if (MQTT_W_STA == true)
+        {
+            esp_mqtt_client_publish(client, topic_p, mqtt_buff, 0, 1, 0);
+        }
+        else if (MQTT_E_STA == true)
+        {
+            xQueueOverwrite(Send_LAN_Mqtt_Queue, (void *)&Mqtt_Send);
+        }
+        // ESP_LOGI(TAG, "MQTT:%s", mqtt_buff);
+
+        free(status_buff);
+        free(mqtt_buff);
+        // return 1;
+    }
+
+    vTaskDelete(NULL);
 }
 
 //

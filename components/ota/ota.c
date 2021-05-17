@@ -19,6 +19,7 @@
 #include "Human.h"
 // #include "sht30dis.h"
 #include "My_Mqtt.h"
+#include "lan_mqtt.h"
 #include "E2prom.h"
 #include "w5500_driver.h"
 #include "w5500_socket.h"
@@ -52,14 +53,13 @@ TaskHandle_t ota_handle = NULL;
 
 static void __attribute__((noreturn)) task_fatal_error()
 {
+    char Status_buff[100] = {0};
+    snprintf(Status_buff, sizeof(Status_buff), "{\"command_id\":\"%s\",\"status\":\"FAIL\"}\r\n", mqtt_json_s.mqtt_command_id);
+    W_Mqtt_Publish(Status_buff);
+    vTaskDelay(1000 / portTICK_RATE_MS);
     ESP_LOGE(TAG, "Exiting task due to fatal error...");
     esp_restart();
     (void)vTaskDelete(NULL);
-
-    // while (1)
-    // {
-    //     ;
-    // }
 }
 
 static void http_cleanup(esp_http_client_handle_t client)
@@ -70,14 +70,15 @@ static void http_cleanup(esp_http_client_handle_t client)
 
 static void wifi_ota_task(void *pvParameter)
 {
+    char Status_buff[100] = {0};
     esp_err_t err;
     //进度 百分比
-    uint8_t percentage = 0;
+    uint8_t percentage = 0, last_percentage = 0;
     /* update handle : set by esp_ota_begin(), must be freed via esp_ota_end() */
     esp_ota_handle_t update_handle = 0;
     const esp_partition_t *update_partition = NULL;
 
-    ESP_LOGI(TAG, "Starting OTA example...");
+    ESP_LOGI(TAG, "Starting WIFI OTA");
 
     const esp_partition_t *configured = esp_ota_get_boot_partition();
     const esp_partition_t *running = esp_ota_get_running_partition();
@@ -96,6 +97,8 @@ static void wifi_ota_task(void *pvParameter)
     */
     xEventGroupWaitBits(Net_sta_group, CONNECTED_BIT,
                         false, true, -1);
+    vTaskDelay(1000 / portTICK_PERIOD_MS); //等待数据同步完成 vTaskDelay(1000 / portTICK_PERIOD_MS); //等待数据同步完成
+
     ESP_LOGI(TAG, "Connect to Wifi ! Start to Connect to Server....");
 
     // E2prom_page_Read(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
@@ -175,11 +178,15 @@ static void wifi_ota_task(void *pvParameter)
                 task_fatal_error();
             }
             binary_file_length += data_read;
-            if (percentage != (int)(binary_file_length * 100 / content_len))
+            percentage = (int)(binary_file_length * 100 / content_len);
+            if (percentage != last_percentage && percentage % 10 == 0)
             {
-                percentage = (int)(binary_file_length * 100 / content_len);
-                ESP_LOGI(TAG, "%d%%\n", percentage);
+
+                snprintf(Status_buff, sizeof(Status_buff), "{\"command_id\":\"%s\",\"status\":\"upgrading\",\"progress\":%d}\r\n", mqtt_json_s.mqtt_command_id, percentage);
+                W_Mqtt_Publish(Status_buff);
+                printf("%s", Status_buff);
             }
+            last_percentage = percentage;
             // ESP_LOGI(TAG, "Written image length %d", binary_file_length);
         }
         else if (data_read == 0)
@@ -204,9 +211,13 @@ static void wifi_ota_task(void *pvParameter)
         http_cleanup(client);
         task_fatal_error();
     }
+    snprintf(Status_buff, sizeof(Status_buff), "{\"command_id\":\"%s\",\"status\":\"OK\"}\r\n", mqtt_json_s.mqtt_command_id);
+    W_Mqtt_Publish(Status_buff);
+    printf("%s", Status_buff);
     ESP_LOGI(TAG, "Prepare to restart system!");
+    vTaskDelay(1000 / portTICK_RATE_MS);
     esp_restart();
-    vTaskDelete(NULL);
+    return;
 }
 
 /*****************OTA***********************/
@@ -297,10 +308,11 @@ void lan_ota_task(void *arg)
     int32_t size;
     int32_t buff_len;
     uint16_t no_recv_time = 0;
+    char Status_buff[100] = {0};
     char ota_url[1024] = {0};
     char ota_sever[128] = {0};
     //进度 百分比
-    uint8_t percentage = 0;
+    uint8_t percentage = 0, last_percentage = 0;
 
     // E2prom_page_Read(ota_url_add, (uint8_t *)mqtt_json_s.mqtt_ota_url, 128);
     if (mid(mqtt_json_s.mqtt_ota_url, "://", "/", ota_sever) != 1)
@@ -443,18 +455,23 @@ void lan_ota_task(void *arg)
                             lan_close(SOCK_OTA);
                             vTaskDelete(NULL);
                         }
+
                         binary_file_length += buff_len;
-                        if (percentage != (int)(binary_file_length * 100 / content_len))
+                        percentage = (int)(binary_file_length * 100 / content_len);
+                        if (percentage != last_percentage && percentage % 10 == 0)
                         {
-                            percentage = (int)(binary_file_length * 100 / content_len);
-                            ESP_LOGI(TAG, "%d%%\n", percentage);
+
+                            snprintf(Status_buff, sizeof(Status_buff), "{\"command_id\":\"%s\",\"status\":\"upgrading\",\"progress\":%d}\r\n", mqtt_json_s.mqtt_command_id, percentage);
+                            lan_mqtt_send(Status_buff);
+                            printf("%s", Status_buff);
                         }
+                        last_percentage = percentage;
                         // ESP_LOGI(TAG, "Have written image length %d", binary_file_length);
                     }
                     else
                     {
                         //未知错误
-                        ESP_LOGE(TAG, "Unexpected recv result");
+                        // ESP_LOGE(TAG, "Unexpected recv result");
                     }
                 }
                 else
@@ -478,7 +495,8 @@ void lan_ota_task(void *arg)
             //OTA写结束
             if (esp_ota_end(update_handle) != ESP_OK)
             {
-                ESP_LOGE(TAG, "esp_ota_end failed!");
+                snprintf(Status_buff, sizeof(Status_buff), "{\"command_id\":\"%s\",\"status\":\"FAIL\"}\r\n", mqtt_json_s.mqtt_command_id);
+                lan_mqtt_send(Status_buff);
                 vTaskDelete(NULL);
             }
             //升级完成更新OTA data区数据，重启时根据OTA data区数据到Flash分区加载执行目标（新）固件
@@ -488,7 +506,8 @@ void lan_ota_task(void *arg)
                 ESP_LOGE(TAG, "esp_ota_set_boot_partition failed! err=0x%x", err);
                 vTaskDelete(NULL);
             }
-            ESP_LOGI(TAG, "Update Successed\r\n ");
+            snprintf(Status_buff, sizeof(Status_buff), "{\"command_id\":\"%s\",\"status\":\"OK\"}\r\n", mqtt_json_s.mqtt_command_id);
+            lan_mqtt_send(Status_buff);
 
             vTaskDelay(1000 / portTICK_RATE_MS); //延时
             esp_restart();
@@ -521,7 +540,7 @@ void lan_ota_task(void *arg)
 
 void ota_start(void) //建立OTA升级任务，目的是为了让此函数被调用后尽快执行完毕
 {
-    if (LAN_DNS_STATUS == 1)
+    if (net_mode == NET_LAN)
     {
         xTaskCreate(lan_ota_task, "lan_ota_task", 8192, NULL, 1, NULL); //
     }

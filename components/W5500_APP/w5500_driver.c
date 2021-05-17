@@ -245,9 +245,9 @@ void W5500_Network_Init(void)
     E_NetTimeout.time_100us = 1000; //< time unit 100us
     wizchip_settimeout(&E_NetTimeout);
 
-    // gWIZPHYCONF.speed = PHY_SPEED_10;
-    // ctlwizchip(CW_SET_PHYCONF, (void *)&gWIZPHYCONF); //设置连接速度，降低功耗、温度。  然而发现并没有什么卵用
-    // ctlwizchip(CW_GET_PHYCONF, (void *)&gWIZPHYCONF_READ);
+    gWIZPHYCONF.speed = PHY_SPEED_10;
+    ctlwizchip(CW_SET_PHYCONF, (void *)&gWIZPHYCONF); //设置连接速度，降低功耗、温度。  然而发现并没有什么卵用
+    ctlwizchip(CW_GET_PHYCONF, (void *)&gWIZPHYCONF_READ);
 
     // EE_byte_Read(ADDR_PAGE2, dhcp_mode_add, &user_dhcp_mode); //获取DHCP模式
     if (user_dhcp_mode == 0)
@@ -458,6 +458,139 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
         }
         vTaskDelay(100 / portTICK_RATE_MS);
     }
+}
+
+int32_t lan_http_init(char *post_header)
+{
+    int32_t ret = 1;
+    uint8_t fail_num = 0;
+    uint8_t temp;
+    if (lan_dns_resolve((uint8_t *)WEB_SERVER, http_dns_host_ip) == false)
+    {
+        LAN_DNS_STATUS = 0;
+        ESP_LOGI(TAG, "IW5500_DNS_FAIL\n");
+        ret = -1;
+        return ret;
+    }
+    LAN_DNS_STATUS = 1;
+
+    while (1)
+    {
+        switch (temp = getSn_SR(SOCK_TCPS))
+        {
+        case SOCK_INIT:
+            // ESP_LOGI(TAG, "SOCK_INIT, server_ip:%d.%d.%d.%d!!!\n", http_dns_host_ip[0], http_dns_host_ip[1], http_dns_host_ip[2], http_dns_host_ip[3]);
+            // ret = lan_connect(SOCK_TCPS, http_dns_host_ip, server_port);
+
+            // http_dns_host_ip[0] = 192;
+            // http_dns_host_ip[1] = 168;
+            // http_dns_host_ip[2] = 123;
+            // http_dns_host_ip[3] = 121;
+
+            ret = lan_connect(SOCK_TCPS, http_dns_host_ip, server_port);
+            if (ret != SOCK_OK)
+            {
+                ESP_LOGI(TAG, "INIT FAIL CODE : %d\n", ret);
+                return ret;
+            }
+            break;
+
+        case SOCK_ESTABLISHED:
+            if (getSn_IR(SOCK_TCPS) & Sn_IR_CON)
+            {
+                // ESP_LOGI(TAG,"SOCK_ESTABLISHED!!!\n");
+                setSn_IR(SOCK_TCPS, Sn_IR_CON);
+            }
+            ESP_LOGI(TAG, "%d,%s", __LINE__, post_header);
+            ret = lan_send(SOCK_TCPS, (uint8_t *)post_header, strlen(post_header));
+            // str[8] = 0;
+            // ret = lan_send(SOCK_TCPS, (uint8_t *)str, strlen(str));
+            // ret = lan_send(SOCK_TCPS, (uint8_t *)str2, strlen(str2));
+            return ret;
+
+        case SOCK_CLOSE_WAIT:
+            lan_close(SOCK_TCPS);
+            ESP_LOGI(TAG, "SOCK_CLOSE_WAIT!!!\n");
+            break;
+
+        case SOCK_CLOSED:
+            // ESP_LOGI(TAG,"Closed\r\n");
+            lan_socket(SOCK_TCPS, Sn_MR_TCP, socker_port, 0x00);
+            break;
+
+        default:
+            fail_num++;
+            if (fail_num >= 10)
+            {
+                fail_num = 0;
+                ESP_LOGI(TAG, "fail time out getSn_SR=  0x%02x\n", temp);
+                RJ45_MODE = RJ45_INIT;
+                return -temp;
+            }
+            break;
+        }
+        vTaskDelay(100 / portTICK_RATE_MS);
+    }
+}
+
+int32_t lan_http_write(char *write_buff)
+{
+    uint8_t temp;
+    int32_t ret = 1;
+    switch (temp = getSn_SR(SOCK_TCPS))
+    {
+    case SOCK_ESTABLISHED:
+        ret = lan_send(SOCK_TCPS, (uint8_t *)write_buff, strlen(write_buff));
+        break;
+
+    default:
+        ESP_LOGE(TAG, "fail time out getSn_SR=  0x%02x\n", temp);
+        lan_close(SOCK_TCPS);
+        ret = -temp;
+    }
+    return ret;
+}
+
+int32_t lan_http_read(char *recv_buff, uint16_t buff_len)
+{
+    uint8_t temp;
+    uint16_t size;
+    int32_t ret = 1;
+    switch (temp = getSn_SR(SOCK_TCPS))
+    {
+    case SOCK_ESTABLISHED:
+
+        for (uint16_t i = 0; i < 500; i++)
+        {
+            if ((size = getSn_RX_RSR(SOCK_TCPS)) != 0)
+            {
+                ESP_LOGI(TAG, "recv_size = %d\n", size);
+                break;
+            }
+            vTaskDelay(10 / portTICK_RATE_MS); //需要延时一段时间，等待平台返回数据
+        }
+
+        if (size > 0)
+        {
+            ret = lan_recv(SOCK_TCPS, (uint8_t *)recv_buff, buff_len);
+            // if (ret < 0)
+            // {
+            //     // ESP_LOGI(TAG, "w5500 recv failed! %d\n", rec_ret);
+            // }
+            // else
+            // {
+            //     ESP_LOGI(TAG, " len : %d ------------w5500 recv  : %s\n", ret, (char *)recv_buff);
+            // }
+        }
+        lan_close(SOCK_TCPS);
+        break;
+
+    default:
+        ESP_LOGE(TAG, "fail time out getSn_SR=  0x%02x\n", temp);
+        lan_close(SOCK_TCPS);
+        ret = -temp;
+    }
+    return ret;
 }
 
 void RJ45_Task(void *arg)

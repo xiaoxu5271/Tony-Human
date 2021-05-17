@@ -83,6 +83,9 @@ bool lan_dns_resolve(uint8_t *web_url, uint8_t *dns_host_ip);
 int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size);
 int8_t W5500_DHCP_Init(void);
 void Start_Eth_Net(void);
+int32_t lan_http_init(char *post_header);
+int32_t lan_http_write(char *write_buff);
+int32_t lan_http_read(char *recv_buff, uint16_t buff_len);
 
 #endif
 /*******************************************************************************

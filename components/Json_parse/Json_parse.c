@@ -200,81 +200,89 @@ int32_t parse_objects_bluetooth(char *blu_json_data)
 esp_err_t parse_objects_http_active(char *http_json_data)
 {
     cJSON *json_data_parse = NULL;
-    cJSON *pSubSubSub = NULL;
-    // cJSON *json_data_parse_channel_channel_write_key = NULL;
-    // cJSON *json_data_parse_channel_channel_id_value = NULL;
-    // cJSON *json_data_parse_channel_metadata = NULL;
-
+    cJSON *json_data_parse_value = NULL;
+    cJSON *json_data_parse_time_value = NULL;
+    cJSON *json_data_parse_channel_channel_write_key = NULL;
+    cJSON *json_data_parse_channel_channel_id_value = NULL;
+    cJSON *json_data_parse_channel_metadata = NULL;
+    cJSON *json_data_parse_channel_value = NULL;
+    cJSON *json_data_parse_channel_user_id = NULL;
     //char *json_print;
 
-    //  ESP_LOGI(TAG, "ACTIVE：%s\r\n", http_json_data);
-
+    // ESP_LOGI(TAG,"start_parse_active_http_json\r\n");
     char *resp_val = NULL;
     resp_val = strstr(http_json_data, "{\"result\":\"success\",");
     if (resp_val == NULL)
     {
         ESP_LOGE("JSON", "DATA NO JSON");
-        return 0;
+        return ESP_FAIL;
     }
     json_data_parse = cJSON_Parse(resp_val);
 
     if (json_data_parse == NULL)
     {
-        ESP_LOGI(TAG, "Json Formatting error3\n");
-
+        // ESP_LOGI(TAG,"Json Formatting error3\n");
+        ESP_LOGE(TAG, "%s", http_json_data);
         cJSON_Delete(json_data_parse);
-        return 0;
+        return ESP_FAIL;
     }
     else
     {
+        json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "result");
+        if (!(strcmp(json_data_parse_value->valuestring, "success")))
+        {
+            ESP_LOGI(TAG, "active:success\r\n");
+
+            json_data_parse_time_value = cJSON_GetObjectItem(json_data_parse, "server_time");
+            Server_Timer_GET(json_data_parse_time_value->valuestring);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "active:error\r\n");
+            cJSON_Delete(json_data_parse);
+            return ESP_FAIL;
+        }
+
         if (cJSON_GetObjectItem(json_data_parse, "channel") != NULL)
         {
-            json_data_parse = cJSON_GetObjectItem(json_data_parse, "channel");
+            json_data_parse_channel_value = cJSON_GetObjectItem(json_data_parse, "channel");
 
-            //metadata
-            pSubSubSub = cJSON_GetObjectItem(json_data_parse, "metadata");
-            if (pSubSubSub != NULL)
-            {
-                //  ESP_LOGI(TAG, "metadata: %s\n", json_data_parse_channel_metadata->valuestring);
-                Parse_metadata(pSubSubSub->valuestring);
-            }
+            //ESP_LOGI(TAG,"%s\r\n", cJSON_Print(json_data_parse_channel_value));
+
+            json_data_parse_channel_channel_write_key = cJSON_GetObjectItem(json_data_parse_channel_value, "write_key");
+            json_data_parse_channel_channel_id_value = cJSON_GetObjectItem(json_data_parse_channel_value, "channel_id");
+            json_data_parse_channel_metadata = cJSON_GetObjectItem(json_data_parse_channel_value, "metadata");
+            json_data_parse_channel_user_id = cJSON_GetObjectItem(json_data_parse_channel_value, "user_id");
+
+            Parse_metadata(json_data_parse_channel_metadata->valuestring);
 
             //写入API-KEY
-            pSubSubSub = cJSON_GetObjectItem(json_data_parse, "write_key");
-            if (pSubSubSub != NULL)
+            if (strcmp(ApiKey, json_data_parse_channel_channel_write_key->valuestring) != 0)
             {
-                if (strcmp(ApiKey, pSubSubSub->valuestring) != 0)
-                {
-                    memcpy(ApiKey, pSubSubSub->valuestring, API_KEY_LEN);
-                    E2P_Write(API_KEY_ADD, (uint8_t *)ApiKey, API_KEY_LEN);
-                }
+                strcpy(ApiKey, json_data_parse_channel_channel_write_key->valuestring);
+                ESP_LOGI(TAG, "api_key:%s\n", ApiKey);
+                // E2P_Write(API_KEY_ADD, (uint8_t *)ApiKey, API_KEY_LEN);
             }
 
             //写入channelid
-            pSubSubSub = cJSON_GetObjectItem(json_data_parse, "channel_id");
-            if (pSubSubSub != NULL)
+            if (strcmp(ChannelId, json_data_parse_channel_channel_id_value->valuestring) != 0)
             {
-                if (strcmp(ChannelId, pSubSubSub->valuestring) != 0)
-                {
-                    memcpy(ChannelId, pSubSubSub->valuestring, CHANNEL_ID_LEN);
-                    E2P_Write(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
-                }
+                strcpy(ChannelId, json_data_parse_channel_channel_id_value->valuestring);
+                ESP_LOGI(TAG, "ChannelId:%s\n", ChannelId);
+                // E2P_Write(CHANNEL_ID_ADD, (uint8_t *)ChannelId, CHANNEL_ID_LEN);
             }
 
             //写入user_id
-            pSubSubSub = cJSON_GetObjectItem(json_data_parse, "user_id");
-            if (pSubSubSub != NULL)
+            if (strcmp(USER_ID, json_data_parse_channel_user_id->valuestring) != 0)
             {
-                if (strcmp(USER_ID, pSubSubSub->valuestring) != 0)
-                {
-                    memcpy(USER_ID, pSubSubSub->valuestring, USER_ID_LEN);
-                    E2P_Write(USER_ID_ADD, (uint8_t *)USER_ID, USER_ID_LEN);
-                }
+                strcpy(USER_ID, json_data_parse_channel_user_id->valuestring);
+                ESP_LOGI(TAG, "USER_ID:%s\n", USER_ID);
+                // E2P_Write(USER_ID_ADD, (uint8_t *)USER_ID, USER_ID_LEN);
             }
         }
     }
     cJSON_Delete(json_data_parse);
-    return 1;
+    return ESP_OK;
 }
 
 //解析http-post返回数据
@@ -285,28 +293,28 @@ esp_err_t parse_objects_http_respond(char *http_json_data)
     // cJSON *json_data_parse_errorcode = NULL;
 
     char *resp_val = NULL;
-    resp_val = strstr(http_json_data, "{\"result\":");
+    resp_val = strstr(http_json_data, "{\"result\":\"success\",\"server_time\":");
     if (resp_val == NULL)
     {
         ESP_LOGE(TAG, "%d", __LINE__);
-        return 0;
+        return ESP_FAIL;
     }
     json_data_parse = cJSON_Parse(resp_val);
 
     if (json_data_parse == NULL)
     {
 
-        //  ESP_LOGI(TAG, "Json Formatting error3\n");
+        // ESP_LOGI(TAG,"Json Formatting error3\n");
         ESP_LOGE(TAG, "%s", http_json_data);
         cJSON_Delete(json_data_parse);
-        return 0;
+        return ESP_FAIL;
     }
     else
     {
         json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "metadata");
         if (json_data_parse_value != NULL)
         {
-            //  ESP_LOGI(TAG, "metadata: %s\n", json_data_parse_value->valuestring);
+            // ESP_LOGI(TAG,"metadata: %s\n", json_data_parse_value->valuestring);
             Parse_metadata(json_data_parse_value->valuestring);
         }
 
@@ -321,14 +329,24 @@ esp_err_t parse_objects_http_respond(char *http_json_data)
         {
             char *mqtt_json;
             mqtt_json = cJSON_PrintUnformatted(json_data_parse_value);
-            ESP_LOGI(TAG, "%s", mqtt_json);
-            parse_objects_mqtt(mqtt_json, false); //parse mqtt
-            free(mqtt_json);
+            if (mqtt_json != NULL)
+            {
+                ESP_LOGI(TAG, "%s", mqtt_json);
+                parse_objects_mqtt(mqtt_json, false); //parse mqtt
+                cJSON_free(mqtt_json);
+            }
         }
+
+        // json_data_parse_value = cJSON_GetObjectItem(json_data_parse, "cali"); //cali
+        // if (NULL != json_data_parse_value)
+        // {
+        //     ESP_LOGI(TAG, "cali: %s\n", json_data_parse_value->valuestring);
+        //     // Parse_cali_dat(json_data_parse_value->valuestring); //parse cali
+        // }
     }
 
     cJSON_Delete(json_data_parse);
-    return 1;
+    return ESP_OK;
 }
 
 esp_err_t parse_objects_heart(char *json_data)
@@ -337,21 +355,21 @@ esp_err_t parse_objects_heart(char *json_data)
     cJSON *json_data_parse_value = NULL;
 
     char *resp_val = NULL;
-    resp_val = strstr(json_data, "{\"result\":\"success\",");
+    resp_val = strstr(json_data, "{\"result\":\"success\",\"server_time\":");
     if (resp_val == NULL)
     {
         ESP_LOGE("JSON", "DATA NO JSON");
-        return 0;
+        return ESP_FAIL;
     }
     json_data_parse = cJSON_Parse(resp_val);
 
     if (json_data_parse == NULL) //如果数据包不为JSON则退出
     {
 
-        ESP_LOGI(TAG, "Json Formatting error4\n");
+        ESP_LOGE(TAG, "Json Formatting error4\n");
 
         cJSON_Delete(json_data_parse);
-        return 0;
+        return ESP_FAIL;
     }
     else
     {
@@ -363,13 +381,13 @@ esp_err_t parse_objects_heart(char *json_data)
         }
         else
         {
-            ESP_LOGI(TAG, "active:error\r\n");
+            ESP_LOGE(TAG, "active:error\r\n");
             cJSON_Delete(json_data_parse);
-            return 0;
+            return ESP_FAIL;
         }
     }
     cJSON_Delete(json_data_parse);
-    return 1;
+    return ESP_OK;
 }
 
 //解析MQTT指令
@@ -496,138 +514,113 @@ esp_err_t parse_objects_mqtt(char *mqtt_json_data, bool sw_flag)
 //     return strlen(status_buff);
 // }
 
-void create_http_json(creat_json *pCreat_json, uint8_t flag)
+void Create_NET_Json(void)
 {
-    //creat_json *pCreat_json = malloc(sizeof(creat_json));
-    cJSON *root = cJSON_CreateObject();
-    // cJSON *item = cJSON_CreateObject();
-    cJSON *next = cJSON_CreateObject();
-    cJSON *fe_body = cJSON_CreateArray();
-    uint8_t mac_sys[6] = {0};
-    char mac_buff[100] = {0};
-    char ssid64_buff[64] = {0};
-
-    char *time_buff = (char *)malloc(24);
-    Server_Timer_SEND(time_buff);
-    wifi_ap_record_t wifidata;
-
-    cJSON_AddItemToObject(root, "feeds", fe_body);
-    cJSON_AddItemToArray(fe_body, next);
-    cJSON_AddItemToObject(next, "created_at", cJSON_CreateString(time_buff));
-
-    if (strcmp(ProductId, "ubibot-ms1") == 0 || strcmp(ProductId, "ubibot-ms1p") == 0)
+    if ((xEventGroupGetBits(Net_sta_group) & TIME_CAL_BIT) == TIME_CAL_BIT)
     {
-        if (human_status == false)
-        {
-            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
-        }
-        else if (human_status == true)
-        {
-            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
-        }
-        //构建人感变动量
-        if (flag == true)
-        {
-            cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
-            human_intr_num = 0;
-        }
-    }
+        char *OutBuffer;
+        char *time_buff;
+        uint16_t len = 0;
+        cJSON *pJsonRoot;
+        wifi_ap_record_t wifidata_t;
+        time_buff = (char *)malloc(24);
+        Server_Timer_SEND(time_buff);
+        pJsonRoot = cJSON_CreateObject();
+        cJSON_AddStringToObject(pJsonRoot, "created_at", (const char *)time_buff);
 
-    else if (strcmp(ProductId, "ubibot-ns1p") == 0 || strcmp(ProductId, "ubibot-ns1") == 0)
-    {
-        //构建分贝值
-        cJSON_AddItemToObject(next, "field4", cJSON_CreateNumber(value_voice));
-    }
-
-    else if (strcmp(ProductId, "ubibot-mns1p") == 0 || strcmp(ProductId, "ubibot-mns1") == 0)
-    {
-        if (human_status == false)
+        cJSON_AddItemToObject(pJsonRoot, "field1", cJSON_CreateNumber(human_status));
+        if ((xEventGroupGetBits(Net_sta_group) & ACTIVED_BIT) == ACTIVED_BIT)
         {
-            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("0"));
+            if (net_mode == NET_WIFI)
+            {
+                esp_wifi_sta_get_ap_info(&wifidata_t);
+                cJSON_AddItemToObject(pJsonRoot, "field2", cJSON_CreateNumber(wifidata_t.rssi));
+            }
         }
-        else if (human_status == true)
-        {
-            cJSON_AddItemToObject(next, "field1", cJSON_CreateString("1"));
-        }
-        //构建人感变动量
-        if (flag == true)
-        {
-            cJSON_AddItemToObject(next, "field3", cJSON_CreateNumber(human_intr_num)); //
-            human_intr_num = 0;
-        }
-        //构建分贝值
-        cJSON_AddItemToObject(next, "field4", cJSON_CreateNumber(value_voice));
-    }
 
-    if (net_mode == NET_WIFI) //wifi
-    {
-        if (esp_wifi_sta_get_ap_info(&wifidata) == 0)
+        OutBuffer = cJSON_PrintUnformatted(pJsonRoot); //cJSON_Print(Root)
+        if (OutBuffer != NULL)
         {
-            itoa(wifidata.rssi, mqtt_json_s.mqtt_Rssi, 10);
+            len = strlen(OutBuffer);
+            ESP_LOGI(TAG, "len:%d\n%s\n", len, OutBuffer);
+
+            if (xSemaphoreTake(Cache_muxtex, 10 / portTICK_RATE_MS) == pdTRUE)
+            {
+                DataSave((uint8_t *)OutBuffer, len);
+                xSemaphoreGive(Cache_muxtex);
+            }
+            else
+            {
+                ESP_LOGE(TAG, "%d,Cache_muxtex", __LINE__);
+            }
+
+            cJSON_free(OutBuffer);
         }
-        esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC，
-        snprintf(mac_buff,
-                 sizeof(mac_buff),
-                 "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                 mac_sys[0],
-                 mac_sys[1],
-                 mac_sys[2],
-                 mac_sys[3],
-                 mac_sys[4],
-                 mac_sys[5]);
-        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-        cJSON_AddItemToObject(next, "field2", cJSON_CreateString(mqtt_json_s.mqtt_Rssi)); //WIFI RSSI
-        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
-        cJSON_AddItemToObject(root, "ssid_base64", cJSON_CreateString(ssid64_buff));
+        cJSON_Delete(pJsonRoot); //delete cjson root
+        free(time_buff);
     }
-    else //以太网
-    {
-        esp_read_mac(mac_sys, 3); //获取芯片内部默认出厂MAC，
-        snprintf(mac_buff,
-                 sizeof(mac_buff),
-                 "mac=%02x:%02x:%02x:%02x:%02x:%02x",
-                 mac_sys[0],
-                 mac_sys[1],
-                 mac_sys[2],
-                 mac_sys[3],
-                 mac_sys[4],
-                 mac_sys[5]);
-        base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, sizeof(ssid64_buff));
-        cJSON_AddItemToObject(root, "status", cJSON_CreateString(mac_buff));
-    }
-
-    char *cjson_printunformat;
-    // cjson_printunformat = cJSON_PrintUnformatted(root); //将整个 json 转换成字符串 ，没有格式
-    cjson_printunformat = cJSON_PrintUnformatted(root); //将整个 json 转换成字符串 ，有格式
-    //printf("status_creat_json= %s\r\n", cjson_printunformat);
-
-    pCreat_json->creat_json_len = strlen(cjson_printunformat); //  creat_json_c 是整个json 所占的长度
-    //pCreat_json->creat_json_b=cjson_printunformat;
-    //pCreat_json->creat_json_b=malloc(pCreat_json->creat_json_c);
-    bzero(pCreat_json->creat_json_buff, sizeof(pCreat_json->creat_json_buff)); //  creat_json_b 是整个json 包
-    memcpy(pCreat_json->creat_json_buff, cjson_printunformat, pCreat_json->creat_json_len);
-    //printf("http_json=%s\n",pCreat_json->creat_json_b);
-    free(cjson_printunformat);
-    free(time_buff);
-    cJSON_Delete(root);
-    //return pCreat_json;
 }
 
-esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
+uint16_t Create_Status_Json(char *status_buff, uint16_t buff_len, bool filed_flag)
 {
-    char send_buf[128] = {0};
-    snprintf(send_buf, sizeof(send_buf), "{\"status\":0,\"code\": 0}");
+    uint8_t mac_sys[6] = {0};
+    char *ssid64_buff;
+    esp_read_mac(mac_sys, 0); //获取芯片内部默认出厂MAC
+    ssid64_buff = (char *)malloc(64);
+    memset(ssid64_buff, 0, 64);
+    base64_encode(wifi_data.wifi_ssid, strlen(wifi_data.wifi_ssid), ssid64_buff, 64);
+
+    snprintf(status_buff, buff_len, "],\"status\":\"mac=%02X:%02X:%02X:%02X:%02X:%02X\"",
+             mac_sys[0],
+             mac_sys[1],
+             mac_sys[2],
+             mac_sys[3],
+             mac_sys[4],
+             mac_sys[5]);
+    if (net_mode == NET_WIFI)
+    {
+        snprintf(status_buff + strlen(status_buff), buff_len - strlen(status_buff), ",\"ssid_base64\":\"%s\"", ssid64_buff);
+    }
+
+    snprintf(status_buff + strlen(status_buff), buff_len - strlen(status_buff), "}");
+
+    free(ssid64_buff);
+
+    return strlen(status_buff);
+}
+
+esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...)
+{
+    char *Ret_OK = "{\"status\":0,\"code\": 0}\r\n";
+    char *Ret_Fail = "{\"status\":1,\"code\":1}\r\n";
+
+    va_list argp;
+    /*argp指向传入的第一个可选参数，msg是最后一个确定的参数*/
+    va_start(argp, pcCmdBuffer);
+    int sock = 0;
+    int tcp_flag = va_arg(argp, int);
+    if (tcp_flag == 1)
+    {
+        sock = va_arg(argp, int);
+        ESP_LOGI(TAG, "sock: %d\n", sock);
+    }
+    va_end(argp);
+
+    esp_err_t ret = ESP_FAIL;
     if (NULL == pcCmdBuffer) //null
     {
-        return ESP_FAIL;
+        ESP_LOGE(TAG, "%d", __LINE__);
+        ret = ESP_FAIL;
+        return ret;
     }
 
     cJSON *pJson = cJSON_Parse(pcCmdBuffer); //parse json data
     if (NULL == pJson)
     {
+        ESP_LOGE(TAG, "%d", __LINE__);
         cJSON_Delete(pJson); //delete pJson
-
-        return ESP_FAIL;
+        ret = ESP_FAIL;
+        return ret;
     }
 
     cJSON *pSub = cJSON_GetObjectItem(pJson, "Command"); //"Command"
@@ -690,23 +683,66 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                         E2P_Write(MQTT_PORT_ADD, (uint8_t *)pSub->valuestring, 5); //save
                         // E2P_Write(MQTT_PORT_ADD + E2P_SIZE / 2, (uint8_t *)pSub->valuestring, 5); //save
                     }
-
-                    printf("{\"status\":0,\"code\": 0}\r\n");
+                    if (tcp_flag)
+                    {
+                        Tcp_Send(sock, Ret_OK);
+                    }
+                    printf("%s", Ret_OK);
 
                     vTaskDelay(3000 / portTICK_RATE_MS);
                     cJSON_Delete(pJson);
                     esp_restart(); //芯片复位 函数位于esp_system.h
 
-                    return ESP_OK;
+                    ret = ESP_OK;
                 }
                 else
                 {
+                    ret = ESP_FAIL;
                     //密码错误
-                    printf("{\"status\":1,\"code\": 101}\r\n");
+                    if (tcp_flag)
+                    {
+                        Tcp_Send(sock, Ret_Fail);
+                    }
+                    printf("%s", Ret_Fail);
                 }
             }
         }
 
+        else if (!strcmp((char const *)pSub->valuestring, "SetupWifi")) //Command:SetupWifi
+        {
+            pSub = cJSON_GetObjectItem(pJson, "SSID"); //"SSID"
+            if (NULL != pSub)
+            {
+                bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
+                strcpy(wifi_data.wifi_ssid, pSub->valuestring);
+                E2P_Write(WIFI_SSID_ADD, (uint8_t *)wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
+                ESP_LOGI(TAG, "WIFI_SSID = %s\r\n", pSub->valuestring);
+                net_mode = NET_WIFI;
+                E2P_WriteOneByte(NET_MODE_ADD, net_mode); //写入net_mode
+            }
+
+            pSub = cJSON_GetObjectItem(pJson, "password"); //"password"
+            if (NULL != pSub)
+            {
+                bzero(wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
+                strcpy(wifi_data.wifi_pwd, pSub->valuestring);
+                E2P_Write(WIFI_PASSWORD_ADD, (uint8_t *)wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
+                ESP_LOGI(TAG, "WIFI_PWD = %s\r\n", pSub->valuestring);
+            }
+            if (tcp_flag)
+            {
+                Tcp_Send(sock, Ret_OK);
+                //AP配置，先关闭蓝牙
+                ble_app_stop();
+            }
+            printf("%s", Ret_OK);
+            vTaskDelay(1000 / portTICK_RATE_MS);
+            Net_Switch();
+
+            //重置网络
+
+            ret = ESP_OK;
+        }
         //{"command":"SetupHost","Host":"api.ubibot.io","Port":"80","MqttHost":"mqtt.ubibot.io","MqttPort":"1883"}
         else if (!strcmp((char const *)pSub->valuestring, "SetupHost")) //Command:SetupWifi
         {
@@ -738,13 +774,17 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
                 E2P_Write(MQTT_PORT_ADD, (uint8_t *)pSub->valuestring, 5); //save
             }
 
-            printf("{\"status\":0,\"code\": 0}\r\n");
+            if (tcp_flag)
+            {
+                Tcp_Send(sock, Ret_OK);
+            }
+            printf("%s", Ret_OK);
 
             vTaskDelay(3000 / portTICK_RATE_MS);
             cJSON_Delete(pJson);
             esp_restart(); //芯片复位 函数位于esp_system.h
 
-            return ESP_OK;
+            ret = ESP_OK;
         }
 
         else if (!strcmp((char const *)pSub->valuestring, "SetupEthernet")) //Command:SetupEthernet
@@ -823,44 +863,24 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             }
 
             esp_log_buffer_char(TAG, netinfo_buff, 16);
-
             E2P_Write(ETHERNET_IP_ADD, netinfo_buff, sizeof(netinfo_buff));
-
             E2P_WriteOneByte(NET_MODE_ADD, NET_LAN); //写入net_mode
-            printf("{\"status\":0,\"code\": 0}\r\n");
             net_mode = NET_LAN;
+
+            if (tcp_flag)
+            {
+                Tcp_Send(sock, Ret_OK);
+                //AP配置，先关闭蓝牙
+                ble_app_stop();
+            }
+            printf("%s", Ret_OK);
+            vTaskDelay(1000 / portTICK_RATE_MS);
+            //重置网络
             Net_Switch();
 
-            // E2prom_page_Read(NETINFO_add, (uint8_t *)netinfo_buff, sizeof(netinfo_buff));
-            // printf("%02x \n", (unsigned int)netinfo_buff);
-            cJSON_Delete(pJson); //delete pJson
-            return 1;
+            ret = ESP_OK;
         }
-        else if (!strcmp((char const *)pSub->valuestring, "SetupWifi")) //Command:SetupWifi
-        {
-            pSub = cJSON_GetObjectItem(pJson, "SSID"); //"SSID"
-            if (NULL != pSub)
-            {
-                bzero(wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
-                strcpy(wifi_data.wifi_ssid, pSub->valuestring);
-                E2P_Write(WIFI_SSID_ADD, (uint8_t *)wifi_data.wifi_ssid, sizeof(wifi_data.wifi_ssid));
-                ESP_LOGI(TAG, "WIFI_SSID = %s\r\n", pSub->valuestring);
-                net_mode = NET_WIFI;
-                E2P_WriteOneByte(NET_MODE_ADD, net_mode); //写入net_mode
-            }
 
-            pSub = cJSON_GetObjectItem(pJson, "password"); //"password"
-            if (NULL != pSub)
-            {
-                bzero(wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
-                strcpy(wifi_data.wifi_pwd, pSub->valuestring);
-                E2P_Write(WIFI_PASSWORD_ADD, (uint8_t *)wifi_data.wifi_pwd, sizeof(wifi_data.wifi_pwd));
-                ESP_LOGI(TAG, "WIFI_PWD = %s\r\n", pSub->valuestring);
-            }
-
-            printf("{\"status\":0,\"code\": 0}\r\n");
-            Net_Switch();
-        }
         else if (!strcmp((char const *)pSub->valuestring, "ReadProduct")) //Command:ReadProduct
         {
             char mac_buff[18];
@@ -882,26 +902,84 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             cJSON_AddItemToObject(root, "ProductID", cJSON_CreateString(ProductId));
             cJSON_AddItemToObject(root, "SeriesNumber", cJSON_CreateString(SerialNum));
             cJSON_AddItemToObject(root, "Host", cJSON_CreateString(WEB_SERVER));
+            cJSON_AddItemToObject(root, "Port", cJSON_CreateString(WEB_PORT));
+            cJSON_AddItemToObject(root, "MqttHost", cJSON_CreateString(MQTT_SERVER));
+            cJSON_AddItemToObject(root, "MqttPort", cJSON_CreateString(MQTT_PORT));
             cJSON_AddItemToObject(root, "CHANNEL_ID", cJSON_CreateString(ChannelId));
             cJSON_AddItemToObject(root, "USER_ID", cJSON_CreateString(USER_ID));
             cJSON_AddItemToObject(root, "MAC", cJSON_CreateString(mac_buff));
             cJSON_AddItemToObject(root, "firmware", cJSON_CreateString(FIRMWARE));
 
-            // sprintf(json_temp, "%s", cJSON_PrintUnformatted(root));
             json_temp = cJSON_PrintUnformatted(root);
-            printf("%s\r\n", json_temp);
+            if (json_temp != NULL)
+            {
+                if (tcp_flag)
+                {
+                    Tcp_Send(sock, json_temp);
+                }
+                printf("%s\r\n", json_temp);
+                cJSON_free(json_temp);
+            }
             cJSON_Delete(root); //delete pJson
-            free(json_temp);
+            ret = ESP_OK;
         }
-        //{"command":"CheckSensors"}
-        else if (!strcmp((char const *)pSub->valuestring, "CheckSensors")) //Command:ReadProduct
+
+        //{"command":"CheckEthernet"}
+        else if (!strcmp((char const *)pSub->valuestring, "CheckEthernet")) //Command:ReadProduct
         {
             cJSON *root = cJSON_CreateObject();
             char *json_temp;
 
-            bool result_flag = true;
+            if (ETH_FLAG == true)
+            {
+                cJSON_AddStringToObject(root, "result", "OK");
+                cJSON_AddStringToObject(root, "W5500", "OK");
+            }
+            else
+            {
+                cJSON_AddStringToObject(root, "result", "ERROR");
+                cJSON_AddStringToObject(root, "W5500", "ERROR");
+            }
 
-            if ((E2P_FLAG & ETH_FLAG & HUM_FLAG) != true)
+            json_temp = cJSON_PrintUnformatted(root);
+            if (json_temp != NULL)
+            {
+                if (tcp_flag)
+                {
+                    Tcp_Send(sock, json_temp);
+                }
+                printf("%s\r\n", json_temp);
+                cJSON_free(json_temp);
+            }
+            cJSON_Delete(root); //delete pJson
+            ret = ESP_OK;
+        }
+        //{"command":"CheckSensors"}
+        else if (!strcmp((char const *)pSub->valuestring, "CheckSensors"))
+        {
+            cJSON *root = cJSON_CreateObject();
+            char *json_temp;
+            char wifi_ssid[33] = {0};
+            int8_t wifi_rssi;
+
+            bool result_flag = true;
+            bool WIFI_flag = false;
+
+            // xTaskNotifyGive(Binary_485_th);
+            // xTaskNotifyGive(Binary_ext);
+            // xTaskNotifyGive(Binary_energy);
+
+            if (Check_Wifi((uint8_t *)wifi_ssid, &wifi_rssi))
+            {
+                WIFI_flag = true;
+            }
+            else
+            {
+                result_flag = false;
+                WIFI_flag = false;
+            }
+
+            if ((E2P_FLAG & HUM_FLAG) != true)
             {
                 result_flag = false;
             }
@@ -915,6 +993,17 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             {
                 cJSON_AddStringToObject(root, "result", "ERROR");
             }
+
+            if (WIFI_flag == true)
+            {
+                cJSON_AddStringToObject(root, "ssid", wifi_ssid);
+                cJSON_AddNumberToObject(root, "rssi", wifi_rssi);
+            }
+            else
+            {
+                cJSON_AddStringToObject(root, "ssid", "NULL");
+                cJSON_AddNumberToObject(root, "rssi", 0);
+            }
             //e2prom
             if (E2P_FLAG == true)
             {
@@ -924,16 +1013,7 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             {
                 cJSON_AddStringToObject(root, "e2prom", "ERROR");
             }
-            //W5500
-            if (ETH_FLAG == true)
-            {
-                cJSON_AddStringToObject(root, "W5500", "OK");
-            }
-            else
-            {
-                cJSON_AddStringToObject(root, "W5500", "ERROR");
-            }
-            //HUMAN
+
             if (HUM_FLAG == true)
             {
                 cJSON_AddStringToObject(root, "Human", "OK");
@@ -944,29 +1024,41 @@ esp_err_t ParseTcpUartCmd(char *pcCmdBuffer)
             }
 
             json_temp = cJSON_PrintUnformatted(root);
-            printf("%s\r\n", json_temp);
+            if (json_temp != NULL)
+            {
+                if (tcp_flag)
+                {
+                    Tcp_Send(sock, json_temp);
+                }
+                printf("%s\r\n", json_temp);
+                cJSON_free(json_temp);
+            }
             cJSON_Delete(root); //delete pJson
-            free(json_temp);
+            ret = ESP_OK;
         }
         //{"command":"ScanWifiList"}
         else if (!strcmp((char const *)pSub->valuestring, "ScanWifiList"))
         {
             Scan_Wifi();
+            ret = ESP_OK;
         }
         //{"command":"reboot"}
         else if (!strcmp((char const *)pSub->valuestring, "reboot"))
         {
             esp_restart();
+            ret = ESP_OK;
         }
         //{"command":"AllReset"}
         else if (!strcmp((char const *)pSub->valuestring, "AllReset"))
         {
             E2prom_set_defaul(false);
+            ret = ESP_OK;
         }
     }
 
     cJSON_Delete(pJson); //delete pJson
-    return ESP_FAIL;
+
+    return ret;
 }
 
 //读取EEPROM中的metadata

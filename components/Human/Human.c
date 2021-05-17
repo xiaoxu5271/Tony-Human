@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include "cJSON.h"
+#include "string.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "driver/gpio.h"
@@ -7,6 +9,7 @@
 #include "Led.h"
 #include "Json_parse.h"
 #include "Smartconfig.h"
+#include "ServerTimer.h"
 
 #include "Human.h"
 
@@ -14,7 +17,8 @@
 
 #define TAG "HUMAN"
 
-static SemaphoreHandle_t human_binary_handle = NULL;
+TaskHandle_t Human_Handle = NULL;
+TaskHandle_t Binary_sta = NULL;
 
 bool HUM_FLAG = false;
 bool human_status = false;
@@ -39,8 +43,9 @@ esp_timer_create_args_t human_timer2_arg = {
 
 static void huamn_timer_cb(void *arg)
 {
-    //ms
-    xSemaphoreGive(human_binary_handle);
+    if (Human_Handle != NULL)
+        vTaskNotifyGiveFromISR(Human_Handle, NULL);
+
     One_Risi_Res = true;
     if (Timer2_flag == false)
     {
@@ -58,10 +63,10 @@ static void huamn_timer2_cb(void *arg)
     if (human_status == true)
     {
         human_status = false;
-        if (Binary_dp != NULL) //立即上传数据
+        ESP_LOGI(TAG, "No human");
+        if (Binary_sta != NULL)
         {
-            vTaskNotifyGiveFromISR(Binary_dp, NULL);
-            ESP_LOGI(TAG, "No human");
+            xTaskNotifyGive(Binary_sta);
         }
     }
     Timer2_flag = false;
@@ -78,7 +83,8 @@ static void human_gpio_intr_handler(void *arg)
     {
         if (fn_sen != 0)
         {
-            xSemaphoreGive(human_binary_handle);
+            if (Human_Handle != NULL)
+                vTaskNotifyGiveFromISR(Human_Handle, NULL);
         }
         //传感器判断
         if (HUM_FLAG == false)
@@ -97,9 +103,139 @@ static void human_gpio_intr_handler(void *arg)
     // xQueueSendFromISR(human_evt_queue, &key_num, NULL);
 }
 
+void Human_Task(void *arg)
+{
+    human_status = false;
+    INT_FLAG = true;
+    vTaskDelay(30 * 1000 / portTICK_RATE_MS); //电路稳定时间，根据手册，最大30s
+    INT_FLAG = false;
+    xEventGroupSetBits(Net_sta_group, HUMAN_I_BIT);
+    while (1)
+    {
+        ulTaskNotifyTake(pdTRUE, -1);
+        if (gpio_get_level(GPIO_HUMAN) == 1)
+        {
+            Last_Time = esp_timer_get_time();
+            if (One_Risi_Res == true)
+            {
+                One_Risi_Time += esp_timer_get_time() - Last_Time;
+            }
+        }
+        else
+        {
+            if (One_Risi_Res != true)
+            {
+                One_Risi_Time += esp_timer_get_time() - Last_Time;
+            }
+        }
+        // ESP_LOGI(TAG, "One_Risi_Time:%lld", One_Risi_Time);
+        if (One_Risi_Time > (uint64_t)(1000 * fn_sen)) //fn_sen*100ms
+        {
+            // ESP_LOGI(TAG, "One_Risi_Time:%lld,fn_sen:%lld", One_Risi_Time, (uint64_t)(1000 * fn_sen));
+            if (Timer2_flag == true)
+            {
+                esp_timer_stop(human_timer2_handle);
+                Timer2_flag = false;
+            }
+
+            if (human_status == false)
+            {
+                human_status = true;
+                ESP_LOGI(TAG, "Have human\n");
+                if (Binary_sta != NULL)
+                {
+                    xTaskNotifyGive(Binary_sta);
+                }
+            }
+        }
+        //单次判断清空
+        if (One_Risi_Res == true)
+        {
+            One_Risi_Res = false;
+            human_intr_num += (One_Risi_Time / 1000);
+            One_Risi_Time = 0;
+        }
+    }
+}
+
+void Create_human_intr_task(void *arg)
+{
+    char *OutBuffer;
+    char *time_buff;
+    // uint8_t *SaveBuffer;
+    uint16_t len = 0;
+    cJSON *pJsonRoot;
+
+    while (1)
+    {
+        ulTaskNotifyTake(pdTRUE, -1);
+
+        if ((xEventGroupGetBits(Net_sta_group) & TIME_CAL_BIT) == TIME_CAL_BIT)
+        {
+            time_buff = (char *)malloc(24);
+            Server_Timer_SEND(time_buff);
+            pJsonRoot = cJSON_CreateObject();
+            cJSON_AddStringToObject(pJsonRoot, "created_at", (const char *)time_buff);
+            cJSON_AddItemToObject(pJsonRoot, "field3", cJSON_CreateNumber(human_intr_num));
+            //清空统计
+            human_intr_num = 0;
+
+            OutBuffer = cJSON_PrintUnformatted(pJsonRoot); //cJSON_Print(Root)
+            if (OutBuffer != NULL)
+            {
+                len = strlen(OutBuffer);
+                ESP_LOGI(TAG, "len:%d\n%s\n", len, OutBuffer);
+                xSemaphoreTake(Cache_muxtex, -1);
+                DataSave((uint8_t *)OutBuffer, len);
+                xSemaphoreGive(Cache_muxtex);
+                cJSON_free(OutBuffer);
+            }
+            cJSON_Delete(pJsonRoot); //delete cjson root
+
+            free(time_buff);
+        }
+    }
+}
+
+void Create_human_sta_task(void *arg)
+{
+    char *OutBuffer;
+    char *time_buff;
+    // uint8_t *SaveBuffer;
+    uint16_t len = 0;
+    cJSON *pJsonRoot;
+
+    while (1)
+    {
+        ulTaskNotifyTake(pdTRUE, -1);
+
+        if ((xEventGroupGetBits(Net_sta_group) & TIME_CAL_BIT) == TIME_CAL_BIT)
+        {
+            time_buff = (char *)malloc(24);
+            Server_Timer_SEND(time_buff);
+            pJsonRoot = cJSON_CreateObject();
+            cJSON_AddStringToObject(pJsonRoot, "created_at", (const char *)time_buff);
+            cJSON_AddItemToObject(pJsonRoot, "field1", cJSON_CreateNumber(human_status));
+
+            OutBuffer = cJSON_PrintUnformatted(pJsonRoot); //cJSON_Print(Root)
+            if (OutBuffer != NULL)
+            {
+                len = strlen(OutBuffer);
+                ESP_LOGI(TAG, "len:%d\n%s\n", len, OutBuffer);
+                xSemaphoreTake(Cache_muxtex, -1);
+                DataSave((uint8_t *)OutBuffer, len);
+                xSemaphoreGive(Cache_muxtex);
+                cJSON_free(OutBuffer);
+            }
+            cJSON_Delete(pJsonRoot); //delete cjson root
+
+            free(time_buff);
+        }
+    }
+}
+
 void Human_Init(void)
 {
-    human_binary_handle = xSemaphoreCreateBinary();
     gpio_config_t io_conf;
     //enable interrupt
     io_conf.intr_type = GPIO_PIN_INTR_POSEDGE;
@@ -122,61 +258,6 @@ void Human_Init(void)
     }
     esp_timer_start_periodic(human_timer_handle, fn_sen_cycle * 1000);
     xTaskCreate(Human_Task, "Human_Task", 4096, NULL, 4, &Human_Handle);
-}
-
-void Human_Task(void *arg)
-{
-    human_status = false;
-    INT_FLAG = true;
-    vTaskDelay(30 * 1000 / portTICK_RATE_MS); //电路稳定时间，根据手册，最大30s
-    INT_FLAG = false;
-    xEventGroupSetBits(Net_sta_group, HUMAN_I_BIT);
-    while (1)
-    {
-        if (xSemaphoreTake(human_binary_handle, -1))
-        {
-            if (gpio_get_level(GPIO_HUMAN) == 1)
-            {
-                Last_Time = esp_timer_get_time();
-                if (One_Risi_Res == true)
-                {
-                    One_Risi_Time += esp_timer_get_time() - Last_Time;
-                }
-            }
-            else
-            {
-                if (One_Risi_Res != true)
-                {
-                    One_Risi_Time += esp_timer_get_time() - Last_Time;
-                }
-            }
-            // ESP_LOGI(TAG, "One_Risi_Time:%lld", One_Risi_Time);
-            if (One_Risi_Time > (uint64_t)(1000 * fn_sen)) //fn_sen*100ms
-            {
-                // ESP_LOGI(TAG, "One_Risi_Time:%lld,fn_sen:%lld", One_Risi_Time, (uint64_t)(1000 * fn_sen));
-                if (Timer2_flag == true)
-                {
-                    esp_timer_stop(human_timer2_handle);
-                    Timer2_flag = false;
-                }
-
-                if (human_status == false)
-                {
-                    human_status = true;
-                    if (Binary_dp != NULL) //立即上传数据
-                    {
-                        vTaskNotifyGiveFromISR(Binary_dp, NULL);
-                        ESP_LOGI(TAG, "Have human\n");
-                    }
-                }
-            }
-            //单次判断清空
-            if (One_Risi_Res == true)
-            {
-                One_Risi_Res = false;
-                human_intr_num += (One_Risi_Time / 1000);
-                One_Risi_Time = 0;
-            }
-        }
-    }
+    xTaskCreate(Create_human_sta_task, "Create_human_sta_task", 4096, NULL, 3, &Binary_sta);
+    xTaskCreate(Create_human_intr_task, "Create_human_intr_task", 4096, NULL, 3, &Binary_intr);
 }

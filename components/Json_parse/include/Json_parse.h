@@ -9,9 +9,10 @@ esp_err_t parse_objects_bluetooth(char *blu_json_data);
 esp_err_t parse_objects_mqtt(char *mqtt_json_data, bool sw_flag);
 esp_err_t parse_objects_heart(char *json_data);
 esp_err_t parse_objects_http_respond(char *http_json_data);
-esp_err_t ParseTcpUartCmd(char *pcCmdBuffer);
+esp_err_t ParseTcpUartCmd(char *pcCmdBuffer, ...);
 
-esp_err_t creat_object(void);
+void Create_NET_Json(void);
+uint16_t Create_Status_Json(char *status_buff, uint16_t buff_len, bool filed_flag);
 
 #define NET_WIFI 0 //上网模式 wifi
 #define NET_LAN 1  //上网模式 网线
@@ -39,10 +40,6 @@ typedef struct
     char creat_json_buff[512];
     uint16_t creat_json_len;
 } creat_json;
-
-//creat_json *create_http_json(uint8_t post_status);
-void create_http_json(creat_json *pCreat_json, uint8_t flag);
-// uint16_t Create_Status_Json(char *status_buff, bool filed_flag);
 
 /************metadata 参数***********/
 extern uint32_t fn_dp;        //数据发送频率

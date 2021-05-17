@@ -34,9 +34,11 @@ void app_main(void)
         ota_back();
     }
 
+    Cache_muxtex = xSemaphoreCreateMutex();
     Net_sta_group = xEventGroupCreate();
     xMutex_Http_Send = xSemaphoreCreateMutex(); //创建HTTP发送互斥信号
     Send_Mqtt_Queue = xQueueCreate(1, sizeof(creat_json));
+    Send_LAN_Mqtt_Queue = xQueueCreate(1, sizeof(creat_json));
     Led_Init();
     user_app_key_init();
     E2prom_Init();

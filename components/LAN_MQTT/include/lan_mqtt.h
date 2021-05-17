@@ -31,5 +31,6 @@ void lan_mqtt_init(void);
 void start_lan_mqtt(void);
 void stop_lan_mqtt(void);
 uint8_t mqtt_publish(char *Topic, char *msg, uint16_t len);
+void lan_mqtt_send(char *buff);
 
 #endif /*__USER_MQTT_H*/

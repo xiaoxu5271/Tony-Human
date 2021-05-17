@@ -26,8 +26,12 @@
 
 #include "Http.h"
 
+uint8_t Databuffer[MAX_DATA_BUFFRE_LEN] = {0};
+uint32_t Databuffer_len = 0;
+
 TaskHandle_t Binary_Heart_Send = NULL;
 TaskHandle_t Binary_dp = NULL;
+TaskHandle_t Binary_intr = NULL;
 
 TaskHandle_t Active_Task_Handle = NULL;
 // extern uint8_t data_read[34];
@@ -38,7 +42,6 @@ bool fn_dp_flag = true;
 
 esp_timer_handle_t http_timer_suspend_p = NULL;
 
-Net_Err http_send_mes(void);
 void timer_heart_cb(void *arg);
 esp_timer_handle_t timer_heart_handle = NULL; //定时器句柄
 esp_timer_create_args_t timer_heart_arg = {
@@ -60,6 +63,7 @@ void timer_heart_cb(void *arg)
         if (ble_num >= 60 * 15)
         {
             ble_app_stop();
+            Net_Switch();
         }
     }
     else
@@ -70,21 +74,141 @@ void timer_heart_cb(void *arg)
     //心跳
     if (min_num % 60 == 0)
     {
-        vTaskNotifyGiveFromISR(Binary_Heart_Send, NULL);
+        if (Binary_Heart_Send != NULL)
+            vTaskNotifyGiveFromISR(Binary_Heart_Send, NULL);
     }
 
     if (fn_dp)
         if (min_num % fn_dp == 0)
         {
-            vTaskNotifyGiveFromISR(Binary_dp, NULL);
+            if (Binary_dp != NULL)
+                vTaskNotifyGiveFromISR(Binary_dp, NULL);
         }
 
     if (fn_sen_sta)
         if (min_num % fn_sen_sta == 0)
         {
-            fn_dp_flag = true;
-            vTaskNotifyGiveFromISR(Binary_dp, NULL);
+            if (Binary_intr != NULL)
+            {
+                vTaskNotifyGiveFromISR(Binary_intr, NULL);
+            }
         }
+}
+
+//http post 初始化
+//return socke
+#define POST_URL_LEN 512
+int32_t wifi_http_init(char *http_header)
+{
+    int32_t ret;
+    const struct addrinfo hints = {
+        .ai_family = AF_INET,
+        .ai_socktype = SOCK_STREAM,
+    };
+    struct addrinfo *res;
+    // struct in_addr *addr;
+    int32_t s = 0;
+    int err = getaddrinfo((const char *)WEB_SERVER, (const char *)WEB_PORT, &hints, &res); //step1：DNS域名解析
+
+    if (err != 0 || res == NULL)
+    {
+        ESP_LOGE(TAG, "DNS lookup failed err=%d res=%p", err, res);
+        // vTaskDelay(1000 / portTICK_PERIOD_MS);
+        ret = -1;
+        goto end;
+    }
+
+    // addr = &((struct sockaddr_in *)res->ai_addr)->sin_addr;
+    // ESP_LOGI(TAG, "DNS lookup succeeded. IP=%s", inet_ntoa(*addr));
+
+    s = socket(res->ai_family, res->ai_socktype, 0); //step2：新建套接字
+    if (s < 0)
+    {
+        ESP_LOGE(TAG, "... Failed to allocate socket. err:%d", s);
+        close(s);
+        freeaddrinfo(res);
+        // vTaskDelay(4000 / portTICK_PERIOD_MS);
+        ret = -1;
+        goto end;
+    }
+    // ESP_LOGI(TAG, "... allocated socket");
+
+    if (connect(s, res->ai_addr, res->ai_addrlen) != 0) //step3：连接IP
+    {
+        ESP_LOGE(TAG, "... socket connect failed errno=%d", errno);
+        close(s);
+        freeaddrinfo(res);
+        // vTaskDelay(4000 / portTICK_PERIOD_MS);
+        ret = -1;
+        goto end;
+    }
+
+    // ESP_LOGI(TAG, "... connected");
+    freeaddrinfo(res);
+
+    if (write(s, http_header, strlen(http_header)) < 0) //step4：发送http Header
+    {
+        ESP_LOGE(TAG, "... socket send failed");
+        close(s);
+        // vTaskDelay(4000 / portTICK_PERIOD_MS);
+        ret = -1;
+        goto end;
+    }
+    ret = s;
+
+end:
+    return ret;
+}
+
+//发送 http post 数据
+int8_t wifi_http_write(int32_t s, char *post_buf, bool end_flag)
+{
+    int8_t ret = 1;
+
+    if (write(s, post_buf, strlen((const char *)post_buf)) < 0) //step4：发送http Header
+    {
+        ESP_LOGE(TAG, "... socket send failed");
+        close(s);
+        ret = -1;
+    }
+
+    return ret;
+}
+
+//读取http post 返回
+bool wifi_http_read(int32_t s, char *recv_buff, uint16_t buff_size)
+{
+    bool ret;
+
+    struct timeval receiving_timeout;
+    receiving_timeout.tv_sec = 15;
+    receiving_timeout.tv_usec = 0;
+    if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout, //设置接收超时
+                   sizeof(receiving_timeout)) < 0)
+    {
+        ESP_LOGE(TAG, "... failed to set socket receiving timeout");
+        close(s);
+        // vTaskDelay(1000 / portTICK_PERIOD_MS);
+        ret = false;
+        goto end;
+    }
+    // ESP_LOGI(TAG, "... set socket receiving timeout success");
+
+    // bzero((uint16_t *)recv_buff, buff_size);
+    if (read(s, (uint16_t *)recv_buff, buff_size) > 0)
+    {
+        ret = true;
+        // ESP_LOGI(TAG, "r=%d,activate recv_buf=%s\r\n", ret, (char *)recv_buff);
+    }
+    else
+    {
+        ret = false;
+    }
+    close(s);
+
+end:
+    Net_sta_flag = ret;
+    return ret;
 }
 
 int32_t wifi_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint16_t recv_size)
@@ -190,92 +314,237 @@ int32_t http_send_buff(char *send_buff, uint16_t send_size, char *recv_buff, uin
     }
 }
 
-void http_get_task(void *pvParameters)
+//缓存数据
+void DataSave(uint8_t *sava_buff, uint16_t Buff_len)
 {
-    Net_Err ret;
-    while (1)
+    // xSemaphoreTake(Cache_muxtex, -1);
+    Mqtt_Msg Mqtt_Data = {.buff = {0},
+                          .buff_len = 0};
+
+    uint16_t Buff_len_c;
+    // ESP_LOGI(TAG, "len:%d\n%s\n", Buff_len, sava_buff);
+    Buff_len_c = strlen((const char *)sava_buff);
+    if (Buff_len == 0 || Buff_len != Buff_len_c)
     {
-        while ((ret = http_send_mes()) != NET_OK)
-        {
-            if (ret != NET_DIS)
-            {
-                ESP_LOGI(TAG, "%d", __LINE__);
-                Start_Active();
-                break;
-            }
-            vTaskDelay(500 / portTICK_PERIOD_MS);
-        }
-        ulTaskNotifyTake(pdTRUE, -1);
+        ESP_LOGE(TAG, "save err Buff_len:%d,Buff_len_c:%d", Buff_len, Buff_len_c);
+        return;
+    }
+
+    memcpy(Mqtt_Data.buff, sava_buff, Buff_len);
+    Mqtt_Data.buff_len = Buff_len;
+    xQueueOverwrite(Send_Mqtt_Queue, (void *)&Mqtt_Data);
+
+    if (Buff_len + Databuffer_len + 1 > MAX_DATA_BUFFRE_LEN)
+    {
+        ESP_LOGE(TAG, "Databuffer_len is over");
+        return;
+    }
+    else
+    {
+        memcpy(Databuffer + Databuffer_len, sava_buff, Buff_len);
+        Databuffer_len = Databuffer_len + Buff_len + 1;
+        Databuffer[Databuffer_len - 1] = ',';
+        ESP_LOGI(TAG, "Databuffer_len:%d", Databuffer_len);
     }
 }
 
-Net_Err http_send_mes(void)
+//发送数据
+#define STATUS_BUFF_LEN 1024
+static Net_Err Http_post_fun(void)
 {
-    Net_Err ret = NET_OK;
-    char recv_buf[1024] = {0};
-    char build_po_url[512] = {0};
-    char build_po_url_json[1024] = {0};
-
-    creat_json pCreat_json1; //
-
     xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1);
-    //创建POST的json格式
-    create_http_json(&pCreat_json1, fn_dp_flag);
-    fn_dp_flag = false;
 
-    if (MQTT_W_STA == true)
-    {
-        W_Mqtt_Publish(pCreat_json1.creat_json_buff);
-    }
-    else if (MQTT_E_STA == true)
-    {
-        xQueueOverwrite(Send_Mqtt_Queue, (void *)&pCreat_json1);
-    }
+    xSemaphoreTake(xMutex_Http_Send, -1);
+    xSemaphoreTake(Cache_muxtex, -1);
+
+    uint32_t post_data_len; //Content_Length，通过http发送的总数据大小
+    int32_t socket_num;     //http socket
+    Net_Err ret;
+    char *build_po_url = (char *)malloc(POST_URL_LEN);
+    bzero(build_po_url, POST_URL_LEN);
+
+    const char *post_header = "{\"feeds\":["; //
+    char *status_buff = (char *)malloc(STATUS_BUFF_LEN);
+    memset(status_buff, 0, STATUS_BUFF_LEN);
+
+    char *recv_buff = (char *)malloc(HTTP_RECV_BUFF_LEN);
+    memset(recv_buff, 0, HTTP_RECV_BUFF_LEN);
+    Create_Status_Json(status_buff, STATUS_BUFF_LEN, true); //
+    post_data_len = Databuffer_len - 1 + strlen(post_header) + strlen(status_buff);
 
     if (post_status == POST_NOCOMMAND) //无commID
     {
-        snprintf(build_po_url, sizeof(build_po_url), "POST /update.json?api_key=%s&metadata=true&execute=true&firmware=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
+        snprintf(build_po_url, POST_URL_LEN, "POST /update.json?api_key=%s&metadata=true&execute=true&firmware=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
                  ApiKey,
                  FIRMWARE,
                  WEB_SERVER,
-                 pCreat_json1.creat_json_len);
+                 post_data_len);
     }
     else
     {
         post_status = POST_NOCOMMAND;
-        snprintf(build_po_url, sizeof(build_po_url), "POST /update.json?api_key=%s&metadata=true&firmware=%s&command_id=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
+        snprintf(build_po_url, POST_URL_LEN, "POST /update.json?api_key=%s&metadata=true&firmware=%s&command_id=%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nContent-Length:%d\r\n\r\n",
                  ApiKey,
                  FIRMWARE,
                  mqtt_json_s.mqtt_command_id,
                  WEB_SERVER,
-                 pCreat_json1.creat_json_len);
+                 post_data_len);
     }
+    ESP_LOGI(TAG, "%d,%s", __LINE__, build_po_url);
 
-    snprintf(build_po_url_json, sizeof(build_po_url_json), "%s%s", build_po_url, pCreat_json1.creat_json_buff);
-
-    ESP_LOGI(TAG, "POST:\n%s", build_po_url_json);
-
-    if (http_send_buff(build_po_url_json, 1024, recv_buf, 1024) > 0)
+    if (net_mode == NET_WIFI)
     {
-        // printf("解析返回数据！\n");
-        if (parse_objects_http_respond(recv_buf))
+        socket_num = wifi_http_init(build_po_url);
+        if (socket_num < 0)
         {
-            Net_sta_flag = true;
-            ret = NET_OK;
+            ret = NET_DIS;
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            goto end;
         }
-        else
+
+        // ESP_LOGI(TAG, "post_header:%s", post_header);
+        if (wifi_http_write(socket_num, (char *)post_header, false) != 1)
         {
-            ESP_LOGE(TAG, "mes recv:%s", recv_buf);
+            ret = NET_DIS;
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            goto end;
+        }
+
+        Databuffer[Databuffer_len - 1] = 0;
+        // ESP_LOGI(TAG, "Postdata_buff:%s", Databuffer);
+        if (wifi_http_write(socket_num, (char *)Databuffer, false) != 1)
+        {
+            ret = NET_DIS;
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            goto end;
+        }
+
+        ESP_LOGI(TAG, "status_buff:%s", status_buff);
+        if (wifi_http_write(socket_num, status_buff, true) != 1)
+        {
+            //这里出错很有可能是数据构建出问题，
+            // data_err_flag = true;
+            ret = NET_DIS;
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            goto end;
+        }
+
+        memset(recv_buff, 0, HTTP_RECV_BUFF_LEN);
+        if (wifi_http_read(socket_num, recv_buff, HTTP_RECV_BUFF_LEN) == false)
+        {
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            ret = NET_READ;
             Net_sta_flag = false;
-            ret = NET_400;
+            goto end;
         }
     }
     else
     {
-        Net_sta_flag = false;
-        ret = NET_DIS;
+        if (lan_http_init(build_po_url) < 0)
+        {
+            ret = NET_DIS;
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            goto end;
+        }
+
+        // ESP_LOGI(TAG, "post_header:%s", post_header);
+        if (lan_http_write((char *)post_header) < 0)
+        {
+            ret = NET_DIS;
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            goto end;
+        }
+
+        Databuffer[Databuffer_len - 1] = 0;
+        // ESP_LOGI(TAG, "Postdata_buff:%s", Databuffer);
+        if (lan_http_write((char *)Databuffer) < 0)
+        {
+            ret = NET_DIS;
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            goto end;
+        }
+
+        ESP_LOGI(TAG, "status_buff:%s", status_buff);
+        if (lan_http_write(status_buff) < 0)
+        {
+            //这里出错很有可能是数据构建出问题，
+            // data_err_flag = true;
+            ret = NET_DIS;
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            goto end;
+        }
+
+        memset(recv_buff, 0, HTTP_RECV_BUFF_LEN);
+        if (lan_http_read(recv_buff, HTTP_RECV_BUFF_LEN) < 0)
+        {
+            ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+            ret = NET_READ;
+            Net_sta_flag = false;
+            goto end;
+        }
     }
+
+    // printf("解析返回数据！\n");
+    ESP_LOGI(TAG, "mes recv %d,\n:%s", strlen(recv_buff), recv_buff);
+    if (parse_objects_http_respond(recv_buff) == ESP_OK)
+    {
+        ret = NET_OK;
+        Net_sta_flag = true;
+        ESP_LOGI(TAG, "post success");
+    }
+    else
+    {
+        ret = NET_400;
+        Net_sta_flag = false;
+        ESP_LOGE(TAG, "ERR LINE%d", __LINE__);
+        goto end;
+    }
+
+end:
+
+    free(status_buff);
+    free(recv_buff);
+    free(build_po_url);
+
+    if (ret == NET_OK)
+    {
+        memset(Databuffer, 0, Databuffer_len);
+        Databuffer_len = 0;
+    }
+    else //还原数据
+    {
+        Databuffer[Databuffer_len - 1] = ',';
+    }
+    xSemaphoreGive(xMutex_Http_Send);
+    xSemaphoreGive(Cache_muxtex);
     return ret;
+}
+
+//数据同步任务
+void send_data_task(void *arg)
+{
+    Net_Err ret;
+    while (1)
+    {
+        ulTaskNotifyTake(pdTRUE, -1);
+
+        Create_NET_Json();
+        if (Databuffer_len == 0)
+        {
+            ESP_LOGI(TAG, "%d,No Data", __LINE__);
+            continue;
+        }
+
+        while ((ret = Http_post_fun()) != NET_OK)
+        {
+            if (ret == NET_DIS)
+            {
+                Start_Active();
+                break;
+            }
+            vTaskDelay(30000 / portTICK_PERIOD_MS);
+        }
+    }
 }
 
 //发送心跳包
@@ -295,7 +564,7 @@ Net_Err Send_herat(void)
 
     if ((http_send_buff(build_heart_url, 256, recv_buf, HTTP_RECV_BUFF_LEN)) > 0)
     {
-        if (parse_objects_heart(recv_buf))
+        if (parse_objects_heart(recv_buf) == ESP_OK)
         {
             //successed
             ret = NET_OK;
@@ -361,7 +630,7 @@ uint16_t http_activate(void)
     }
     else
     {
-        if (parse_objects_http_active(recv_buf))
+        if (parse_objects_http_active(recv_buf) == ESP_OK)
         {
             Net_sta_flag = true;
             ret = 1;
@@ -423,7 +692,7 @@ void Start_Active(void)
 void initialise_http(void)
 {
     xTaskCreate(send_heart_task, "send_heart_task", 4096, NULL, 5, &Binary_Heart_Send);
-    xTaskCreate(http_get_task, "http_get_task", 8192, NULL, 4, &Binary_dp);
+    xTaskCreate(send_data_task, "send_data_task", 8192, NULL, 4, &Binary_dp);
     esp_err_t err = esp_timer_create(&timer_heart_arg, &timer_heart_handle);
     err = esp_timer_start_periodic(timer_heart_handle, 1000000); //创建定时器，单位us，定时60s
     if (err != ESP_OK)
