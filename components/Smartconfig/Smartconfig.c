@@ -139,6 +139,7 @@ void init_wifi(void) //
 
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
+
     // ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     // ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &s_staconf));
     // wifi_config_t s_staconf;
@@ -152,6 +153,8 @@ void init_wifi(void) //
         xEventGroupSetBits(Net_sta_group, WIFI_S_BIT);
         start_user_wifi();
     }
+    //WIFI初始化完成
+    xEventGroupSetBits(Net_sta_group, WIFI_I_BIT);
 
     strncpy(temp, SerialNum, 5);
     snprintf(AP_SSID, 15, "Ubibot-%s", temp);
@@ -268,6 +271,9 @@ void Scan_Wifi(void)
 
 bool Check_Wifi(uint8_t *ssid, int8_t *rssi)
 {
+    //等待WIFI初始化完成
+    xEventGroupWaitBits(Net_sta_group, WIFI_I_BIT, false, true, portMAX_DELAY);
+
     wifi_scan_time_t scanTime = {
 
         .passive = 5000};

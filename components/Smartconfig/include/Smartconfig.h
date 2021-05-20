@@ -38,6 +38,7 @@ EventGroupHandle_t Net_sta_group;
 #define ACTIVE_S_BIT (1 << 15)    //激活中
 #define TIME_CAL_BIT (1 << 16)    //时间校准成功
 #define BLE_RESP_BIT (1 << 17)    //蓝牙超时回复标志
+#define WIFI_I_BIT (1 << 18)      //wifi初始化状态
 
 #define TCP_PORT 5001
 
