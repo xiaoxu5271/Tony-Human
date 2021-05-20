@@ -97,7 +97,7 @@ void adc1task(void *arg)
 			value_voice = (20 * log10(value_1 / 0.00039)) - 50;
 		}
 
-		ESP_LOGI(TAG, "voice:%.1f,%.1f\n", value_voice, voltage);
+		// ESP_LOGI(TAG, "voice:%.1f,%.1f\n", value_voice, voltage);
 		/*if ((voltage >= 500) && (voltage < 750))
         {
             value_voice = (voltage) / 1000 * 138;

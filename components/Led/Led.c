@@ -39,8 +39,27 @@ static void Led_Task(void *arg)
 {
     while (1)
     {
+        //无序列号 生产检测
+        if (No_ser_flag == true)
+        {
+            if (Cnof_net_flag == true)
+            {
+                Led_Off();
+                Led_B_On();
+                vTaskDelay(500 / portTICK_RATE_MS);
+                Led_Off();
+                Led_R_On();
+                vTaskDelay(500 / portTICK_RATE_MS);
+            }
+            else
+            {
+                Led_Off();
+                Led_G_On();
+                vTaskDelay(100 / portTICK_RATE_MS);
+            }
+        }
         //硬件错误
-        if ((E2P_FLAG == false) || (ETH_FLAG == false))
+        else if ((E2P_FLAG == false) || (ETH_FLAG == false))
         {
             Led_Off();
             vTaskDelay(500 / portTICK_RATE_MS);

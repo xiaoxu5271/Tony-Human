@@ -660,6 +660,7 @@ void RJ45_Task(void *arg)
 /*******************有线网初始化*******************/
 int8_t w5500_user_int(void)
 {
+    uint8_t fail_num = 0;
     xMutex_W5500_SPI = xSemaphoreCreateMutex(); //创建W5500 SPI 发送互斥信号
     xMutex_W5500_DNS = xSemaphoreCreateMutex();
 
@@ -677,11 +678,15 @@ int8_t w5500_user_int(void)
     w5500_reset();
     while ((IINCHIP_READ(VERSIONR)) != VERSIONR_ID)
     {
-        ETH_FLAG = false;
-        ESP_LOGE(TAG, "w5500 read err!");
+        fail_num++;
+        if (fail_num > 5)
+        {
+            ETH_FLAG = false;
+            ESP_LOGE(TAG, "w5500 read err!");
+            break;
+        }
         vTaskDelay(1000 / portTICK_RATE_MS);
     }
-    ETH_FLAG = true;
 
     if (net_mode == NET_LAN)
     {
@@ -689,7 +694,7 @@ int8_t w5500_user_int(void)
     }
     // xTaskCreate(RJ45_Check_Task, "RJ45_Check_Task", 4096, NULL, 7, NULL); //创建任务，不断检查RJ45连接状态
 
-    return SUCCESS;
+    return ETH_FLAG;
 }
 
 void Start_Eth_Net(void)

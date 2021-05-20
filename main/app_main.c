@@ -40,6 +40,7 @@ void app_main(void)
     Send_Mqtt_Queue = xQueueCreate(1, sizeof(creat_json));
     Send_LAN_Mqtt_Queue = xQueueCreate(1, sizeof(creat_json));
     Led_Init();
+    Uart0_Init();
     user_app_key_init();
     E2prom_Init();
     Read_Metadate_E2p();
@@ -84,6 +85,14 @@ void app_main(void)
         net_mode = NET_WIFI;
         E2P_WriteOneByte(NET_MODE_ADD, net_mode); //写入net_mode
     }
+    else
+    {
+        No_ser_flag = true;
+        //无序列号
+        Human_Init();
+        Sound_Init();
+        w5500_user_int();
+    }
 
     esp_err_t ret;
     ret = nvs_flash_init();
@@ -97,7 +106,7 @@ void app_main(void)
     init_wifi();
     initialise_http();
     initialise_mqtt();
-    Uart0_Init();
+    // Uart0_Init();
 
     /* 判断是否有序列号和product id */
     if ((strlen(SerialNum) == 0) || (strlen(ProductId) == 0) || (strlen(WEB_SERVER) == 0)) //未获取到序列号或productid，未烧写序列号

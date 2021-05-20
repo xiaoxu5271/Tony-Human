@@ -493,6 +493,8 @@ void E2prom_set_defaul(bool flag)
 
     E2P_WriteLenByte(FN_DP_ADD, 60, 4);
     E2P_WriteOneByte(CG_DATA_LED_ADD, 1);
+
+    esp_restart();
 }
 
 //检查AT24CXX是否正常,以及是否为新EEPROM
