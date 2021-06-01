@@ -112,7 +112,9 @@ void Stop_W_Mqtt(void)
 #define MQTT_STATUS_BUFF_LEN 150
 void Mqtt_Int_Task(void *arg)
 {
+    char *mqtt_buff;
     Mqtt_Msg Mqtt_Send;
+    uint8_t *status_buff;
     xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1); //等待激活
 
     snprintf(topic_s, sizeof(topic_s), "%s%s%s%s%s%c", "/product/", ProductId, "/channel/", ChannelId, "/control", '\0');
@@ -146,8 +148,9 @@ void Mqtt_Int_Task(void *arg)
         xQueueReceive(Send_Mqtt_Queue, &Mqtt_Send, -1);
         xEventGroupWaitBits(Net_sta_group, ACTIVED_BIT, false, true, -1); //等待激活
 
-        uint8_t *status_buff = (uint8_t *)malloc(MQTT_STATUS_BUFF_LEN);
-        char *mqtt_buff = (char *)malloc(Mqtt_Send.buff_len + MQTT_STATUS_BUFF_LEN + 10);
+        status_buff = (uint8_t *)malloc(MQTT_STATUS_BUFF_LEN);
+        mqtt_buff = (char *)malloc(Mqtt_Send.buff_len + MQTT_STATUS_BUFF_LEN + 10);
+        //在这里出过问题
         memset(status_buff, 0, MQTT_STATUS_BUFF_LEN);
         memset(mqtt_buff, 0, Mqtt_Send.buff_len + MQTT_STATUS_BUFF_LEN + 10);
         Create_Status_Json((char *)status_buff, MQTT_STATUS_BUFF_LEN, false); //
