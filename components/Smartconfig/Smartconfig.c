@@ -350,7 +350,7 @@ void start_softap(void)
 
     memcpy(wifi_config.ap.ssid, AP_SSID, sizeof(AP_SSID));
     // wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-
+    xEventGroupWaitBits(Net_sta_group, WIFI_I_BIT, false, true, portMAX_DELAY);
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
