@@ -131,7 +131,7 @@ void Human_Task(void *arg)
                     Last_Time = esp_timer_get_time();
                 }
 
-                printf("One_Risi_Time=%lld\r\n", One_Risi_Time);
+                // printf("One_Risi_Time=%lld\r\n", One_Risi_Time);
 
                 if (One_Risi_Time > (uint64_t)(1000 * fn_sen)) //fn_sen*100ms
                 {
@@ -155,7 +155,7 @@ void Human_Task(void *arg)
 
                 //累加统计上升时间
                 human_intr_num += (uint64_t)(One_Risi_Time / 1000);
-                printf("human_intr_num=%lld\r\n", human_intr_num);
+                // printf("human_intr_num=%lld\r\n", human_intr_num);
 
                 //清空本次统计上升时间
                 One_Risi_Time = 0;
