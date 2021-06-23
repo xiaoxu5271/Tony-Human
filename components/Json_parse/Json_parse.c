@@ -108,6 +108,7 @@ static short Parse_metadata(char *ptrptr)
         if ((uint32_t)pSubSubSub->valueint != fn_sen_cycle && (uint32_t)pSubSubSub->valueint > 0)
         {
             fn_sen_cycle = (uint32_t)pSubSubSub->valueint;
+            Change_Fn_sen(fn_sen_cycle);
             E2P_WriteLenByte(FN_SEN_CYCLE_ADD, fn_sen_cycle, 4);
             ESP_LOGI(TAG, "fn_sen_cycle = %d\n", fn_sen_cycle);
         }

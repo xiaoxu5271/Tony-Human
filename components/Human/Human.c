@@ -19,11 +19,11 @@
 
 TaskHandle_t Human_Handle = NULL;
 TaskHandle_t Binary_sta = NULL;
+QueueHandle_t human_evt_queue = NULL;
 
 bool HUM_FLAG = false;
 bool human_status = false;
 bool Timer2_flag = false;
-bool One_Risi_Res = false;
 
 uint64_t One_Risi_Time = 0, Last_Time = 0, human_intr_num = 0;
 
@@ -43,33 +43,17 @@ esp_timer_create_args_t human_timer2_arg = {
 
 static void huamn_timer_cb(void *arg)
 {
-    if (Human_Handle != NULL)
-        vTaskNotifyGiveFromISR(Human_Handle, NULL);
 
-    One_Risi_Res = true;
-    if (Timer2_flag == false)
-    {
-        Timer2_flag = true;
-        if (fn_sen_res != 0)
-        {
-            esp_timer_start_once(human_timer2_handle, fn_sen_res * 1000);
-        }
-    }
-    // ESP_LOGI(TAG, "human_intr_num=%lld", human_intr_num);
+    uint8_t Event_num = TIMER_CB;
+    if (human_evt_queue != NULL)
+        xQueueSendFromISR(human_evt_queue, &Event_num, NULL);
 }
 //用于判断无人
 static void huamn_timer2_cb(void *arg)
 {
-    if (human_status == true)
-    {
-        human_status = false;
-        ESP_LOGI(TAG, "No human");
-        if (Binary_sta != NULL)
-        {
-            xTaskNotifyGive(Binary_sta);
-        }
-    }
-    Timer2_flag = false;
+    uint8_t Event_num = TIMER2_CB;
+    if (human_evt_queue != NULL)
+        xQueueSendFromISR(human_evt_queue, &Event_num, NULL);
 }
 
 static void human_gpio_intr_handler(void *arg)
@@ -77,14 +61,15 @@ static void human_gpio_intr_handler(void *arg)
     static uint8_t change_num = 0;
     /* 获取触发中断的gpio口 */
     uint32_t key_num = (uint32_t)arg;
+    uint8_t Event_num = GPIO_CB;
     /* 从中断处理函数中发出消息到队列 */
     // Led_Status = LED_STA_SEND;
     if (key_num == GPIO_HUMAN)
     {
         if (fn_sen != 0)
         {
-            if (Human_Handle != NULL)
-                vTaskNotifyGiveFromISR(Human_Handle, NULL);
+            if (human_evt_queue != NULL)
+                xQueueSendFromISR(human_evt_queue, &Event_num, NULL);
         }
         //传感器判断
         if (HUM_FLAG == false)
@@ -107,53 +92,97 @@ void Human_Task(void *arg)
 {
     human_status = false;
     INT_FLAG = true;
-    vTaskDelay(30 * 1000 / portTICK_RATE_MS); //电路稳定时间，根据手册，最大30s
+    vTaskDelay(10 * 1000 / portTICK_RATE_MS); //电路稳定时间，根据手册，最大30s
     INT_FLAG = false;
     xEventGroupSetBits(Net_sta_group, HUMAN_I_BIT);
+    uint8_t human_evt = 0;
     while (1)
     {
-        ulTaskNotifyTake(pdTRUE, -1);
-        if (gpio_get_level(GPIO_HUMAN) == 1)
+        // ulTaskNotifyTake(pdTRUE, -1);
+        if (xQueueReceive(human_evt_queue, (void *)&human_evt, (portTickType)portMAX_DELAY))
         {
-            Last_Time = esp_timer_get_time();
-            if (One_Risi_Res == true)
+            switch (human_evt)
             {
-                One_Risi_Time += esp_timer_get_time() - Last_Time;
-            }
-        }
-        else
-        {
-            if (One_Risi_Res != true)
-            {
-                One_Risi_Time += esp_timer_get_time() - Last_Time;
-            }
-        }
-        // ESP_LOGI(TAG, "One_Risi_Time:%lld", One_Risi_Time);
-        if (One_Risi_Time > (uint64_t)(1000 * fn_sen)) //fn_sen*100ms
-        {
-            // ESP_LOGI(TAG, "One_Risi_Time:%lld,fn_sen:%lld", One_Risi_Time, (uint64_t)(1000 * fn_sen));
-            if (Timer2_flag == true)
-            {
-                esp_timer_stop(human_timer2_handle);
-                Timer2_flag = false;
-            }
-
-            if (human_status == false)
-            {
-                human_status = true;
-                ESP_LOGI(TAG, "Have human\n");
-                if (Binary_sta != NULL)
+                //IO中断
+            case GPIO_CB:
+                if (gpio_get_level(GPIO_HUMAN) == 1)
                 {
-                    xTaskNotifyGive(Binary_sta);
+                    Last_Time = esp_timer_get_time();
                 }
+                else
+                {
+                    if (Last_Time > 0)
+                    {
+                        One_Risi_Time += (esp_timer_get_time() - Last_Time);
+                    }
+                }
+                // ESP_LOGI(TAG, "One_Risi_Time:%lld", One_Risi_Time);
+                break;
+
+                //有人判定周期定时器
+            case TIMER_CB:
+                //如果进入下周期时，传感器仍上升沿，则统计上周期上升时间
+                if (gpio_get_level(GPIO_HUMAN) == 1)
+                {
+                    if (Last_Time > 0)
+                    {
+                        One_Risi_Time += esp_timer_get_time() - Last_Time;
+                    }
+                    Last_Time = esp_timer_get_time();
+                }
+
+                printf("One_Risi_Time=%lld\r\n", One_Risi_Time);
+
+                if (One_Risi_Time > (uint64_t)(1000 * fn_sen)) //fn_sen*100ms
+                {
+                    // ESP_LOGI(TAG, "One_Risi_Time:%lld,fn_sen:%lld", One_Risi_Time, (uint64_t)(1000 * fn_sen));
+                    if (Timer2_flag == true)
+                    {
+                        esp_timer_stop(human_timer2_handle);
+                        Timer2_flag = false;
+                    }
+
+                    if (human_status == false)
+                    {
+                        human_status = true;
+                        ESP_LOGI(TAG, "Have human\n");
+                        if (Binary_sta != NULL)
+                        {
+                            xTaskNotifyGive(Binary_sta);
+                        }
+                    }
+                }
+
+                //累加统计上升时间
+                human_intr_num += (uint64_t)(One_Risi_Time / 1000);
+                printf("human_intr_num=%lld\r\n", human_intr_num);
+
+                //清空本次统计上升时间
+                One_Risi_Time = 0;
+
+                if (Timer2_flag == false)
+                {
+                    Timer2_flag = true;
+                    if (fn_sen_res != 0)
+                    {
+                        esp_timer_start_once(human_timer2_handle, fn_sen_res * 1000);
+                    }
+                }
+                break;
+
+                //恢复无人判定周期定时器
+            case TIMER2_CB:
+                if (human_status == true)
+                {
+                    human_status = false;
+                    ESP_LOGI(TAG, "No human");
+                }
+                Timer2_flag = false;
+                break;
+
+            default:
+                break;
             }
-        }
-        //单次判断清空
-        if (One_Risi_Res == true)
-        {
-            One_Risi_Res = false;
-            human_intr_num += (One_Risi_Time / 1000);
-            One_Risi_Time = 0;
         }
     }
 }
@@ -236,6 +265,7 @@ void Create_human_sta_task(void *arg)
 
 void Human_Init(void)
 {
+    human_evt_queue = xQueueCreate(20, sizeof(uint8_t));
     gpio_config_t io_conf;
     //enable interrupt
     io_conf.intr_type = GPIO_PIN_INTR_POSEDGE;
@@ -247,8 +277,6 @@ void Human_Init(void)
     gpio_install_isr_service(ESP_INTR_FLAG_EDGE);
     gpio_set_intr_type(GPIO_HUMAN, GPIO_INTR_ANYEDGE); //触发
     gpio_isr_handler_add(GPIO_HUMAN, human_gpio_intr_handler, (void *)(GPIO_HUMAN));
-    //create a queue to handle gpio event from isr
-    // human_evt_queue = xQueueCreate(10, sizeof(uint32_t));
 
     esp_timer_create(&human_timer_arg, &human_timer_handle);
     esp_timer_create(&human_timer2_arg, &human_timer2_handle);
@@ -260,4 +288,10 @@ void Human_Init(void)
     xTaskCreate(Human_Task, "Human_Task", 4096, NULL, 4, &Human_Handle);
     xTaskCreate(Create_human_sta_task, "Create_human_sta_task", 4096, NULL, 3, &Binary_sta);
     xTaskCreate(Create_human_intr_task, "Create_human_intr_task", 4096, NULL, 3, &Binary_intr);
+}
+
+void Change_Fn_sen(uint32_t Fn_sen)
+{
+    esp_timer_stop(human_timer_handle);
+    esp_timer_start_periodic(human_timer_handle, Fn_sen * 1000);
 }
