@@ -1,7 +1,7 @@
 {
         "C_Cpp.errorSquiggles": "Disabled",
         "terminal.integrated.fontFamily": "Fira Code",
-        "idf.portWin": "COM4",
+        "idf.portWin": "COM3",
         "files.associations": {
                 "rs485_read.h": "c",
                 "ds18b20.h": "c",

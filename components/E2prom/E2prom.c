@@ -437,6 +437,75 @@ void E2P_Write(uint16_t WriteAddr, uint8_t *pBuffer, uint16_t NumToWrite)
     free(write_buff);
 }
 
+/******************************************************************************
+//at24c08 write page,addr:0-1023,Size:1-16
+******************************************************************************/
+esp_err_t at24c08_WritePage(uint16_t reg_addr, uint8_t buf_len, uint8_t data)
+{
+    // MulTry_I2C_WR_mulReg(at24c08_addr0 + reg_addr / 256, reg_addr % 256, buffer, buf_len); //iic multi write
+
+    xSemaphoreTake(At24_Mutex, -1);
+    // IIC_Start(); //IIC start
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (DEV_ADD + ((reg_addr / 256) << 1)), ACK_CHECK_EN);
+    i2c_master_write_byte(cmd, (reg_addr % 256), ACK_CHECK_EN);
+
+    while (buf_len)
+    {
+        i2c_master_write_byte(cmd, data, ACK_CHECK_EN);
+        buf_len--;
+    }
+
+    i2c_master_stop(cmd);
+    esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+    xSemaphoreGive(At24_Mutex);
+
+    vTaskDelay(15 / portTICK_RATE_MS);
+
+    return ret;
+}
+
+#define PAGE_SIZE 16
+void at24c08_WriteData(uint16_t addr, uint16_t size, uint8_t data)
+{
+
+    uint16_t i;
+    uint16_t remain;
+
+    remain = PAGE_SIZE - addr % PAGE_SIZE;
+
+    if (remain)
+    {
+        remain = size > remain ? remain : size;
+        ESP_LOGI(TAG, "%d", __LINE__);
+        at24c08_WritePage(addr, remain, data);
+
+        addr += remain;
+        size -= remain;
+    }
+
+    remain = size / PAGE_SIZE;
+
+    for (i = 0; i < remain; i++)
+    {
+        ESP_LOGI(TAG, "%d", __LINE__);
+        at24c08_WritePage(addr, PAGE_SIZE, data);
+
+        addr += PAGE_SIZE;
+    }
+
+    remain = size % PAGE_SIZE;
+
+    if (remain)
+    {
+        ESP_LOGI(TAG, "%d", __LINE__);
+        at24c08_WritePage(addr, remain, data);
+        addr += remain;
+    }
+}
+
 void E2prom_empty_all(bool flag)
 {
     ESP_LOGI(TAG, "\nempty all set\n");
@@ -446,17 +515,19 @@ void E2prom_empty_all(bool flag)
 #else
     if (flag)
     {
-        for (uint16_t i = FN_SET_FLAG_ADD; i < E2P_USAGED; i++)
-        {
-            AT24CXX_WriteOneByte(i, 0);
-        }
+        // for (uint16_t i = FN_SET_FLAG_ADD; i < E2P_USAGED; i++)
+        // {
+        //     AT24CXX_WriteOneByte(i, 0);
+        // }
+        at24c08_WriteData(FN_SET_FLAG_ADD, E2P_USAGED - FN_SET_FLAG_ADD, 0);
     }
     else
     {
-        for (uint16_t i = 0; i < E2P_SIZE; i++)
-        {
-            AT24CXX_WriteOneByte(i, 0);
-        }
+        // for (uint16_t i = 0; i < E2P_SIZE; i++)
+        // {
+        //     AT24CXX_WriteOneByte(i, 0);
+        // }
+        at24c08_WriteData(0, E2P_SIZE, 0);
     }
 
 #endif
@@ -486,6 +557,7 @@ static void E2prom_read_defaul(void)
 //flag =0 不写入序列号相关
 void E2prom_set_defaul(bool flag)
 {
+    Set_defaul_flag = true;
     // E2prom_read_defaul();
     E2prom_empty_all(flag);
     //写入默认值
@@ -493,8 +565,20 @@ void E2prom_set_defaul(bool flag)
 
     E2P_WriteLenByte(FN_DP_ADD, 60, 4);
     E2P_WriteOneByte(CG_DATA_LED_ADD, 1);
+    Set_defaul_flag = false;
 
-    esp_restart();
+    // esp_restart();
+}
+
+void E2prom_set_0XFF(void)
+{
+    Set_defaul_flag = true;
+    // E2prom_read_defaul();
+    at24c08_WriteData(0, E2P_SIZE, 0xff);
+    //写入默认值
+
+    Set_defaul_flag = false;
+    ESP_LOGI(TAG, "set defaul\n");
 }
 
 //检查AT24CXX是否正常,以及是否为新EEPROM
