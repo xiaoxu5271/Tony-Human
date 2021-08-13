@@ -447,10 +447,10 @@ int32_t lan_http_send(char *send_buff, uint16_t send_size, char *recv_buff, uint
 
         default:
             fail_num++;
-            if (fail_num >= 10)
+            if (fail_num >= 100)
             {
                 fail_num = 0;
-                ESP_LOGI(TAG, "fail time out getSn_SR=  0x%02x\n", temp);
+                ESP_LOGI(TAG, "%d,fail time out getSn_SR=  0x%02x\n", __LINE__, temp);
                 RJ45_MODE = RJ45_INIT;
                 return -temp;
             }
@@ -523,7 +523,7 @@ int32_t lan_http_init(char *post_header)
             if (fail_num >= 10)
             {
                 fail_num = 0;
-                ESP_LOGI(TAG, "fail time out getSn_SR=  0x%02x\n", temp);
+                ESP_LOGI(TAG, "%d,fail time out getSn_SR=  0x%02x\n", __LINE__, temp);
                 RJ45_MODE = RJ45_INIT;
                 return -temp;
             }
@@ -544,7 +544,7 @@ int32_t lan_http_write(char *write_buff)
         break;
 
     default:
-        ESP_LOGE(TAG, "fail time out getSn_SR=  0x%02x\n", temp);
+        ESP_LOGE(TAG, "%d,fail time out getSn_SR=  0x%02x\n", __LINE__, temp);
         lan_close(SOCK_TCPS);
         ret = -temp;
     }
@@ -586,7 +586,7 @@ int32_t lan_http_read(char *recv_buff, uint16_t buff_len)
         break;
 
     default:
-        ESP_LOGE(TAG, "fail time out getSn_SR=  0x%02x\n", temp);
+        ESP_LOGE(TAG, "%d,fail time out getSn_SR=  0x%02x\n", __LINE__, temp);
         lan_close(SOCK_TCPS);
         ret = -temp;
     }
